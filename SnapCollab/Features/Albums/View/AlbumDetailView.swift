@@ -1,8 +1,17 @@
-//
-//  AlbumDetailView.swift
-//  SnapCollab
-//
-//  Created by Zeliha İnan on 8.09.2025.
-//
+import SwiftUI
 
-import Foundation
+struct AlbumDetailView: View {
+    let album: Album
+    @StateObject private var vm: MediaViewModel
+
+    init(album: Album, di: DIContainer) {
+        self.album = album
+        _vm = StateObject(wrappedValue: MediaViewModel(repo: di.mediaRepo,
+                                                       albumId: album.id!))
+    }
+
+    var body: some View {
+        MediaGridView(vm: vm)
+            .navigationTitle(album.title)
+    }
+}

@@ -6,3 +6,12 @@
 //
 
 import Foundation
+import FirebaseFirestore
+
+struct Album: Identifiable, Codable {
+    @DocumentID var id: String?
+    var title: String
+    var ownerId: String
+    var members: [String]
+    var createdAt: Date
+}

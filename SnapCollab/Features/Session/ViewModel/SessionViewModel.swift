@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import FirebaseAuth
 
 @MainActor
 final class SessionViewModel: ObservableObject {
@@ -18,13 +19,17 @@ final class SessionViewModel: ObservableObject {
     init(auth: AuthRepository, state: AppState) {
         self.auth = auth
         self.state = state
-        self.state.isSignedIn = auth.isSignedIn
+    }
+    
+    func syncInitialState() {
+        state.isSignedIn = auth.isSignedIn
     }
 
     func signInAnon() async {
         isLoading = true; defer { isLoading = false }
         do {
             try await auth.signInAnon()
+            print("SIGNED IN UID:", Auth.auth().currentUser?.uid ?? "nil")
             state.isSignedIn = true
         } catch {
             let ns = error as NSError

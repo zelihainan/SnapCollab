@@ -9,12 +9,21 @@ import Foundation
 
 struct DIContainer {
     let authRepo: AuthRepository
+    let albumRepo: AlbumRepository
+    let mediaRepo: MediaRepository
 
     static func bootstrap() -> DIContainer {
-        // Services
         let authService = FirebaseAuthService()
-        // Repos
         let authRepo = AuthRepository(service: authService)
-        return DIContainer(authRepo: authRepo)
+
+        let albumService = FirestoreAlbumService()
+        let albumRepo = AlbumRepository(service: albumService, auth: authRepo)
+
+        let mediaService = FirestoreMediaService()
+        let storageService = FirebaseStorageService()
+        let mediaRepo = MediaRepository(service: mediaService, storage: storageService, auth: authRepo)
+
+        return DIContainer(authRepo: authRepo, albumRepo: albumRepo, mediaRepo: mediaRepo)
     }
 }
+
