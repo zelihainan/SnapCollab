@@ -1,226 +1,245 @@
 import SwiftUI
 import Photos
-import Foundation
 
 struct MediaViewerView: View {
     @ObservedObject var vm: MediaViewModel
     let item: MediaItem
     let onClose: () -> Void
 
-    @State private var uiImage: UIImage?
-    @State private var isSharing = false
-    @State private var shareURL: URL?
-    @State private var scale: CGFloat = 1.0
-    @State private var loadFailed = false
-    @State private var toastMessage: ToastMessage?
+    @State private var loadedImage: UIImage?
     @State private var isLoading = true
+    @State private var loadFailed = false
+    @State private var scale: CGFloat = 1.0
+    @State private var toastMessage: String?
+    @State private var showToast = false
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            // Ana görsel
-            Group {
-                if let uiImage {
-                    ZoomableImage(image: Image(uiImage: uiImage), scale: $scale)
-                        .animation(.easeInOut(duration: 0.3), value: uiImage != nil)
-                } else if loadFailed {
-                    errorPlaceholder
-                } else {
-                    loadingPlaceholder
-                }
+            // Ana içerik
+            if isLoading {
+                loadingView
+            } else if loadFailed {
+                errorView
+            } else if let image = loadedImage {
+                imageView(image)
+            } else {
+                errorView
             }
 
-            // Üst toolbar
+            // Toolbar
             VStack {
-                HStack(spacing: 20) {
-                    Button { onClose() } label: {
-                        Image(systemName: "xmark")
-                            .font(.title2)
-                            .foregroundStyle(.white)
-                            .padding(8)
-                            .background(Circle().fill(.black.opacity(0.5)))
-                    }
-                    
+                HStack {
+                    closeButton
                     Spacer()
-                    
-                    // Butonları sadece image yüklendiğinde göster
-                    if uiImage != nil {
-                        Button {
-                            Task { await saveToPhotos() }
-                        } label: {
-                            Image(systemName: "square.and.arrow.down")
-                                .font(.title2)
-                                .foregroundStyle(.white)
-                                .padding(8)
-                                .background(Circle().fill(.black.opacity(0.5)))
-                        }
-                        
-                        Button {
-                            Task { await share() }
-                        } label: {
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.title2)
-                                .foregroundStyle(.white)
-                                .padding(8)
-                                .background(Circle().fill(.black.opacity(0.5)))
-                        }
+                    if loadedImage != nil {
+                        actionButtons
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                
+                .padding()
                 Spacer()
             }
             
-            // Toast mesajı
-            if let toast = toastMessage {
-                VStack {
-                    Spacer()
-                    
-                    HStack {
-                        Image(systemName: toast.isSuccess ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                            .foregroundColor(toast.isSuccess ? .green : .red)
-                        
-                        Text(toast.message)
-                            .foregroundColor(.white)
-                            .font(.system(size: 14, weight: .medium))
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 25)
-                            .fill(.black.opacity(0.8))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 25)
-                                    .stroke(toast.isSuccess ? .green : .red, lineWidth: 1)
-                            )
-                    )
-                    .padding(.bottom, 50)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-                .animation(.spring(response: 0.5, dampingFraction: 0.8), value: toastMessage != nil)
+            // Toast
+            if showToast, let message = toastMessage {
+                toastView(message)
             }
         }
         .onAppear {
-            print("DEBUG: MediaViewerView appeared")
-            loadImageOnAppear()
+            print("DEBUG: MediaViewerView appeared for item: \(item.id ?? "unknown")")
+            loadImage()
         }
         .gesture(
             DragGesture()
                 .onEnded { value in
-                    if value.translation.height > 120 { onClose() }
+                    if value.translation.height > 100 {
+                        onClose()
+                    }
                 }
         )
-        .sheet(isPresented: $isSharing) {
-            if let shareURL { ActivityView(activityItems: [shareURL]) }
+    }
+    
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                .scaleEffect(1.5)
+            
+            Text("Fotoğraf yükleniyor...")
+                .foregroundColor(.white)
+                .font(.caption)
         }
     }
     
-    private func loadImageOnAppear() {
-        // Eğer zaten yüklenmişse tekrar yükleme
-        guard uiImage == nil else { return }
-        
-        Task { @MainActor in
-            print("DEBUG: Starting image load task")
-            isLoading = true
-            loadFailed = false
+    private var errorView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.largeTitle)
+                .foregroundColor(.white)
             
+            Text("Fotoğraf yüklenemedi")
+                .foregroundColor(.white)
+            
+            Button("Tekrar Dene") {
+                loadImage()
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    }
+    
+    private func imageView(_ image: UIImage) -> some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFit()
+            .scaleEffect(scale)
+            .gesture(
+                MagnificationGesture()
+                    .onChanged { value in
+                        scale = max(1.0, value)
+                    }
+                    .onEnded { _ in
+                        withAnimation(.spring()) {
+                            if scale < 1.2 {
+                                scale = 1.0
+                            }
+                        }
+                    }
+            )
+            .onTapGesture(count: 2) {
+                withAnimation(.spring()) {
+                    scale = scale > 1.0 ? 1.0 : 2.0
+                }
+            }
+    }
+    
+    private var closeButton: some View {
+        Button(action: onClose) {
+            Image(systemName: "xmark")
+                .font(.title2)
+                .foregroundColor(.white)
+                .padding(10)
+                .background(Circle().fill(.black.opacity(0.6)))
+        }
+    }
+    
+    private var actionButtons: some View {
+        HStack(spacing: 16) {
+            Button(action: saveToPhotos) {
+                Image(systemName: "square.and.arrow.down")
+                    .font(.title2)
+                    .foregroundColor(.white)
+                    .padding(10)
+                    .background(Circle().fill(.black.opacity(0.6)))
+            }
+            
+            Button(action: shareImageDirectly) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.title2)
+                    .foregroundColor(.white)
+                    .padding(10)
+                    .background(Circle().fill(.black.opacity(0.6)))
+            }
+        }
+    }
+    
+    private func toastView(_ message: String) -> some View {
+        VStack {
+            Spacer()
+            
+            Text(message)
+                .foregroundColor(.white)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 25)
+                        .fill(.black.opacity(0.8))
+                )
+                .padding(.bottom, 100)
+        }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                withAnimation {
+                    showToast = false
+                }
+            }
+        }
+    }
+    
+    private func loadImage() {
+        print("DEBUG: Starting image load")
+        isLoading = true
+        loadFailed = false
+        
+        Task {
             do {
-                print("DEBUG: Getting URL for path: \(item.thumbPath ?? item.path)")
-                
                 guard let url = await vm.imageURL(for: item) else {
                     print("DEBUG: Failed to get URL")
-                    loadFailed = true
-                    isLoading = false
+                    await MainActor.run {
+                        isLoading = false
+                        loadFailed = true
+                    }
                     return
                 }
                 
                 print("DEBUG: Got URL: \(url)")
                 
-                let (data, response) = try await URLSession.shared.data(from: url)
+                let (data, _) = try await URLSession.shared.data(from: url)
                 
-                print("DEBUG: Downloaded data size: \(data.count) bytes")
-                
-                if let httpResponse = response as? HTTPURLResponse {
-                    print("DEBUG: HTTP Status: \(httpResponse.statusCode)")
-                }
-                
-                guard let img = UIImage(data: data) else {
-                    print("DEBUG: Failed to create UIImage from data")
-                    loadFailed = true
-                    isLoading = false
+                guard let image = UIImage(data: data) else {
+                    print("DEBUG: Failed to create UIImage")
+                    await MainActor.run {
+                        isLoading = false
+                        loadFailed = true
+                    }
                     return
                 }
                 
-                print("DEBUG: Successfully created UIImage, setting to state")
-                
-                // Ana thread'de state güncelle
-                uiImage = img
-                isLoading = false
-                
-                print("DEBUG: State updated - uiImage is now set")
+                print("DEBUG: Successfully loaded image")
+                await MainActor.run {
+                    loadedImage = image
+                    isLoading = false
+                    loadFailed = false
+                }
                 
             } catch {
-                print("DEBUG: Image load error: \(error)")
-                loadFailed = true
-                isLoading = false
+                print("DEBUG: Load error: \(error)")
+                await MainActor.run {
+                    isLoading = false
+                    loadFailed = true
+                }
             }
         }
     }
     
-    private var loadingPlaceholder: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                .scaleEffect(1.2)
-            
-            Text("Fotoğraf yükleniyor...")
-                .foregroundColor(.white.opacity(0.8))
-                .font(.caption)
-        }
-    }
-
-    private var errorPlaceholder: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "wifi.exclamationmark")
-                .font(.largeTitle)
-                .foregroundStyle(.white)
-            Text("Görsel yüklenemedi")
-                .foregroundStyle(.white.opacity(0.8))
-            Button("Tekrar Dene") {
-                loadImageOnAppear()
-            }
-            .buttonStyle(.borderedProminent)
-        }
-    }
-
-    private func saveToPhotos() async {
-        guard let uiImage else {
-            showToast("Görsel henüz yüklenmedi", isSuccess: false)
+    private func saveToPhotos() {
+        guard let image = loadedImage else {
+            showToastMessage("Henüz görsel yüklenmedi")
             return
         }
         
-        // İzin durumunu kontrol et
-        let status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
-        
-        switch status {
-        case .authorized, .limited:
-            await performSave(image: uiImage)
+        Task {
+            let status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
             
-        case .denied, .restricted:
-            showToast("Fotoğraf izni reddedildi", isSuccess: false)
-            
-        case .notDetermined:
-            let newStatus = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
-            if newStatus == .authorized || newStatus == .limited {
-                await performSave(image: uiImage)
-            } else {
-                showToast("Fotoğraf izni gerekli", isSuccess: false)
+            switch status {
+            case .authorized, .limited:
+                await performSave(image: image)
+                
+            case .denied, .restricted:
+                showToastMessage("Fotoğraf izni reddedildi")
+                
+            case .notDetermined:
+                let newStatus = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+                if newStatus == .authorized || newStatus == .limited {
+                    await performSave(image: image)
+                } else {
+                    showToastMessage("Fotoğraf izni gerekli")
+                }
+                
+            @unknown default:
+                showToastMessage("Bilinmeyen hata")
             }
-            
-        @unknown default:
-            showToast("Bilinmeyen hata", isSuccess: false)
         }
     }
     
@@ -230,63 +249,102 @@ struct MediaViewerView: View {
                 PHAssetChangeRequest.creationRequestForAsset(from: image)
             }
             
-            showToast("Fotoğraf galeriye kaydedildi", isSuccess: true)
+            await MainActor.run {
+                showToastMessage("Galeriye kaydedildi")
+            }
             
         } catch {
             print("Photo save error: \(error)")
-            showToast("Kaydetme hatası", isSuccess: false)
-        }
-    }
-
-    private func share() async {
-        guard let uiImage, let data = uiImage.jpegData(compressionQuality: 0.95) else { return }
-        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("jpg")
-        do {
-            try data.write(to: tmp)
-            shareURL = tmp
-            isSharing = true
-        } catch {
-            print("share write error:", error)
-            showToast("Paylaşım hatası", isSuccess: false)
-        }
-    }
-    
-    @MainActor
-    private func showToast(_ message: String, isSuccess: Bool) {
-        toastMessage = ToastMessage(message: message, isSuccess: isSuccess)
-        
-        // 2 saniye sonra kaldır
-        Task {
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            withAnimation {
-                toastMessage = nil
+            await MainActor.run {
+                showToastMessage("Kaydetme hatası")
             }
         }
     }
-}
-
-struct ToastMessage: Identifiable {
-    let id = UUID()
-    let message: String
-    let isSuccess: Bool
-}
-
-struct ZoomableImage: View {
-    let image: Image
-    @Binding var scale: CGFloat
     
-    var body: some View {
-        image
-            .resizable()
-            .scaledToFit()
-            .scaleEffect(scale)
-            .gesture(
-                MagnificationGesture()
-                    .onChanged { scale = max(1, $0) }
-                    .onEnded { _ in withAnimation { scale = max(1, scale) } }
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    private func shareImageDirectly() {
+        print("DEBUG: Share button tapped - using UIKit approach")
+        
+        guard let image = loadedImage else {
+            showToastMessage("Henüz görsel yüklenmedi")
+            return
+        }
+        
+        // UIKit yaklaşımı - direkt UIActivityViewController göster
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first,
+              let rootViewController = window.rootViewController else {
+            print("DEBUG: Could not find root view controller")
+            showToastMessage("Paylaşım hatası")
+            return
+        }
+        
+        // En üstteki view controller'ı bul
+        var topViewController = rootViewController
+        while let presentedViewController = topViewController.presentedViewController {
+            topViewController = presentedViewController
+        }
+        
+        print("DEBUG: Found top view controller: \(type(of: topViewController))")
+        
+        // Zengin içerik için temporary file oluştur
+        guard let imageData = image.jpegData(compressionQuality: 0.9) else {
+            showToastMessage("Paylaşım hatası")
+            return
+        }
+        
+        let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("SnapCollab_Photo_\(Date().timeIntervalSince1970)")
+            .appendingPathExtension("jpg")
+        
+        do {
+            try imageData.write(to: tempURL)
+            print("DEBUG: Created temp file at: \(tempURL)")
+        } catch {
+            print("DEBUG: Failed to create temp file: \(error)")
+            showToastMessage("Paylaşım hatası")
+            return
+        }
+        
+        // Paylaşım içeriği - hem URL hem de image ekle
+        let shareText = "SnapCollab'dan paylaşıldı"
+        let activityItems: [Any] = [shareText, tempURL, image]
+        
+        // ActivityViewController oluştur ve hemen göster
+        let activityVC = UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+        
+        // iPad için popover ayarları
+        if let popover = activityVC.popoverPresentationController {
+            popover.sourceView = topViewController.view
+            popover.sourceRect = CGRect(x: topViewController.view.bounds.midX,
+                                      y: topViewController.view.bounds.midY,
+                                      width: 0, height: 0)
+            popover.permittedArrowDirections = []
+        }
+        
+        // Completion handler
+        activityVC.completionWithItemsHandler = { activityType, completed, returnedItems, error in
+            print("DEBUG: Share completed: \(completed), error: \(error?.localizedDescription ?? "none")")
+            
+            // Temp file'ı temizle
+            try? FileManager.default.removeItem(at: tempURL)
+            
+            if completed {
+                DispatchQueue.main.async {
+                    self.showToastMessage("Paylaşım tamamlandı")
+                }
+            }
+        }
+        
+        // Hemen göster
+        topViewController.present(activityVC, animated: true) {
+            print("DEBUG: Share sheet presented successfully")
+        }
+    }
+    
+    private func showToastMessage(_ message: String) {
+        toastMessage = message
+        withAnimation(.spring()) {
+            showToast = true
+        }
     }
 }
