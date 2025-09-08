@@ -14,7 +14,8 @@ struct DIContainer {
 
     static func bootstrap() -> DIContainer {
         let authService = FirebaseAuthService()
-        let authRepo = AuthRepository(service: authService)
+        let userService = FirestoreUserService()
+        let authRepo = AuthRepository(service: authService, userService: userService)
 
         let albumService = FirestoreAlbumService()
         let albumRepo = AlbumRepository(service: albumService, auth: authRepo)

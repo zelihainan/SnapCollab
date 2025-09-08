@@ -4,6 +4,8 @@ import PhotosUI
 struct MediaGridView: View {
     @ObservedObject var vm: MediaViewModel
     @State private var pickerItem: PhotosPickerItem?
+    @State private var selectedItem: MediaItem?
+    @State private var showViewer = false
 
     var body: some View {
         ScrollView {
@@ -13,6 +15,10 @@ struct MediaGridView: View {
                         .aspectRatio(1, contentMode: .fill)
                         .clipped()
                         .cornerRadius(8)
+                        .onTapGesture {
+                            selectedItem = item
+                            showViewer = true
+                        }
                 }
             }
             .padding(8)
@@ -35,6 +41,16 @@ struct MediaGridView: View {
                 pickerItem = nil
             }
         }
-        .task { vm.start() }   // canlı dinleme
+        .fullScreenCover(isPresented: $showViewer) {
+            if let selectedItem {
+                MediaViewerView(vm: vm, item: selectedItem) {
+                    showViewer = false
+                }
+            } else {
+                // güvenli kapatma
+                Color.black.ignoresSafeArea().onTapGesture { showViewer = false }
+            }
+        }
+        .task { vm.start() }
     }
 }

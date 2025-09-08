@@ -21,15 +21,30 @@
 		0AC4887E2E6F3A5200C48F99 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 0AC4887D2E6F3A5200C48F99 /* FirebaseFunctions */; };
 		0AC488802E6F3A5200C48F99 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 0AC4887F2E6F3A5200C48F99 /* FirebaseStorage */; };
 		0AC488822E6F3A5200C48F99 /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 0AC488812E6F3A5200C48F99 /* FirebaseStorageCombine-Community */; };
+		0AC489122E6F68D500C48F99 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 0AC489112E6F68D500C48F99 /* GoogleSignIn */; };
+		0AC489142E6F68D500C48F99 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 0AC489132E6F68D500C48F99 /* GoogleSignInSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0A492CD42E6F37B500CA1B68 /* SnapCollab.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SnapCollab.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0AC4891C2E6F6B5E00C48F99 /* Exceptions for "SnapCollab" folder in "SnapCollab" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 0A492CD32E6F37B500CA1B68 /* SnapCollab */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0A492CD62E6F37B500CA1B68 /* SnapCollab */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0AC4891C2E6F6B5E00C48F99 /* Exceptions for "SnapCollab" folder in "SnapCollab" target */,
+			);
 			path = SnapCollab;
 			sourceTree = "<group>";
 		};
@@ -43,8 +58,10 @@
 				0AC4886E2E6F3A5200C48F99 /* FirebaseAnalyticsIdentitySupport in Frameworks */,
 				0AC488722E6F3A5200C48F99 /* FirebaseAuth in Frameworks */,
 				0AC4886A2E6F3A5200C48F99 /* FirebaseAnalytics in Frameworks */,
+				0AC489142E6F68D500C48F99 /* GoogleSignInSwift in Frameworks */,
 				0AC4887E2E6F3A5200C48F99 /* FirebaseFunctions in Frameworks */,
 				0AC4887A2E6F3A5200C48F99 /* FirebaseFirestore in Frameworks */,
+				0AC489122E6F68D500C48F99 /* GoogleSignIn in Frameworks */,
 				0AC4886C2E6F3A5200C48F99 /* FirebaseAnalyticsCore in Frameworks */,
 				0AC4887C2E6F3A5200C48F99 /* FirebaseFirestoreCombine-Community in Frameworks */,
 				0AC488702E6F3A5200C48F99 /* FirebaseAppCheck in Frameworks */,
@@ -110,6 +127,8 @@
 				0AC4887D2E6F3A5200C48F99 /* FirebaseFunctions */,
 				0AC4887F2E6F3A5200C48F99 /* FirebaseStorage */,
 				0AC488812E6F3A5200C48F99 /* FirebaseStorageCombine-Community */,
+				0AC489112E6F68D500C48F99 /* GoogleSignIn */,
+				0AC489132E6F68D500C48F99 /* GoogleSignInSwift */,
 			);
 			productName = SnapCollab;
 			productReference = 0A492CD42E6F37B500CA1B68 /* SnapCollab.app */;
@@ -141,6 +160,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				0AC488662E6F3A5200C48F99 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				0AC489102E6F68D500C48F99 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0A492CD52E6F37B500CA1B68 /* Products */;
@@ -301,6 +321,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SnapCollab/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -328,6 +349,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SnapCollab/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -376,6 +398,14 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 12.2.0;
+			};
+		};
+		0AC489102E6F68D500C48F99 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -450,6 +480,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 0AC488662E6F3A5200C48F99 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = "FirebaseStorageCombine-Community";
+		};
+		0AC489112E6F68D500C48F99 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0AC489102E6F68D500C48F99 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		0AC489132E6F68D500C48F99 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0AC489102E6F68D500C48F99 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

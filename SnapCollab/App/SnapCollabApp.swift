@@ -19,8 +19,7 @@ struct SnapCollabApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .environmentObject(appState)   // global state
-                // DI env'te zaten default .bootstrap()
+                .environmentObject(appState)
         }
     }
 }
