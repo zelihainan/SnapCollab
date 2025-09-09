@@ -17,7 +17,9 @@ final class SessionViewModel: ObservableObject {
     }
     
     func syncInitialState() {
+        print("SessionVM: syncInitialState - auth.isSignedIn: \(auth.isSignedIn)")
         state.isSignedIn = auth.isSignedIn
+        state.currentUser = auth.currentUser
     }
 
     // Email/Password Sign In
@@ -29,6 +31,7 @@ final class SessionViewModel: ObservableObject {
         do {
             try await auth.signIn(email: email, password: password)
             state.isSignedIn = true
+            state.currentUser = auth.currentUser
         } catch {
             handleAuthError(error)
         }
@@ -43,6 +46,7 @@ final class SessionViewModel: ObservableObject {
         do {
             try await auth.signUp(email: email, password: password, displayName: displayName)
             state.isSignedIn = true
+            state.currentUser = auth.currentUser
         } catch {
             handleAuthError(error)
         }
@@ -57,12 +61,13 @@ final class SessionViewModel: ObservableObject {
         do {
             try await auth.signInWithGoogle()
             state.isSignedIn = true
+            state.currentUser = auth.currentUser
         } catch {
             handleAuthError(error)
         }
     }
     
-    // Anonymous Sign In (mevcut)
+    // Anonymous Sign In
     func signInAnon() async {
         isLoading = true
         errorMessage = nil
@@ -71,6 +76,7 @@ final class SessionViewModel: ObservableObject {
         do {
             try await auth.signInAnon()
             state.isSignedIn = true
+            state.currentUser = auth.currentUser
         } catch {
             handleAuthError(error)
         }
@@ -96,10 +102,18 @@ final class SessionViewModel: ObservableObject {
     }
 
     func signOut() {
+        print("SessionVM: signOut called")
         do {
             try auth.signOut()
+            print("SessionVM: auth.signOut() successful")
+            
+            // AppState'i güncelle
             state.isSignedIn = false
+            state.currentUser = nil
+            print("SessionVM: AppState updated - isSignedIn: \(state.isSignedIn)")
+            
         } catch {
+            print("SessionVM: signOut error: \(error)")
             errorMessage = error.localizedDescription
         }
     }

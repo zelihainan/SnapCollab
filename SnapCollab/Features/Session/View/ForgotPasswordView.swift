@@ -39,7 +39,7 @@ struct ForgotPasswordView: View {
                 }
                 
                 if vm.resetSuccess {
-                    Text("✅ Şifre sıfırlama bağlantısı gönderildi")
+                    Text("Şifre sıfırlama bağlantısı gönderildi")
                         .foregroundColor(.green)
                         .font(.caption)
                 }
@@ -62,6 +62,14 @@ struct ForgotPasswordView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("İptal") { dismiss() }
                 }
+            }
+        }
+        .disabled(vm.isLoading)
+        .overlay {
+            if vm.isLoading {
+                Color.black.opacity(0.3)
+                    .overlay(ProgressView().tint(.white))
+                    .ignoresSafeArea()
             }
         }
     }

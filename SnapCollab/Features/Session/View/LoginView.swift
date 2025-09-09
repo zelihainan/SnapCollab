@@ -36,8 +36,7 @@ struct LoginView: View {
                             .keyboardType(.emailAddress)
                             .autocapitalization(.none)
                         
-                        SecureField("Şifre", text: $password)
-                            .textFieldStyle(.roundedBorder)
+                        SecureTextFieldWithToggle(placeholder: "Şifre", text: $password)
                         
                         if showSignUp {
                             TextField("Ad Soyad (isteğe bağlı)", text: $displayName)
@@ -150,5 +149,3 @@ struct LoginView: View {
         }
     }
 }
-
-

@@ -1,5 +1,5 @@
 //
-// AlbumsView.swift güncellemesi - toolbar kısmında profil butonu eklenecek
+// AlbumsView.swift güncellemesi - SessionViewModel geçiş
 //
 
 import SwiftUI
@@ -7,6 +7,7 @@ import SwiftUI
 struct AlbumsView: View {
     @StateObject var vm: AlbumsViewModel
     @Environment(\.di) var di
+    @EnvironmentObject var appState: AppState
     @State private var showProfile = false
 
     var body: some View {
@@ -43,7 +44,13 @@ struct AlbumsView: View {
             .presentationDetents([.height(180)])
         }
         .fullScreenCover(isPresented: $showProfile) {
-            ProfileView(vm: ProfileViewModel(authRepo: di.authRepo, mediaRepo: di.mediaRepo))
+            let profileVM = ProfileViewModel(authRepo: di.authRepo, mediaRepo: di.mediaRepo)
+            let sessionVM = SessionViewModel(auth: di.authRepo, state: appState)
+            
+            ProfileView(vm: profileVM)
+                .onAppear {
+                    profileVM.setSessionViewModel(sessionVM)
+                }
         }
         .task { vm.start() }
     }

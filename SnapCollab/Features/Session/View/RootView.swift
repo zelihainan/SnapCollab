@@ -5,14 +5,8 @@
 //  Created by Zeliha İnan on 8.09.2025.
 //
 
-//
-//  RootView.swift
-//  SnapCollab
-//
-//  Created by Zeliha İnan on 8.09.2025.
-//
-
 import SwiftUI
+import FirebaseAuth
 
 struct RootView: View {
     @Environment(\.di) var di
@@ -31,8 +25,26 @@ struct RootView: View {
                 LoginView(vm: sessionVM)
             }
         }
-        .onAppear(){
+        .onAppear {
+            print("RootView: onAppear called")
             sessionVM.syncInitialState()
+            
+            // Firebase Auth state listener ekle
+            Auth.auth().addStateDidChangeListener { auth, user in
+                print("RootView: Firebase Auth state changed - user: \(user?.uid ?? "nil")")
+                DispatchQueue.main.async {
+                    let wasSignedIn = state.isSignedIn
+                    let isNowSignedIn = user != nil
+                    
+                    print("RootView: wasSignedIn: \(wasSignedIn), isNowSignedIn: \(isNowSignedIn)")
+                    
+                    if wasSignedIn != isNowSignedIn {
+                        state.isSignedIn = isNowSignedIn
+                        state.currentUser = isNowSignedIn ? di.authRepo.currentUser : nil
+                        print("RootView: AppState updated - isSignedIn: \(state.isSignedIn)")
+                    }
+                }
+            }
         }
     }
 }

@@ -1,8 +1,5 @@
 //
-//  ProfileViewModel.swift
-//  SnapCollab
-//
-//  Created by Zeliha İnan on 8.09.2025.
+//  ProfileViewModel.swift - SignOut düzeltmesi
 //
 
 import Foundation
@@ -30,6 +27,9 @@ final class ProfileViewModel: ObservableObject {
     private let authRepo: AuthRepository
     private let mediaRepo: MediaRepository
     
+    // SessionViewModel referansı ekliyoruz
+    private var sessionVM: SessionViewModel?
+    
     init(authRepo: AuthRepository, mediaRepo: MediaRepository) {
         self.authRepo = authRepo
         self.mediaRepo = mediaRepo
@@ -37,6 +37,11 @@ final class ProfileViewModel: ObservableObject {
         // İlk yükleme
         self.user = authRepo.currentUser
         self.displayName = authRepo.currentUser?.displayName ?? ""
+    }
+    
+    // SessionViewModel'i inject etmek için
+    func setSessionViewModel(_ sessionVM: SessionViewModel) {
+        self.sessionVM = sessionVM
     }
     
     func startEditing() {
@@ -224,6 +229,7 @@ final class ProfileViewModel: ObservableObject {
             try await currentUser.updatePassword(to: newPassword)
             
             await MainActor.run {
+                // Sadece başarılı olduğunda şifreleri temizle
                 currentPassword = ""
                 newPassword = ""
                 confirmPassword = ""
@@ -246,19 +252,28 @@ final class ProfileViewModel: ObservableObject {
         isChangingPassword = false
     }
     
+    // Sadece sheet kapatıldığında error mesajını temizliyor
+    // Şifre alanları korunuyor - kullanıcı tekrar açtığında yazdıkları kalacak
     func cancelPasswordChange() {
-        currentPassword = ""
-        newPassword = ""
-        confirmPassword = ""
         showPasswordChange = false
         passwordErrorMessage = nil
     }
     
     func signOut() {
-        do {
-            try authRepo.signOut()
-        } catch {
-            errorMessage = "Çıkış hatası: \(error.localizedDescription)"
+        print("ProfileVM: signOut called")
+        
+        // SessionViewModel varsa onu kullan
+        if let sessionVM = sessionVM {
+            print("ProfileVM: Using SessionViewModel for signOut")
+            sessionVM.signOut()
+        } else {
+            // Fallback: Direct auth repo kullan
+            print("ProfileVM: Using AuthRepository directly for signOut")
+            do {
+                try authRepo.signOut()
+            } catch {
+                errorMessage = "Çıkış hatası: \(error.localizedDescription)"
+            }
         }
     }
     

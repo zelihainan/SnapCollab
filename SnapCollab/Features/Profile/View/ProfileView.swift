@@ -382,14 +382,11 @@ struct PasswordChangeSheet: View {
                 .padding(.top, 20)
                 
                 VStack(spacing: 16) {
-                    SecureField("Mevcut Şifre", text: $vm.currentPassword)
-                        .textFieldStyle(.roundedBorder)
+                    SecureTextFieldWithToggle(placeholder: "Mevcut Şifre", text: $vm.currentPassword)
                     
-                    SecureField("Yeni Şifre", text: $vm.newPassword)
-                        .textFieldStyle(.roundedBorder)
+                    SecureTextFieldWithToggle(placeholder: "Yeni Şifre", text: $vm.newPassword)
                     
-                    SecureField("Yeni Şifre Tekrar", text: $vm.confirmPassword)
-                        .textFieldStyle(.roundedBorder)
+                    SecureTextFieldWithToggle(placeholder: "Yeni Şifre Tekrar", text: $vm.confirmPassword)
                     
                     // Real-time validasyon mesajları
                     if let validationError = vm.passwordValidationError {
@@ -453,8 +450,8 @@ struct PasswordChangeSheet: View {
                 dismiss()
             }
         }
+        // Sheet kapanırken şifre state'ini koruyoruz - sadece error temizleniyor
         .onDisappear {
-            // Sheet kapanırken error'ları temizle
             vm.passwordErrorMessage = nil
         }
     }
