@@ -1,8 +1,13 @@
+//
+// AlbumsView.swift güncellemesi - toolbar kısmında profil butonu eklenecek
+//
+
 import SwiftUI
 
 struct AlbumsView: View {
     @StateObject var vm: AlbumsViewModel
     @Environment(\.di) var di
+    @State private var showProfile = false
 
     var body: some View {
         List {
@@ -14,8 +19,17 @@ struct AlbumsView: View {
         }
         .navigationTitle("Albums")
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: { showProfile = true }) {
+                    Image(systemName: "person.crop.circle")
+                        .font(.title2)
+                }
+            }
+            
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button { vm.showCreate = true } label: { Image(systemName: "plus") }
+                Button { vm.showCreate = true } label: {
+                    Image(systemName: "plus")
+                }
             }
         }
         .sheet(isPresented: $vm.showCreate) {
@@ -27,6 +41,9 @@ struct AlbumsView: View {
                     .buttonStyle(.borderedProminent)
             }
             .presentationDetents([.height(180)])
+        }
+        .fullScreenCover(isPresented: $showProfile) {
+            ProfileView(vm: ProfileViewModel(authRepo: di.authRepo, mediaRepo: di.mediaRepo))
         }
         .task { vm.start() }
     }

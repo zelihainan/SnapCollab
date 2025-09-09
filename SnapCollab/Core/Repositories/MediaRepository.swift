@@ -10,7 +10,7 @@ import UIKit
 
 final class MediaRepository {
     private let service: MediaProviding
-    private let storage: ImageCaching
+    let storage: ImageCaching
     private let auth: AuthRepository
 
     init(service: MediaProviding, storage: ImageCaching, auth: AuthRepository) {
@@ -45,7 +45,6 @@ final class MediaRepository {
         let docId = try await service.createMedia(albumId: albumId, item: item)
         print("FIRESTORE OK → media doc:", docId)
     }
-
 
     func downloadURL(for path: String) async throws -> URL {
         try await storage.url(for: path)

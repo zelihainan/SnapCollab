@@ -5,6 +5,13 @@
 //  Created by Zeliha İnan on 8.09.2025.
 //
 
+//
+//  RootView.swift
+//  SnapCollab
+//
+//  Created by Zeliha İnan on 8.09.2025.
+//
+
 import SwiftUI
 
 struct RootView: View {
@@ -19,9 +26,6 @@ struct RootView: View {
             if state.isSignedIn {
                 NavigationStack {
                     AlbumsView(vm: .init(repo: di.albumRepo))
-                        .toolbar {
-                            Button("Sign Out") { sessionVM.signOut() }
-                        }
                 }
             } else {
                 LoginView(vm: sessionVM)
@@ -42,4 +46,3 @@ final class SessionVMHolder: ObservableObject {
         return vm
     }
 }
-

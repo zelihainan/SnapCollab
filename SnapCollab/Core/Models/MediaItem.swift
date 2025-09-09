@@ -16,7 +16,6 @@ struct MediaItem: Identifiable, Codable, Equatable {
     var uploaderId: String
     var createdAt: Date
     
-    // Equatable conformance için
     static func == (lhs: MediaItem, rhs: MediaItem) -> Bool {
         return lhs.id == rhs.id &&
                lhs.path == rhs.path &&

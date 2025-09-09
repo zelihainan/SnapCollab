@@ -29,26 +29,48 @@ final class AuthRepository: ObservableObject {
     var isSignedIn: Bool { service.currentUID != nil }
     var uid: String? { service.currentUID }
     
+
     @MainActor
     func syncCurrentUser() async {
         do {
             if let uid = service.currentUID {
+                print("AuthRepo: Syncing user for UID: \(uid)")
+                
                 // Önce Firestore'dan kullanıcı bilgilerini çek
-                currentUser = try await userService.getUser(uid: uid)
+                do {
+                    currentUser = try await userService.getUser(uid: uid)
+                    print("AuthRepo: Got user from Firestore: \(currentUser?.displayName ?? "nil")")
+                } catch {
+                    print("AuthRepo: User not found in Firestore, creating...")
+                    currentUser = nil
+                }
                 
                 // Eğer Firestore'da yok ama Firebase Auth'da varsa oluştur
-                if currentUser == nil, let authUser = await service.currentUser {
-                    try await userService.createUser(authUser)
-                    currentUser = authUser
+                if currentUser == nil {
+                    // Firebase Auth'dan bilgileri al
+                    let firebaseUser = Auth.auth().currentUser
+                    let email = firebaseUser?.email ?? ""
+                    let displayName = firebaseUser?.displayName ?? "İsimsiz Kullanıcı"
+                    let photoURL = firebaseUser?.photoURL?.absoluteString
+                    
+                    print("AuthRepo: Creating user - email: \(email), displayName: \(displayName)")
+                    
+                    // Yeni kullanıcı oluştur
+                    let newUser = User(uid: uid, email: email, displayName: displayName, photoURL: photoURL)
+                    try await userService.createUser(newUser)
+                    currentUser = newUser
+                    print("AuthRepo: Successfully created user in Firestore!")
                 }
             } else {
+                print("AuthRepo: No current UID")
                 currentUser = nil
             }
         } catch {
-            print("User sync error:", error)
+            print("AuthRepo: User sync error: \(error)")
             currentUser = nil
         }
     }
+    
     
     // Auth methods
     func signInAnon() async throws {
@@ -87,5 +109,19 @@ final class AuthRepository: ObservableObject {
     
     func signOut() throws {
         try service.signOut()
+    }
+}
+
+extension AuthRepository {
+    func updateUser(_ user: User) async throws {
+        try await userService.updateUser(user)
+        
+        if let displayName = user.displayName {
+            let changeRequest = Auth.auth().currentUser?.createProfileChangeRequest()
+            changeRequest?.displayName = displayName
+            try await changeRequest?.commitChanges()
+        }
+        
+        await syncCurrentUser()
     }
 }
