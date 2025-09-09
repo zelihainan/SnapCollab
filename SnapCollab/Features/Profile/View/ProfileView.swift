@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct ProfileView: View {
     @StateObject var vm: ProfileViewModel
@@ -16,29 +17,52 @@ struct ProfileView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     // Profile Photo Section
-                    VStack(spacing: 16) {
-                        if let photoURL = vm.user?.photoURL, !photoURL.isEmpty {
-                            AsyncImage(url: URL(string: photoURL)) { image in
-                                image
+                    VStack(spacing: 12) {
+                        ZStack {
+                            if let selectedImage = vm.selectedImage {
+                                // Preview of selected image
+                                Image(uiImage: selectedImage)
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                ProgressView()
-                                    .scaleEffect(0.8)
+                                    .frame(width: 100, height: 100)
+                                    .clipShape(Circle())
+                                    .overlay(Circle().stroke(.gray.opacity(0.3), lineWidth: 2))
+                            } else if let photoURL = vm.user?.photoURL, !photoURL.isEmpty {
+                                // Current profile photo
+                                AsyncImage(url: URL(string: photoURL)) { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                }
+                                .frame(width: 100, height: 100)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(.gray.opacity(0.3), lineWidth: 2))
+                            } else {
+                                // Default avatar
+                                Image(systemName: "person.circle.fill")
+                                    .foregroundStyle(.gray)
+                                    .font(.system(size: 100))
                             }
-                            .frame(width: 100, height: 100)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(.gray.opacity(0.3), lineWidth: 2))
-                        } else {
-                            Image(systemName: "person.circle.fill")
-                                .foregroundStyle(.gray)
-                                .font(.system(size: 100))
+                            
+                            // Edit overlay when editing
+                            if vm.isEditing {
+                                Circle()
+                                    .fill(.black.opacity(0.4))
+                                    .frame(width: 100, height: 100)
+                                    .overlay {
+                                        Image(systemName: "camera.fill")
+                                            .foregroundStyle(.white)
+                                            .font(.title2)
+                                    }
+                            }
                         }
-                        
-                        if vm.isEditing {
-                            Text("Fotoğraf özelliği yakında gelecek")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        .onTapGesture {
+                            if vm.isEditing {
+                                vm.showImagePicker = true
+                            }
                         }
                     }
                     .padding(.top, 16)
@@ -59,7 +83,7 @@ struct ProfileView: View {
                         }
                     }
                     
-                    // User Info Section
+                    // User Info Section (Kullanıcı ID kaldırıldı)
                     VStack(spacing: 0) {
                         InfoRow(
                             icon: vm.isAnonymous ? "person.crop.circle.dashed" : "person.crop.circle",
@@ -90,15 +114,7 @@ struct ProfileView: View {
                             iconColor: .purple
                         )
                         
-                        Divider()
-                            .padding(.leading, 44)
-                        
-                        InfoRow(
-                            icon: "number",
-                            title: "Kullanıcı ID",
-                            value: String(vm.user?.uid.prefix(8) ?? "") + "...",
-                            iconColor: .gray
-                        )
+                        // KULLANICI ID KALDIRILDI
                     }
                     .padding(.vertical, 12)
                     .padding(.horizontal, 16)
@@ -160,7 +176,7 @@ struct ProfileView: View {
                             color: .red,
                             action: {
                                 vm.signOut()
-                                dismiss()
+                                // dismiss() kaldırıldı - AuthRepository otomatik yönlendirir
                             }
                         )
                     }
@@ -206,6 +222,9 @@ struct ProfileView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .sheet(isPresented: $vm.showImagePicker) {
+            ImagePicker(selectedImage: $vm.selectedImage)
+        }
         .onAppear {
             print("ProfileView appeared")
             vm.refreshUser()

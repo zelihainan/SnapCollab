@@ -114,14 +114,23 @@ final class AuthRepository: ObservableObject {
 
 extension AuthRepository {
     func updateUser(_ user: User) async throws {
-        try await userService.updateUser(user)
+        print("AuthRepo: updateUser called for: \(user.displayName ?? "nil")")
         
+        try await userService.updateUser(user)
+        print("AuthRepo: Firestore update completed")
+        
+        // Firebase Auth'ta display name güncelle
         if let displayName = user.displayName {
             let changeRequest = Auth.auth().currentUser?.createProfileChangeRequest()
             changeRequest?.displayName = displayName
             try await changeRequest?.commitChanges()
+            print("AuthRepo: Firebase Auth display name updated")
         }
         
-        await syncCurrentUser()
+        // BUNU DEĞİŞTİR: syncCurrentUser() yerine direct assignment
+        await MainActor.run {
+            self.currentUser = user
+        }
+        print("AuthRepo: currentUser updated directly")
     }
 }
