@@ -5,6 +5,7 @@ struct AlbumDetailView: View {
     @StateObject private var vm: MediaViewModel
     @Environment(\.di) var di
     @State private var showInviteSheet = false
+    @State private var showLeaveAlert = false
 
     init(album: Album, di: DIContainer) {
         self.album = album
@@ -21,19 +22,27 @@ struct AlbumDetailView: View {
                         // Albüm Bilgileri
                         Label("\(album.members.count) üye", systemImage: "person.3")
                         
-                        if let inviteCode = album.inviteCode {
-                            Button(action: { showInviteSheet = true }) {
-                                Label("Davet Et (\(inviteCode))", systemImage: "person.badge.plus")
+                        Divider()
+                        
+                        // Davet Et - Sadece üyeler için
+                        if album.isMember(di.authRepo.uid ?? "") {
+                            if let inviteCode = album.inviteCode {
+                                Button(action: { showInviteSheet = true }) {
+                                    Label("Davet Et", systemImage: "person.badge.plus")
+                                }
                             }
                         }
                         
                         Divider()
                         
-                        // Test: Sahiplik kontrolü
+                        // Sahiplik/Üyelik Durumu
                         if album.isOwner(di.authRepo.uid ?? "") {
-                            Label("Sen bu albümün sahibisin", systemImage: "crown.fill")
-                        } else {
-                            Label("Albüm üyesisin", systemImage: "person.fill")
+                            Label("Albüm Sahibi", systemImage: "crown.fill")
+                        } else if album.isMember(di.authRepo.uid ?? "") {
+                            // Albümden Ayrıl
+                            Button(role: .destructive, action: { showLeaveAlert = true }) {
+                                Label("Albümden Ayrıl", systemImage: "person.badge.minus")
+                            }
                         }
                         
                     } label: {
@@ -61,64 +70,35 @@ struct AlbumDetailView: View {
             .sheet(isPresented: $showInviteSheet) {
                 InviteCodeView(album: album)
             }
+            .alert("Albümden Ayrıl", isPresented: $showLeaveAlert) {
+                Button("İptal", role: .cancel) { }
+                Button("Ayrıl", role: .destructive) {
+                    Task { await leaveAlbum() }
+                }
+            } message: {
+                Text("Bu albümden ayrılmak istediğinizden emin misiniz? Tekrar katılmak için davet kodu gerekecek.")
+            }
+    }
+    
+    private func leaveAlbum() async {
+        guard let albumId = album.id else { return }
+        
+        do {
+            try await di.albumRepo.leaveAlbum(albumId)
+            print("Successfully left album")
+            // Navigation otomatik olarak geri gidecek çünkü albüm listesi güncellenecek
+        } catch {
+            print("Error leaving album: \(error)")
+            // Error handling - toast veya alert gösterilebilir
+        }
     }
 }
 
-// Basit Davet Kodu Gösterici
-struct InviteCodeView: View {
-    let album: Album
-    @Environment(\.dismiss) var dismiss
+#Preview {
+    let mockDI = DIContainer.bootstrap()
+    let mockAlbum = Album(title: "Test Album", ownerId: "test-uid")
     
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 24) {
-                VStack(spacing: 12) {
-                    Image(systemName: "qrcode")
-                        .font(.system(size: 60))
-                        .foregroundStyle(.blue)
-                    
-                    Text("Albüme Davet Et")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    
-                    Text(album.title)
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                }
-                
-                VStack(spacing: 16) {
-                    Text("Davet Kodu")
-                        .font(.headline)
-                    
-                    Text(album.inviteCode ?? "INVALID")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.blue)
-                        .padding()
-                        .background(.blue.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                    
-                    Button("Kodu Kopyala") {
-                        UIPasteboard.general.string = album.inviteCode
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                
-                Text("Bu kodu paylaştığınız kişiler albüme katılabilir")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                
-                Spacer()
-            }
-            .padding()
-            .navigationTitle("Davet Kodu")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Kapat") { dismiss() }
-                }
-            }
-        }
+    NavigationView {
+        AlbumDetailView(album: mockAlbum, di: mockDI)
     }
 }

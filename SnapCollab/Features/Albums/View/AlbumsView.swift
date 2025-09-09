@@ -1,14 +1,12 @@
-//
-// Temiz AlbumsView.swift
-//
-
 import SwiftUI
 
 struct AlbumsView: View {
     @StateObject var vm: AlbumsViewModel
     @Environment(\.di) var di
     @EnvironmentObject var appState: AppState
+    @StateObject private var deepLinkHandler = DeepLinkHandler()
     @State private var showProfile = false
+    @State private var showJoinAlbum = false
 
     var body: some View {
         List {
@@ -32,21 +30,34 @@ struct AlbumsView: View {
                 }
             }
             
+            // Sağ taraftaki butonlar - Menu içinde
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button { vm.showCreate = true } label: {
+                Menu {
+                    Button {
+                        vm.showCreate = true
+                    } label: {
+                        Label("Yeni Albüm", systemImage: "plus")
+                    }
+                    
+                    Button {
+                        showJoinAlbum = true
+                    } label: {
+                        Label("Albüme Katıl", systemImage: "person.badge.plus")
+                    }
+                } label: {
                     Image(systemName: "plus")
+                        .font(.title2)
                 }
             }
         }
         .sheet(isPresented: $vm.showCreate) {
-            VStack(spacing: 12) {
-                TextField("Album title", text: $vm.newTitle)
-                    .textFieldStyle(.roundedBorder)
-                    .padding()
-                Button("Create") { Task { await vm.create() } }
-                    .buttonStyle(.borderedProminent)
-            }
-            .presentationDetents([.height(180)])
+            CreateAlbumSheet(vm: vm)
+        }
+        .sheet(isPresented: $showJoinAlbum) {
+            JoinAlbumView(albumRepo: di.albumRepo, initialCode: deepLinkHandler.pendingInviteCode)
+                .onDisappear {
+                    deepLinkHandler.clearPendingInvite()
+                }
         }
         .fullScreenCover(isPresented: $showProfile) {
             let profileVM = ProfileViewModel(authRepo: di.authRepo, mediaRepo: di.mediaRepo)
@@ -56,6 +67,17 @@ struct AlbumsView: View {
                 .onAppear {
                     profileVM.setSessionViewModel(sessionVM)
                 }
+        }
+        // Deep link handling
+        .onOpenURL { url in
+            print("AlbumsView: Received deep link: \(url)")
+            deepLinkHandler.handleURL(url)
+        }
+        .onChange(of: deepLinkHandler.shouldShowJoinView) { shouldShow in
+            if shouldShow {
+                showJoinAlbum = true
+                deepLinkHandler.shouldShowJoinView = false
+            }
         }
         .task {
             vm.start()
@@ -68,7 +90,59 @@ struct AlbumsView: View {
     }
 }
 
-// Temiz ve Minimal Album Row
+// MARK: - Create Album Sheet
+struct CreateAlbumSheet: View {
+    @ObservedObject var vm: AlbumsViewModel
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                VStack(spacing: 8) {
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.system(size: 50))
+                        .foregroundStyle(.blue)
+                    
+                    Text("Yeni Albüm")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                }
+                .padding(.top, 20)
+                
+                TextField("Albüm Adı", text: $vm.newTitle)
+                    .textFieldStyle(.roundedBorder)
+                    .padding(.horizontal, 20)
+                
+                Button("Albüm Oluştur") {
+                    Task { await vm.create() }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(vm.newTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 20)
+                
+                Spacer()
+            }
+            .navigationTitle("Yeni Albüm")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("İptal") {
+                        vm.newTitle = ""
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .onChange(of: vm.showCreate) { isShowing in
+            if !isShowing {
+                dismiss()
+            }
+        }
+    }
+}
+
+// MARK: - Clean Album Row
 struct CleanAlbumRow: View {
     let album: Album
     let currentUserId: String?
@@ -115,7 +189,6 @@ struct CleanAlbumRow: View {
             }
             
             Spacer()
-            
         }
         .padding(.vertical, 8)
         .background(
@@ -145,5 +218,4 @@ struct CleanAlbumRow: View {
             return formatter.string(from: date)
         }
     }
-
 }

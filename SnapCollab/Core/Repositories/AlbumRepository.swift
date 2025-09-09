@@ -11,7 +11,7 @@ import FirebaseAuth
 
 final class AlbumRepository {
     private let service: AlbumProviding
-    private let auth: AuthRepository
+    let auth: AuthRepository
     private let userService: UserProviding
     
     init(service: AlbumProviding, auth: AuthRepository, userService: UserProviding) {
@@ -99,6 +99,119 @@ extension AlbumRepository {
             
         } catch {
             print("❌ Migration error: \(error)")
+        }
+    }
+}
+// AlbumRepository.swift dosyasına eklenecek extension
+
+extension AlbumRepository {
+    
+    // MARK: - Join Album Methods
+    
+    /// Davet kodu ile albüm bulma
+    func getAlbumByInviteCode(_ inviteCode: String) async throws -> Album? {
+        print("AlbumRepo: Getting album by invite code: \(inviteCode)")
+        return try await service.getAlbumByInviteCode(inviteCode)
+    }
+    
+    /// Albümü güncelleme (üye ekleme/çıkarma için)
+    func updateAlbum(_ album: Album) async throws {
+        print("AlbumRepo: Updating album: \(album.title)")
+        try await service.updateAlbum(album)
+    }
+    
+    /// Kullanıcıyı albüme ekleme
+    func joinAlbum(inviteCode: String) async throws -> Album {
+        guard let uid = auth.uid else {
+            throw AlbumError.notAuthenticated
+        }
+        
+        print("AlbumRepo: User \(uid) joining album with code: \(inviteCode)")
+        
+        // Albümü bul
+        guard var album = try await getAlbumByInviteCode(inviteCode) else {
+            throw AlbumError.albumNotFound
+        }
+        
+        // Zaten üye mi kontrol et
+        if album.isMember(uid) {
+            throw AlbumError.alreadyMember
+        }
+        
+        // Üye ekle ve güncelle
+        album.addMember(uid)
+        try await updateAlbum(album)
+        
+        print("AlbumRepo: Successfully joined album: \(album.title)")
+        return album
+    }
+    
+    /// Kullanıcıyı albümden çıkarma
+    func leaveAlbum(_ albumId: String) async throws {
+        guard let uid = auth.uid else {
+            throw AlbumError.notAuthenticated
+        }
+        
+        guard var album = try await getAlbum(by: albumId) else {
+            throw AlbumError.albumNotFound
+        }
+        
+        // Sahip çıkamaz
+        if album.isOwner(uid) {
+            throw AlbumError.ownerCannotLeave
+        }
+        
+        // Üye değilse hata
+        if !album.isMember(uid) {
+            throw AlbumError.notMember
+        }
+        
+        // Üyeyi çıkar
+        album.removeMember(uid)
+        try await updateAlbum(album)
+        
+        print("AlbumRepo: User left album: \(album.title)")
+    }
+    
+    /// Kullanıcının üyesi olduğu albümleri getir (artık güncelleme ile birlikte)
+    func getMyAlbumsWithUpdatedInfo() async throws -> [Album] {
+        guard let uid = auth.uid else { return [] }
+        
+        // Basit query ile albümleri çek
+        let snapshot = try await Firestore.firestore()
+            .collection("albums")
+            .whereField("members", arrayContains: uid)
+            .order(by: "updatedAt", descending: true)
+            .getDocuments()
+        
+        return snapshot.documents.compactMap { try? $0.data(as: Album.self) }
+    }
+}
+
+// MARK: - Album Error Enum
+
+enum AlbumError: LocalizedError {
+    case notAuthenticated
+    case albumNotFound
+    case alreadyMember
+    case notMember
+    case ownerCannotLeave
+    case invalidInviteCode
+    
+    var errorDescription: String? {
+        switch self {
+        case .notAuthenticated:
+            return "Giriş yapmanız gerekiyor"
+        case .albumNotFound:
+            return "Albüm bulunamadı"
+        case .alreadyMember:
+            return "Bu albümün zaten üyesisiniz"
+        case .notMember:
+            return "Bu albümün üyesi değilsiniz"
+        case .ownerCannotLeave:
+            return "Albüm sahibi albümü terk edemez"
+        case .invalidInviteCode:
+            return "Geçersiz davet kodu"
         }
     }
 }
