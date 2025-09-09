@@ -11,10 +11,20 @@ struct SupportView: View {
     @State private var showSuccessAlert = false
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                    // Header
+
+                    HStack {
+                        Spacer()
+                        Button("Kapat") { dismiss() }
+                            .foregroundColor(.blue)
+                            .font(.body)
+                            .padding(.trailing, 8)     
+                            .padding(.vertical, 8)
+                    }
+                    .padding(.top, 8)
+                    
                     VStack(spacing: 12) {
                         Image(systemName: "questionmark.circle.fill")
                             .font(.system(size: 60))
@@ -180,8 +190,12 @@ struct SupportView: View {
                     
                     Spacer(minLength: 40)
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
             }
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)           // // nav bar'ı tamamen gizle (large title boşluğu kalmasın)
+            .contentMargins(.top, 0, for: .scrollContent)    // // iOS 17+: ScrollView üst otomatik inset'i kapat
+            // .scrollContentInsets(.never)                   // // iOS 16 için alternatif (varsa bunu kullan)
         }
         .sheet(isPresented: $showMailComposer) {
             if MFMailComposeViewController.canSendMail() {

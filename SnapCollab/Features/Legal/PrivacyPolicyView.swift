@@ -1,4 +1,3 @@
-//
 //  PrivacyPolicyView.swift
 //  SnapCollab
 //
@@ -11,9 +10,22 @@ struct PrivacyPolicyView: View {
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+
+
+                    HStack {
+                        Spacer()  
+                        Button("Kapat") { dismiss() }
+                            .foregroundColor(.blue)
+                            .font(.body)
+                            .padding(.trailing, 8)
+                            .padding(.vertical, 8)
+                    }
+                    .padding(.top, 8)
+
+
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Gizlilik Politikası")
                             .font(.largeTitle)
@@ -122,14 +134,9 @@ struct PrivacyPolicyView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Kapat") {
-                        dismiss()
-                    }
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
+            .contentMargins(.top, 0, for: .scrollContent)
+
         }
     }
     

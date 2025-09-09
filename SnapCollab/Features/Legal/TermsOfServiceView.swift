@@ -1,4 +1,3 @@
-//
 //  TermsOfServiceView.swift
 //  SnapCollab
 //
@@ -8,29 +7,41 @@
 import SwiftUI
 
 struct TermsOfServiceView: View {
-    @Environment(\.dismiss) var dismiss
-    
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+
+                    HStack {
+                        Spacer()
+                        Button("Kapat") { dismiss() }
+                            .foregroundColor(.blue)
+                            .font(.body)
+                            .padding(.trailing, 8)     
+                            .padding(.vertical, 8)
+                    }
+                    .padding(.top, 8)
+
+
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Kullanım Koşulları")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                        
+                            .font(.largeTitle).bold()
+
                         Text("Son Güncelleme: \(formattedDate)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        
+
                         Text("Bu koşulları kabul ederek SnapCollab uygulamasını kullanmayı onaylıyorsunuz.")
                             .font(.body)
                             .foregroundStyle(.secondary)
                             .padding(.top, 8)
                     }
-                    
+
                     Divider()
-                    
+
+                    // İçerik
                     VStack(alignment: .leading, spacing: 16) {
                         TermsSection(
                             title: "1. Kabul ve Onay",
@@ -38,12 +49,11 @@ struct TermsOfServiceView: View {
                             SnapCollab uygulamasını kullanarak bu kullanım koşullarını kabul etmiş olursunuz. Koşulları kabul etmiyorsanız uygulamayı kullanmayınız.
                             """
                         )
-                        
                         TermsSection(
                             title: "2. Hizmet Tanımı",
                             content: """
                             SnapCollab, kullanıcıların fotoğraf paylaşmasına ve albüm oluşturmasına imkan tanıyan bir mobil uygulamadır.
-                            
+
                             Sağlanan özellikler:
                             • Fotoğraf yükleme ve paylaşma
                             • Ortak albüm oluşturma
@@ -51,24 +61,22 @@ struct TermsOfServiceView: View {
                             • Sosyal etkileşim araçları
                             """
                         )
-                        
                         TermsSection(
                             title: "3. Kullanıcı Sorumlulukları",
                             content: """
                             Kullanıcı olarak aşağıdaki kurallara uymayı kabul ediyorsunuz:
-                            
-                            Gerçek ve doğru bilgiler sağlamak
-                            Hesap güvenliğinizi korumak
-                            Yasal ve etik kurallara uymak
-                            Diğer kullanıcılara saygı göstermek
-                            
-                            Yasadışı içerik paylaşmamak
-                            Telif hakkı ihlali yapmamak
-                            Spam veya zararlı içerik göndermemek
-                            Başkalarının hesaplarını ele geçirmeye çalışmamak
+
+                            • Gerçek ve doğru bilgiler sağlamak
+                            • Hesap güvenliğinizi korumak
+                            • Yasal ve etik kurallara uymak
+                            • Diğer kullanıcılara saygı göstermek
+
+                            • Yasadışı içerik paylaşmamak
+                            • Telif hakkı ihlali yapmamak
+                            • Spam veya zararlı içerik göndermemek
+                            • Başkalarının hesaplarını ele geçirmeye çalışmamak
                             """
                         )
-                        
                         TermsSection(
                             title: "4. İçerik Politikası",
                             content: """
@@ -144,28 +152,18 @@ struct TermsOfServiceView: View {
                             🌐 Web: www.snapcollab.com/terms
                             📞 Destek: +90 (XXX) XXX XX XX
                             """
-                        )
-                    }
-                    
+                        )                    }
+
                     Spacer(minLength: 40)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
             }
             .toolbar(.hidden, for: .navigationBar)
-            .safeAreaInset(edge: .top) {             // üstte kendi kapat butonun
-                            HStack {
-                                Spacer()
-                                Button("Kapat") { dismiss() }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 10)
-                            }
-                            .background(.ultraThinMaterial)
-            }
-            .navigationBarTitleDisplayMode(.inline)
+            .contentMargins(.top, 0, for: .scrollContent)
         }
     }
-    
+
     private var formattedDate: String {
         let formatter = DateFormatter()
         formatter.dateStyle = .long
@@ -177,14 +175,14 @@ struct TermsOfServiceView: View {
 struct TermsSection: View {
     let title: String
     let content: String
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
                 .fontWeight(.semibold)
                 .foregroundStyle(.primary)
-            
+
             Text(content)
                 .font(.body)
                 .foregroundStyle(.secondary)
