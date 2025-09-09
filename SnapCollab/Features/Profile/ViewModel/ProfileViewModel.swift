@@ -7,6 +7,7 @@
 
 import Foundation
 import UIKit
+import FirebaseAuth
 
 @MainActor
 final class ProfileViewModel: ObservableObject {
@@ -19,6 +20,12 @@ final class ProfileViewModel: ObservableObject {
     @Published var showImagePicker = false
     @Published var selectedImage: UIImage?
     @Published var isUploadingPhoto = false
+    @Published var showPasswordChange = false
+    @Published var currentPassword = ""
+    @Published var newPassword = ""
+    @Published var confirmPassword = ""
+    @Published var isChangingPassword = false
+    @Published var passwordErrorMessage: String?
     
     private let authRepo: AuthRepository
     private let mediaRepo: MediaRepository
@@ -170,6 +177,81 @@ final class ProfileViewModel: ObservableObject {
                 continuation.resume(returning: resizedImage ?? image)
             }
         }
+    }
+    
+    // Real-time validasyon
+    var passwordValidationError: String? {
+        if currentPassword.isEmpty && newPassword.isEmpty && confirmPassword.isEmpty {
+            return nil
+        }
+        
+        if currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty {
+            return "Lütfen tüm alanları doldurun"
+        }
+        
+        if newPassword.count < 6 {
+            return "Yeni şifre en az 6 karakter olmalı"
+        }
+        
+        if newPassword != confirmPassword {
+            return "Yeni şifreler eşleşmiyor"
+        }
+        
+        if currentPassword == newPassword {
+            return "Yeni şifre eski şifre ile aynı olamaz"
+        }
+        
+        return nil
+    }
+    
+    var isPasswordFormValid: Bool {
+        return passwordValidationError == nil && !currentPassword.isEmpty && !newPassword.isEmpty && !confirmPassword.isEmpty
+    }
+    
+    func changePassword() async {
+        isChangingPassword = true
+        passwordErrorMessage = nil
+        
+        do {
+            guard let currentUser = Auth.auth().currentUser,
+                  let email = currentUser.email else {
+                throw NSError(domain: "PasswordChange", code: -1, userInfo: [NSLocalizedDescriptionKey: "Kullanıcı bulunamadı"])
+            }
+            
+            let credential = EmailAuthProvider.credential(withEmail: email, password: currentPassword)
+            try await currentUser.reauthenticate(with: credential)
+            
+            try await currentUser.updatePassword(to: newPassword)
+            
+            await MainActor.run {
+                currentPassword = ""
+                newPassword = ""
+                confirmPassword = ""
+                showPasswordChange = false
+                showSuccessMessage = true
+            }
+            
+            print("Password changed successfully")
+            
+        } catch {
+            await MainActor.run {
+                if error.localizedDescription.contains("wrong-password") || error.localizedDescription.contains("invalid-credential") {
+                    passwordErrorMessage = "Mevcut şifre yanlış"
+                } else {
+                    passwordErrorMessage = "Şifre değiştirme hatası: \(error.localizedDescription)"
+                }
+            }
+        }
+        
+        isChangingPassword = false
+    }
+    
+    func cancelPasswordChange() {
+        currentPassword = ""
+        newPassword = ""
+        confirmPassword = ""
+        showPasswordChange = false
+        passwordErrorMessage = nil
     }
     
     func signOut() {

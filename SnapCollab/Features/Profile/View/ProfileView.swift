@@ -83,7 +83,7 @@ struct ProfileView: View {
                         }
                     }
                     
-                    // User Info Section (Kullanıcı ID kaldırıldı)
+                    // User Info Section
                     VStack(spacing: 0) {
                         InfoRow(
                             icon: vm.isAnonymous ? "person.crop.circle.dashed" : "person.crop.circle",
@@ -113,8 +113,6 @@ struct ProfileView: View {
                             value: vm.joinDateText,
                             iconColor: .purple
                         )
-                        
-                        // KULLANICI ID KALDIRILDI
                     }
                     .padding(.vertical, 12)
                     .padding(.horizontal, 16)
@@ -136,6 +134,20 @@ struct ProfileView: View {
                                 color: .blue,
                                 action: {
                                     print("Upgrade account tapped")
+                                }
+                            )
+                        }
+                        
+                        // Şifre değiştirme butonu - sadece email kullanıcıları için
+                        if !vm.isAnonymous {
+                            ActionButton(
+                                icon: "key.fill",
+                                title: "Şifre Değiştir",
+                                color: .orange,
+                                showChevron: true,
+                                action: {
+                                    print("Password change tapped")
+                                    vm.showPasswordChange = true
                                 }
                             )
                         }
@@ -176,7 +188,6 @@ struct ProfileView: View {
                             color: .red,
                             action: {
                                 vm.signOut()
-                                // dismiss() kaldırıldı - AuthRepository otomatik yönlendirir
                             }
                         )
                     }
@@ -225,8 +236,13 @@ struct ProfileView: View {
         .sheet(isPresented: $vm.showImagePicker) {
             ImagePicker(selectedImage: $vm.selectedImage)
         }
+        .sheet(isPresented: $vm.showPasswordChange) {
+            PasswordChangeSheet(vm: vm)
+        }
         .onAppear {
             print("ProfileView appeared")
+            print("DEBUG: User email: '\(vm.user?.email ?? "nil")'")
+            print("DEBUG: isAnonymous: \(vm.isAnonymous)")
             vm.refreshUser()
         }
         .disabled(vm.isLoading)
@@ -338,6 +354,109 @@ struct ActionButton: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Password Change Sheet
+struct PasswordChangeSheet: View {
+    @ObservedObject var vm: ProfileViewModel
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                VStack(spacing: 16) {
+                    Image(systemName: "key.fill")
+                        .font(.system(size: 50))
+                        .foregroundStyle(.orange)
+                    
+                    Text("Şifre Değiştir")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    
+                    Text("Güvenliğiniz için önce mevcut şifrenizi girin")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, 20)
+                
+                VStack(spacing: 16) {
+                    SecureField("Mevcut Şifre", text: $vm.currentPassword)
+                        .textFieldStyle(.roundedBorder)
+                    
+                    SecureField("Yeni Şifre", text: $vm.newPassword)
+                        .textFieldStyle(.roundedBorder)
+                    
+                    SecureField("Yeni Şifre Tekrar", text: $vm.confirmPassword)
+                        .textFieldStyle(.roundedBorder)
+                    
+                    // Real-time validasyon mesajları
+                    if let validationError = vm.passwordValidationError {
+                        Text(validationError)
+                            .foregroundStyle(.orange)
+                            .font(.caption)
+                            .padding(.horizontal)
+                            .multilineTextAlignment(.center)
+                    }
+                    
+                    // Firebase auth hatası (yanlış şifre vs)
+                    if let passwordError = vm.passwordErrorMessage {
+                        Text(passwordError)
+                            .foregroundStyle(.red)
+                            .font(.caption)
+                            .padding(.horizontal)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .padding(.horizontal, 20)
+                
+                VStack(spacing: 12) {
+                    Button("Şifre Değiştir") {
+                        Task { await vm.changePassword() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!vm.isPasswordFormValid || vm.isChangingPassword)
+                    .frame(maxWidth: .infinity)
+                    
+                    Button("İptal") {
+                        vm.cancelPasswordChange()
+                        dismiss()
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 20)
+                
+                Spacer()
+            }
+            .navigationBarHidden(true)
+        }
+        .disabled(vm.isChangingPassword)
+        .overlay {
+            if vm.isChangingPassword {
+                Color.black.opacity(0.3)
+                    .overlay {
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(1.2)
+                            Text("Şifre değiştiriliyor...")
+                                .foregroundStyle(.white)
+                                .font(.caption)
+                        }
+                    }
+                    .ignoresSafeArea()
+            }
+        }
+        .onChange(of: vm.showPasswordChange) { isShowing in
+            if !isShowing {
+                dismiss()
+            }
+        }
+        .onDisappear {
+            // Sheet kapanırken error'ları temizle
+            vm.passwordErrorMessage = nil
+        }
     }
 }
 
