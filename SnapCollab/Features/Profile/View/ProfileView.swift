@@ -9,6 +9,10 @@ import SwiftUI
 import UIKit
 
 struct ProfileView: View {
+    @State private var showPrivacy = false
+    @State private var showTerms = false
+    @State private var showSupport = false
+
     @StateObject var vm: ProfileViewModel
     @Environment(\.dismiss) var dismiss
     
@@ -158,7 +162,7 @@ struct ProfileView: View {
                             color: .primary,
                             showChevron: true,
                             action: {
-                                print("Privacy policy tapped")
+                                showPrivacy = true
                             }
                         )
                         
@@ -168,7 +172,7 @@ struct ProfileView: View {
                             color: .primary,
                             showChevron: true,
                             action: {
-                                print("Terms tapped")
+                                showTerms = true
                             }
                         )
                         
@@ -178,7 +182,7 @@ struct ProfileView: View {
                             color: .primary,
                             showChevron: true,
                             action: {
-                                print("Support tapped")
+                                showSupport = true
                             }
                         )
                         
@@ -232,6 +236,7 @@ struct ProfileView: View {
                 }
             }
         }
+        
         .navigationViewStyle(.stack)
         .sheet(isPresented: $vm.showImagePicker) {
             ImagePicker(selectedImage: $vm.selectedImage)
@@ -239,6 +244,19 @@ struct ProfileView: View {
         .sheet(isPresented: $vm.showPasswordChange) {
             PasswordChangeSheet(vm: vm)
         }
+        .fullScreenCover(isPresented: $showPrivacy) {
+            NavigationView { PrivacyPolicyView() }
+        }
+
+        .fullScreenCover(isPresented: $showTerms) {
+            NavigationView { TermsOfServiceView() }
+        }
+
+        .fullScreenCover(isPresented: $showSupport) {
+            NavigationView { SupportView() }
+        }
+
+        
         .onAppear {
             print("ProfileView appeared")
             print("DEBUG: User email: '\(vm.user?.email ?? "nil")'")
