@@ -10,6 +10,7 @@ import FirebaseFirestore
 protocol MediaProviding {
     func mediaQuery(albumId: String) -> Query
     func createMedia(albumId: String, item: MediaItem) async throws -> String
+    func updateMedia(albumId: String, itemId: String, item: MediaItem) async throws
 }
 
 protocol ImageCaching {

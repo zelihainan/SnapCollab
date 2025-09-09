@@ -23,4 +23,9 @@ final class FirestoreMediaService: MediaProviding {
         try ref.setData(from: copy)
         return ref.documentID
     }
+    
+    func updateMedia(albumId: String, itemId: String, item: MediaItem) async throws {
+        let ref = db.collection("albums").document(albumId).collection("media").document(itemId)
+        try ref.setData(from: item, merge: true)
+    }
 }

@@ -4,6 +4,7 @@
 <dict>
     <key>CFBundleURLTypes</key>
     <array>
+        <!-- Google Sign In URL Scheme -->
         <dict>
             <key>CFBundleTypeRole</key>
             <string>Editor</string>
@@ -14,6 +15,15 @@
             <key>CFBundleURLSchemes</key>
             <array>
                 <string>com.googleusercontent.apps.1099472256100-bh4jjndtg5fa54dfob781e08tgeai36q</string>
+            </array>
+        </dict>
+        <!-- SnapCollab Deep Link URL Scheme -->
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>snapcollab.invite</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>snapcollab</string>
             </array>
         </dict>
     </array>

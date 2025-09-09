@@ -28,6 +28,7 @@ final class MediaRepository {
             continuation.onTermination = { _ in l.remove() }
         }
     }
+    
 
     func upload(image: UIImage, albumId: String) async throws {
         guard let uid = auth.uid else { return }
@@ -49,4 +50,10 @@ final class MediaRepository {
     func downloadURL(for path: String) async throws -> URL {
         try await storage.url(for: path)
     }
+    
+    func updateMedia(albumId: String, item: MediaItem) async throws {
+        guard let itemId = item.id else { return }
+        try await service.updateMedia(albumId: albumId, itemId: itemId, item: item)
+    }
+    
 }

@@ -34,11 +34,16 @@ final class MediaViewModel: ObservableObject {
         do {
             try await repo.upload(image: img, albumId: albumId)
             pickedImage = nil
-        } catch { print("upload error:", error) }
+        } catch {
+            print("upload error:", error)
+        }
     }
 
     func imageURL(for item: MediaItem) async -> URL? {
-        do { return try await repo.downloadURL(for: item.thumbPath ?? item.path) }
-        catch { return nil }
+        do {
+            return try await repo.downloadURL(for: item.thumbPath ?? item.path)
+        } catch {
+            return nil
+        }
     }
 }

@@ -18,7 +18,7 @@ struct DIContainer {
         let authRepo = AuthRepository(service: authService, userService: userService)
 
         let albumService = FirestoreAlbumService()
-        let albumRepo = AlbumRepository(service: albumService, auth: authRepo)
+        let albumRepo = AlbumRepository(service: albumService, auth: authRepo, userService: userService)
 
         let mediaService = FirestoreMediaService()
         let storageService = FirebaseStorageService()
@@ -27,4 +27,3 @@ struct DIContainer {
         return DIContainer(authRepo: authRepo, albumRepo: albumRepo, mediaRepo: mediaRepo)
     }
 }
-
