@@ -3,7 +3,6 @@ import MessageUI
 
 struct SupportView: View {
     @Environment(\.dismiss) var dismiss
-    @State private var selectedCategory = SupportCategory.general
     @State private var subject = ""
     @State private var message = ""
     @State private var showMailComposer = false
@@ -13,7 +12,7 @@ struct SupportView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 20) {
 
                     HStack {
                         Spacer()
@@ -23,7 +22,7 @@ struct SupportView: View {
                             .padding(.trailing, 8)     
                             .padding(.vertical, 8)
                     }
-                    .padding(.top, 8)
+                    .padding(.top, 5)
                     
                     VStack(spacing: 12) {
                         Image(systemName: "questionmark.circle.fill")
@@ -38,7 +37,7 @@ struct SupportView: View {
                             .font(.body)
                             .foregroundStyle(.secondary)
                     }
-                    .padding(.top, 20)
+                    .padding(.top, 4)
                     
                     // Quick Help Options
                     VStack(alignment: .leading, spacing: 16) {
@@ -52,7 +51,6 @@ struct SupportView: View {
                                 title: "Fotoğraf Yükleme Sorunu",
                                 description: "Fotoğraf yüklenmiyor veya hata alıyorum",
                                 action: {
-                                    selectedCategory = .technical
                                     subject = "Fotoğraf Yükleme Sorunu"
                                     showMailComposer = true
                                 }
@@ -63,7 +61,6 @@ struct SupportView: View {
                                 title: "Albüm Paylaşma",
                                 description: "Albümü nasıl paylaşırım?",
                                 action: {
-                                    selectedCategory = .howTo
                                     subject = "Albüm Paylaşma Yardımı"
                                     showMailComposer = true
                                 }
@@ -74,7 +71,6 @@ struct SupportView: View {
                                 title: "Hesap Güvenliği",
                                 description: "Hesabımı nasıl güvende tutarım?",
                                 action: {
-                                    selectedCategory = .account
                                     subject = "Hesap Güvenliği"
                                     showMailComposer = true
                                 }
@@ -85,7 +81,6 @@ struct SupportView: View {
                                 title: "Hata Bildirimi",
                                 description: "Uygulama çöküyor veya donuyor",
                                 action: {
-                                    selectedCategory = .bug
                                     subject = "Hata Bildirimi"
                                     showMailComposer = true
                                 }
@@ -104,20 +99,6 @@ struct SupportView: View {
                             .padding(.horizontal, 20)
                         
                         VStack(spacing: 16) {
-                            // Category Picker
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Kategori")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                
-                                Picker("Kategori", selection: $selectedCategory) {
-                                    ForEach(SupportCategory.allCases, id: \.self) { category in
-                                        Text(category.title)
-                                            .tag(category)
-                                    }
-                                }
-                                .pickerStyle(SegmentedPickerStyle())
-                            }
                             
                             // Subject
                             VStack(alignment: .leading, spacing: 8) {
@@ -193,14 +174,12 @@ struct SupportView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
             }
-            .toolbar(.hidden, for: .navigationBar)           // // nav bar'ı tamamen gizle (large title boşluğu kalmasın)
-            .contentMargins(.top, 0, for: .scrollContent)    // // iOS 17+: ScrollView üst otomatik inset'i kapat
-            // .scrollContentInsets(.never)                   // // iOS 16 için alternatif (varsa bunu kullan)
+            .toolbar(.hidden, for: .navigationBar)
+            .contentMargins(.top, 0, for: .scrollContent)
         }
         .sheet(isPresented: $showMailComposer) {
             if MFMailComposeViewController.canSendMail() {
                 MailComposeView(
-                    category: selectedCategory,
                     subject: subject,
                     message: message,
                     onComplete: { result in
@@ -235,32 +214,6 @@ struct SupportView: View {
     }
 }
 
-// MARK: - Support Category
-enum SupportCategory: CaseIterable {
-    case general, technical, account, bug, howTo, feedback
-    
-    var title: String {
-        switch self {
-        case .general: return "Genel"
-        case .technical: return "Teknik"
-        case .account: return "Hesap"
-        case .bug: return "Hata"
-        case .howTo: return "Nasıl"
-        case .feedback: return "Öneri"
-        }
-    }
-    
-    var prefix: String {
-        switch self {
-        case .general: return "[GENEL]"
-        case .technical: return "[TEKNİK]"
-        case .account: return "[HESAP]"
-        case .bug: return "[HATA]"
-        case .howTo: return "[NASIL]"
-        case .feedback: return "[ÖNERİ]"
-        }
-    }
-}
 
 // MARK: - Support Quick Option
 struct SupportQuickOption: View {
@@ -341,7 +294,6 @@ struct ContactInfoRow: View {
 
 // MARK: - Mail Compose View
 struct MailComposeView: UIViewControllerRepresentable {
-    let category: SupportCategory
     let subject: String
     let message: String
     let onComplete: (MFMailComposeResult) -> Void
@@ -350,8 +302,6 @@ struct MailComposeView: UIViewControllerRepresentable {
         let composer = MFMailComposeViewController()
         composer.mailComposeDelegate = context.coordinator
         composer.setToRecipients(["support@snapcollab.com"])
-        composer.setSubject("\(category.prefix) \(subject)")
-        
         let deviceInfo = """
         
         
@@ -420,6 +370,4 @@ struct MailNotAvailableView: View {
     }
 }
 
-#Preview {
-    SupportView()
-}
+
