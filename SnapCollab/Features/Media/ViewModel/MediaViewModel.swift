@@ -15,11 +15,20 @@ final class MediaViewModel: ObservableObject {
     @Published var pickedImage: UIImage?
     @Published var currentFilter: MediaFilter = .all
     @Published var favorites: Set<String> = [] // Favori fotoğraf ID'leri
+    @Published var favoriteAnimations: [String: Bool] = [:] // Animation state tracking
 
     enum MediaFilter {
         case all
         case photos
         case videos
+        case favorites
+    }
+
+    // SortType enum'unu buraya taşıyoruz
+    enum SortType: Hashable {
+        case newest
+        case oldest
+        case uploader
         case favorites
     }
 
@@ -236,18 +245,31 @@ final class MediaViewModel: ObservableObject {
                 let name2 = user2?.displayName ?? user2?.email ?? ""
                 return name1.localizedCaseInsensitiveCompare(name2) == .orderedAscending
             }
+        case .favorites: // <- Bu case'i ekliyoruz
+            // Favorileri listenin başına taşıma mantığı
+            return filteredItems.sorted { item1, item2 in
+                let isFavorite1 = favorites.contains(item1.id ?? "")
+                let isFavorite2 = favorites.contains(item2.id ?? "")
+                
+                if isFavorite1 && !isFavorite2 {
+                    return true // item1 favori ise ve item2 değilse, item1 önde gelir
+                } else if !isFavorite1 && isFavorite2 {
+                    return false // item2 favori ise ve item1 değilse, item2 önde gelir
+                } else {
+                    // Her ikisi de favori veya hiçbiri favori değilse, varsayılan bir sıralama (örn: en yeni)
+                    return item1.createdAt > item2.createdAt
+                }
+            }
         }
     }
     
-    enum SortType {
-        case newest
-        case oldest
-        case uploader
-    }
+    // MARK: - Date Grouping Extension
+    // Bu extension'ı MediaViewModel sınıfının dışında tutuyoruz,
+    // veya sınıfın içine alıp property'i compute edilen bir değişken olarak kullanabiliriz.
+    // Ancak orijinal yapıyı bozmamak için sınıfın dışında bırakıp MediaViewModel'a uygulayabiliriz.
 }
 
-// MARK: - Date Grouping Extension
-extension MediaViewModel {
+extension MediaViewModel { // <- Doğru yer: Sınıfın kapanışından sonra
     var groupedByDate: [(key: String, value: [MediaItem])] {
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: filteredItems) { item in
@@ -284,6 +306,49 @@ extension MediaViewModel {
             return formatter.string(from: date)
         }
     }
+    // MediaViewModel.swift içine bu metodları ekle:
+
+    // MARK: - Missing Methods for MediaGrid
+
+    /// Check if item is currently animating
+    func isAnimating(_ itemId: String) -> Bool {
+        return favoriteAnimations[itemId] ?? false
+    }
+
+    /// Bulk favorite operations
+    func addMultipleToFavorites(_ itemIds: [String]) {
+        for itemId in itemIds {
+            favorites.insert(itemId)
+            favoriteAnimations[itemId] = true
+        }
+        saveFavorites()
+        applyFilter()
+        
+        // Staggered animation reset
+        for (index, itemId) in itemIds.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.1 + 0.3) {
+                self.favoriteAnimations[itemId] = false
+            }
+        }
+        
+        // Success haptic
+        let successFeedback = UINotificationFeedbackGenerator()
+        successFeedback.notificationOccurred(.success)
+    }
+
+    func removeMultipleFromFavorites(_ itemIds: [String]) {
+        for itemId in itemIds {
+            favorites.remove(itemId)
+        }
+        saveFavorites()
+        applyFilter()
+        
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+    }
+
+    // Eğer favoriteAnimations yoksa, bu property'yi de ekle:
     
     // Fotoğraf istatistikleri - filteredItems yerine items kullanarak gerçek sayıları göster
     var photoStats: (total: Int, today: Int, thisWeek: Int, thisMonth: Int) {
