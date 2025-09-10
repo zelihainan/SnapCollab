@@ -53,3 +53,63 @@ final class MediaViewModel: ObservableObject {
         print("MediaVM: Photo deleted successfully")
     }
 }
+// MARK: - Date Grouping Extension
+extension MediaViewModel {
+    var groupedByDate: [(key: String, value: [MediaItem])] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: items) { item in
+            calendar.dateInterval(of: .day, for: item.createdAt)?.start ?? item.createdAt
+        }
+        
+        return grouped
+            .sorted { $0.key > $1.key } // En yeni tarih önce
+            .map { (key: formatDate($0.key), value: $0.value.sorted { $0.createdAt > $1.createdAt }) }
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        if calendar.isDateInToday(date) {
+            return "Bugün"
+        } else if calendar.isDateInYesterday(date) {
+            return "Dün"
+        } else if calendar.dateInterval(of: .weekOfYear, for: now)?.contains(date) == true {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEEE"
+            formatter.locale = Locale(identifier: "tr_TR")
+            return formatter.string(from: date)
+        } else if calendar.isDate(date, equalTo: now, toGranularity: .year) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "d MMMM EEEE"
+            formatter.locale = Locale(identifier: "tr_TR")
+            return formatter.string(from: date)
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "d MMMM yyyy"
+            formatter.locale = Locale(identifier: "tr_TR")
+            return formatter.string(from: date)
+        }
+    }
+    
+    // Fotoğraf istatistikleri
+    var photoStats: (total: Int, today: Int, thisWeek: Int, thisMonth: Int) {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        let today = items.filter { calendar.isDateInToday($0.createdAt) }.count
+        
+        let thisWeek = items.filter { item in
+            guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: now) else { return false }
+            return weekInterval.contains(item.createdAt)
+        }.count
+        
+        let thisMonth = items.filter { item in
+            guard let monthInterval = calendar.dateInterval(of: .month, for: now) else { return false }
+            return monthInterval.contains(item.createdAt)
+        }.count
+        
+        return (total: items.count, today: today, thisWeek: thisWeek, thisMonth: thisMonth)
+    }
+}
+

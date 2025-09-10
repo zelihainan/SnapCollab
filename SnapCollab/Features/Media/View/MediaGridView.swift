@@ -58,7 +58,7 @@ struct MediaGridView: View {
             selectedItem = nil
         } content: {
             if let selectedItem = selectedItem {
-                MediaViewerView(vm: vm, item: selectedItem) {
+                MediaViewerView(vm: vm, initialItem: selectedItem) {
                     print("DEBUG: MediaViewer onClose called")
                     showViewer = false
                 }

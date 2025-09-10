@@ -5,16 +5,58 @@ struct AlbumsView: View {
     @Environment(\.di) var di
     @EnvironmentObject var appState: AppState
     @StateObject private var deepLinkHandler = DeepLinkHandler()
+    @StateObject private var userCache = UserCacheManager()
     @State private var showProfile = false
     @State private var showJoinAlbum = false
+    @State private var sortMode: SortMode = .newest
+    
+    enum SortMode: String, CaseIterable {
+        case newest = "En Yeni"
+        case oldest = "En Eski"
+        case alphabetical = "A-Z"
+        case mostMembers = "Çok Üyeli"
+        case myAlbums = "Sahip Olduklarım"
+        
+        var icon: String {
+            switch self {
+            case .newest: return "clock"
+            case .oldest: return "clock.arrow.circlepath"
+            case .alphabetical: return "textformat.abc"
+            case .mostMembers: return "person.3"
+            case .myAlbums: return "crown"
+            }
+        }
+    }
+
+    var sortedAlbums: [Album] {
+        let currentUID = di.authRepo.uid ?? ""
+        
+        switch sortMode {
+        case .newest:
+            return vm.albums.sorted { $0.updatedAt > $1.updatedAt }
+        case .oldest:
+            return vm.albums.sorted { $0.updatedAt < $1.updatedAt }
+        case .alphabetical:
+            return vm.albums.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        case .mostMembers:
+            return vm.albums.sorted { $0.members.count > $1.members.count }
+        case .myAlbums:
+            return vm.albums.filter { $0.isOwner(currentUID) } + vm.albums.filter { !$0.isOwner(currentUID) }
+        }
+    }
 
     var body: some View {
         List {
-            ForEach(vm.albums, id: \.id) { album in
+            ForEach(sortedAlbums, id: \.id) { album in
                 NavigationLink {
                     AlbumDetailView(album: album, di: di)
                 } label: {
-                    CleanAlbumRow(album: album, currentUserId: di.authRepo.uid)
+                    EnhancedAlbumRow(
+                        album: album,
+                        currentUserId: di.authRepo.uid,
+                        userCache: userCache,
+                        userService: FirestoreUserService()
+                    )
                 }
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
@@ -22,34 +64,60 @@ struct AlbumsView: View {
         }
         .listStyle(.plain)
         .navigationTitle("Albums")
-        .toolbar {
+        .navigationBarTitleDisplayMode(.automatic)
+        .toolbar(content: {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button(action: { showProfile = true }) {
-                    Image(systemName: "person.crop.circle")
-                        .font(.title2)
+                    ProfilePhotoButton(user: appState.currentUser)
                 }
             }
             
-            // Sağ taraftaki butonlar - Menu içinde
             ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-                    Button {
-                        vm.showCreate = true
+                HStack(spacing: 16) {
+                    // Sort Menu
+                    Menu {
+                        ForEach(SortMode.allCases, id: \.self) { mode in
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    sortMode = mode
+                                }
+                            } label: {
+                                HStack {
+                                    Image(systemName: mode.icon)
+                                    Text(mode.rawValue)
+                                    Spacer()
+                                    if sortMode == mode {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(.blue)
+                                    }
+                                }
+                            }
+                        }
                     } label: {
-                        Label("Yeni Albüm", systemImage: "plus")
+                        Image(systemName: "arrow.up.arrow.down")
+                            .font(.body)
                     }
                     
-                    Button {
-                        showJoinAlbum = true
+                    // Add Menu
+                    Menu {
+                        Button {
+                            vm.showCreate = true
+                        } label: {
+                            Label("Yeni Albüm", systemImage: "plus")
+                        }
+                        
+                        Button {
+                            showJoinAlbum = true
+                        } label: {
+                            Label("Albüme Katıl", systemImage: "person.badge.plus")
+                        }
                     } label: {
-                        Label("Albüme Katıl", systemImage: "person.badge.plus")
+                        Image(systemName: "plus")
+                            .font(.body)
                     }
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.title2)
                 }
             }
-        }
+        })
         .sheet(isPresented: $vm.showCreate) {
             CreateAlbumSheet(vm: vm)
         }
@@ -68,7 +136,6 @@ struct AlbumsView: View {
                     profileVM.setSessionViewModel(sessionVM)
                 }
         }
-        // Deep link handling
         .onOpenURL { url in
             print("AlbumsView: Received deep link: \(url)")
             deepLinkHandler.handleURL(url)
@@ -81,11 +148,258 @@ struct AlbumsView: View {
         }
         .task {
             vm.start()
-            
-            // GEÇİCİ: İlk açılışta migration çalıştır
-            Task {
-                await di.albumRepo.migrateOldAlbums()
+            await di.albumRepo.migrateOldAlbums()
+        }
+    }
+}
+
+// MARK: - Profile Photo Button
+struct ProfilePhotoButton: View {
+    let user: User?
+    
+    var body: some View {
+        Group {
+            if let photoURL = user?.photoURL, !photoURL.isEmpty {
+                AsyncImage(url: URL(string: photoURL)) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    defaultAvatar
+                }
+                .frame(width: 32, height: 32)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(.gray.opacity(0.3), lineWidth: 1))
+            } else {
+                defaultAvatar
             }
+        }
+    }
+    
+    private var defaultAvatar: some View {
+        Image(systemName: "person.crop.circle")
+            .font(.title2)
+            .foregroundStyle(.blue)
+    }
+}
+
+// MARK: - Enhanced Album Row with Owner Photo
+struct EnhancedAlbumRow: View {
+    let album: Album
+    let currentUserId: String?
+    @StateObject var userCache: UserCacheManager
+    let userService: UserProviding
+    
+    @State private var ownerUser: User?
+    @State private var isLoadingOwner = false
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Album Owner's Profile Photo
+            VStack {
+                if let ownerUser = ownerUser {
+                    UserProfilePhoto(user: ownerUser, size: 44)
+                } else if isLoadingOwner {
+                    Circle()
+                        .fill(.gray.opacity(0.2))
+                        .frame(width: 44, height: 44)
+                        .overlay {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                        }
+                } else {
+                    Circle()
+                        .fill(.blue.gradient)
+                        .frame(width: 44, height: 44)
+                        .overlay {
+                            Image(systemName: "person.crop.circle")
+                                .foregroundStyle(.white)
+                                .font(.title3)
+                        }
+                }
+            }
+            
+            // Album Info
+            VStack(alignment: .leading, spacing: 2) {
+                Text(album.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                
+                HStack(spacing: 6) {
+                    // Owner name or member count
+                    if let ownerUser = ownerUser, !ownerUser.displayName.isNilOrEmpty {
+                        Text(ownerUser.displayName ?? "İsimsiz")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        HStack(spacing: 4) {
+                            Image(systemName: "person.2")
+                                .font(.caption)
+                            Text("\(album.members.count)")
+                                .font(.caption)
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    // Owner badge (if applicable)
+                    if album.isOwner(currentUserId ?? "") {
+                        HStack(spacing: 2) {
+                            Image(systemName: "crown.fill")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                    
+                    // Simple time
+                    Text(simpleTimeText(album.updatedAt))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.clear)
+        )
+        .contentShape(Rectangle())
+        .task {
+            await loadOwnerInfo()
+        }
+    }
+    
+    private func loadOwnerInfo() async {
+        if let cachedOwner = userCache.getUser(uid: album.ownerId) {
+            ownerUser = cachedOwner
+            return
+        }
+        
+        isLoadingOwner = true
+        
+        do {
+            let owner = try await userService.getUser(uid: album.ownerId)
+            
+            await MainActor.run {
+                ownerUser = owner
+                isLoadingOwner = false
+                
+                if let owner = owner {
+                    userCache.setUser(owner)
+                }
+            }
+        } catch {
+            await MainActor.run {
+                isLoadingOwner = false
+                print("Failed to load owner info: \(error)")
+            }
+        }
+    }
+    
+    private func simpleTimeText(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        if calendar.isDateInToday(date) {
+            return "Bugün"
+        } else if calendar.isDateInYesterday(date) {
+            return "Dün"
+        } else if calendar.dateInterval(of: .weekOfYear, for: now)?.contains(date) == true {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEEE"
+            formatter.locale = Locale(identifier: "tr_TR")
+            return formatter.string(from: date)
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .short
+            formatter.locale = Locale(identifier: "tr_TR")
+            return formatter.string(from: date)
+        }
+    }
+}
+
+// MARK: - User Profile Photo Component
+struct UserProfilePhoto: View {
+    let user: User
+    let size: CGFloat
+    
+    var body: some View {
+        Group {
+            if let photoURL = user.photoURL, !photoURL.isEmpty {
+                AsyncImage(url: URL(string: photoURL)) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    defaultAvatar
+                }
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(.gray.opacity(0.2), lineWidth: 1))
+            } else {
+                defaultAvatar
+            }
+        }
+    }
+    
+    private var defaultAvatar: some View {
+        Circle()
+            .fill(.blue.gradient)
+            .frame(width: size, height: size)
+            .overlay {
+                Text(user.initials)
+                    .font(.system(size: size * 0.4, weight: .medium))
+                    .foregroundStyle(.white)
+            }
+    }
+}
+
+// MARK: - User Cache Manager
+final class UserCacheManager: ObservableObject {
+    private var cache: [String: User] = [:]
+    
+    func getUser(uid: String) -> User? {
+        return cache[uid]
+    }
+    
+    func setUser(_ user: User) {
+        cache[user.uid] = user
+    }
+    
+    func clearCache() {
+        cache.removeAll()
+    }
+}
+
+// MARK: - Extensions
+extension String {
+    var isNilOrEmpty: Bool {
+        return self.isEmpty
+    }
+}
+
+extension Optional where Wrapped == String {
+    var isNilOrEmpty: Bool {
+        return self?.isEmpty ?? true
+    }
+}
+
+extension User {
+    var initials: String {
+        let name = displayName ?? email
+        let components = name.components(separatedBy: .whitespaces)
+        
+        if components.count >= 2 {
+            let first = String(components[0].prefix(1)).uppercased()
+            let last = String(components[1].prefix(1)).uppercased()
+            return first + last
+        } else if let first = components.first, !first.isEmpty {
+            return String(first.prefix(2)).uppercased()
+        } else {
+            return "U"
         }
     }
 }
@@ -138,84 +452,6 @@ struct CreateAlbumSheet: View {
             if !isShowing {
                 dismiss()
             }
-        }
-    }
-}
-
-// MARK: - Clean Album Row
-struct CleanAlbumRow: View {
-    let album: Album
-    let currentUserId: String?
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Minimal Album Icon
-            Circle()
-                .fill(.blue.gradient)
-                .frame(width: 44, height: 44)
-                .overlay {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .foregroundStyle(.white)
-                        .font(.title3)
-                }
-            
-            // Album Info
-            VStack(alignment: .leading, spacing: 2) {
-                Text(album.title)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                
-                HStack(spacing: 6) {
-                    // Member count with icon
-                    Image(systemName: "person.2")
-                        .font(.caption)
-                    Text("\(album.members.count)")
-                        .font(.caption)
-                    
-                    // Owner badge (if applicable)
-                    if album.isOwner(currentUserId ?? "") {
-                        Image(systemName: "crown.fill")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
-                    
-                    Spacer()
-                    
-                    // Simple time
-                    Text(simpleTimeText(album.createdAt))
-                        .font(.caption)
-                }
-                .foregroundStyle(.secondary)
-            }
-            
-            Spacer()
-        }
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.clear)
-        )
-        .contentShape(Rectangle())
-    }
-    
-    private func simpleTimeText(_ date: Date) -> String {
-        let calendar = Calendar.current
-        let now = Date()
-        
-        if calendar.isDateInToday(date) {
-            return "Bugün"
-        } else if calendar.isDateInYesterday(date) {
-            return "Dün"
-        } else if calendar.dateInterval(of: .weekOfYear, for: now)?.contains(date) == true {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "EEEE"
-            formatter.locale = Locale(identifier: "tr_TR")
-            return formatter.string(from: date)
-        } else {
-            let formatter = DateFormatter()
-            formatter.dateStyle = .short
-            formatter.locale = Locale(identifier: "tr_TR")
-            return formatter.string(from: date)
         }
     }
 }

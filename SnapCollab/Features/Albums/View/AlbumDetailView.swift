@@ -17,111 +17,113 @@ struct AlbumDetailView: View {
     }
 
     var body: some View {
-        MediaGridView(vm: vm)
-            .navigationTitle(album.title)
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        // Albüm Bilgileri
-                        Label("\(album.members.count) üye", systemImage: "person.3")
-                        
-                        Divider()
-                        
-                        // Sahip için özel aksiyonlar
-                        if album.isOwner(di.authRepo.uid ?? "") {
-                            Button(action: { showRenameSheet = true }) {
-                                Label("Albüm Adını Değiştir", systemImage: "pencil")
-                            }
-                            
-                            Button(role: .destructive, action: { showDeleteAlert = true }) {
-                                Label("Albümü Sil", systemImage: "trash")
-                            }
-                            
-                            Divider()
+        VStack(spacing: 0) {
+            MediaGridView(vm: vm)
+        }
+        .navigationTitle(album.title)
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    // Albüm Bilgileri
+                    Label("\(album.members.count) üye", systemImage: "person.3")
+                    
+                    Divider()
+                    
+                    // Sahip için özel aksiyonlar
+                    if album.isOwner(di.authRepo.uid ?? "") {
+                        Button(action: { showRenameSheet = true }) {
+                            Label("Albüm Adını Değiştir", systemImage: "pencil")
                         }
                         
-                        // Davet Et - Tüm üyeler için
-                        if album.isMember(di.authRepo.uid ?? "") {
-                            if let inviteCode = album.inviteCode {
-                                Button(action: { showInviteSheet = true }) {
-                                    Label("Davet Et", systemImage: "person.badge.plus")
-                                }
-                            }
+                        Button(role: .destructive, action: { showDeleteAlert = true }) {
+                            Label("Albümü Sil", systemImage: "trash")
                         }
                         
                         Divider()
-                        
-                        // Üyelik durumu
-                        if album.isOwner(di.authRepo.uid ?? "") {
-                            Label("Albüm Sahibi", systemImage: "crown.fill")
-                        } else if album.isMember(di.authRepo.uid ?? "") {
-                            Button(role: .destructive, action: { showLeaveAlert = true }) {
-                                Label("Albümden Ayrıl", systemImage: "person.badge.minus")
+                    }
+                    
+                    // Davet Et - Tüm üyeler için
+                    if album.isMember(di.authRepo.uid ?? "") {
+                        if let inviteCode = album.inviteCode {
+                            Button(action: { showInviteSheet = true }) {
+                                Label("Davet Et", systemImage: "person.badge.plus")
                             }
                         }
-                        
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.title2)
                     }
-                }
-                
-                // Üye sayısı göstergesi
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "person.3.fill")
-                            .font(.caption)
-                        Text("\(album.members.count)")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.blue.opacity(0.1))
-                    .foregroundStyle(.blue)
-                    .clipShape(Capsule())
-                }
-            }
-            .sheet(isPresented: $showInviteSheet) {
-                InviteCodeView(album: album)
-            }
-            .sheet(isPresented: $showRenameSheet) {
-                AlbumRenameSheet(album: album, albumRepo: di.albumRepo)
-            }
-            .alert("Albümden Ayrıl", isPresented: $showLeaveAlert) {
-                Button("İptal", role: .cancel) { }
-                Button("Ayrıl", role: .destructive) {
-                    Task { await leaveAlbum() }
-                }
-            } message: {
-                Text("Bu albümden ayrılmak istediğinizden emin misiniz?")
-            }
-            .alert("Albümü Sil", isPresented: $showDeleteAlert) {
-                Button("İptal", role: .cancel) { }
-                Button("Sil", role: .destructive) {
-                    Task { await deleteAlbum() }
-                }
-            } message: {
-                Text("Bu albümü kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
-            }
-            .disabled(isDeleting)
-            .overlay {
-                if isDeleting {
-                    Color.black.opacity(0.3)
-                        .overlay {
-                            VStack(spacing: 16) {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                    .scaleEffect(1.2)
-                                Text("Albüm siliniyor...")
-                                    .foregroundStyle(.white)
-                                    .font(.caption)
-                            }
+                    
+                    Divider()
+                    
+                    // Üyelik durumu
+                    if album.isOwner(di.authRepo.uid ?? "") {
+                        Label("Albüm Sahibi", systemImage: "crown.fill")
+                    } else if album.isMember(di.authRepo.uid ?? "") {
+                        Button(role: .destructive, action: { showLeaveAlert = true }) {
+                            Label("Albümden Ayrıl", systemImage: "person.badge.minus")
                         }
-                        .ignoresSafeArea()
+                    }
+                    
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title2)
                 }
             }
+            
+            // Üye sayısı göstergesi
+            ToolbarItem(placement: .navigationBarTrailing) {
+                HStack(spacing: 4) {
+                    Image(systemName: "person.3.fill")
+                        .font(.caption)
+                    Text("\(album.members.count)")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(.blue.opacity(0.1))
+                .foregroundStyle(.blue)
+                .clipShape(Capsule())
+            }
+        }
+        .sheet(isPresented: $showInviteSheet) {
+            InviteCodeView(album: album)
+        }
+        .sheet(isPresented: $showRenameSheet) {
+            AlbumRenameSheet(album: album, albumRepo: di.albumRepo)
+        }
+        .alert("Albümden Ayrıl", isPresented: $showLeaveAlert) {
+            Button("İptal", role: .cancel) { }
+            Button("Ayrıl", role: .destructive) {
+                Task { await leaveAlbum() }
+            }
+        } message: {
+            Text("Bu albümden ayrılmak istediğinizden emin misiniz?")
+        }
+        .alert("Albümü Sil", isPresented: $showDeleteAlert) {
+            Button("İptal", role: .cancel) { }
+            Button("Sil", role: .destructive) {
+                Task { await deleteAlbum() }
+            }
+        } message: {
+            Text("Bu albümü kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
+        }
+        .disabled(isDeleting)
+        .overlay {
+            if isDeleting {
+                Color.black.opacity(0.3)
+                    .overlay {
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(1.2)
+                            Text("Albüm siliniyor...")
+                                .foregroundStyle(.white)
+                                .font(.caption)
+                        }
+                    }
+                    .ignoresSafeArea()
+            }
+        }
     }
     
     private func leaveAlbum() async {
@@ -144,14 +146,12 @@ struct AlbumDetailView: View {
             try await di.albumRepo.deleteAlbum(albumId)
             print("Successfully deleted album")
             
-            // Ana sayfaya geri dön
             await MainActor.run {
                 dismiss()
             }
             
         } catch {
             print("Error deleting album: \(error)")
-            // Hata toast'ı gösterilebilir
         }
         
         isDeleting = false
