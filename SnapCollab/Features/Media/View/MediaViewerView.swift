@@ -20,8 +20,14 @@ struct MediaViewerView: View {
     @State private var uiTimer: Timer?
 
     private var currentItem: MediaItem {
-        guard currentIndex < vm.items.count else { return initialItem }
-        return vm.items[currentIndex]
+        // Use filteredItems instead of items to respect current filter
+        guard currentIndex < vm.filteredItems.count else { return initialItem }
+        return vm.filteredItems[currentIndex]
+    }
+    
+    private var isFavorite: Bool {
+        guard let itemId = currentItem.id else { return false }
+        return vm.isFavorite(itemId)
     }
 
     var body: some View {
@@ -30,7 +36,7 @@ struct MediaViewerView: View {
             
             // Main Image Pager
             TabView(selection: $currentIndex) {
-                ForEach(Array(vm.items.enumerated()), id: \.element.id) { index, item in
+                ForEach(Array(vm.filteredItems.enumerated()), id: \.element.id) { index, item in
                     MediaImageView(
                         vm: vm,
                         item: item,
@@ -45,8 +51,8 @@ struct MediaViewerView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .onAppear {
-                // Find initial item index
-                if let index = vm.items.firstIndex(where: { $0.id == initialItem.id }) {
+                // Find initial item index in filtered items
+                if let index = vm.filteredItems.firstIndex(where: { $0.id == initialItem.id }) {
                     currentIndex = index
                 }
                 loadCurrentImage()
@@ -70,7 +76,7 @@ struct MediaViewerView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "photo")
                                 .font(.caption)
-                            Text("\(currentIndex + 1) of \(vm.items.count)")
+                            Text("\(currentIndex + 1) of \(vm.filteredItems.count)")
                                 .font(.caption)
                                 .fontWeight(.medium)
                         }
@@ -88,11 +94,30 @@ struct MediaViewerView: View {
                         // Action buttons with modern glass effect
                         if loadedImages[currentItem.id ?? ""] != nil {
                             HStack(spacing: 8) {
+                                // Favorite button
+                                Button(action: toggleFavorite) {
+                                    Image(systemName: isFavorite ? "heart.fill" : "heart")
+                                        .font(.title3)
+                                        .foregroundColor(isFavorite ? .red : .white)
+                                        .frame(width: 40, height: 40)
+                                        .background(
+                                            Circle()
+                                                .fill(.ultraThinMaterial)
+                                                .environment(\.colorScheme, .dark)
+                                        )
+                                }
+                                .scaleEffect(isFavorite ? 1.1 : 1.0)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isFavorite)
+                                
                                 // More menu
                                 Menu {
                                     
                                     Button(action: shareImageDirectly) {
                                         Label("Paylaş", systemImage: "square.and.arrow.up")
+                                    }
+                                    
+                                    Button(action: saveToPhotos) {
+                                        Label("Galeriye Kaydet", systemImage: "arrow.down.to.line")
                                     }
                                     
                                     if canDeletePhoto {
@@ -113,20 +138,6 @@ struct MediaViewerView: View {
                                                 .environment(\.colorScheme, .dark)
                                         )
                                 }
-                                
-                                // Download
-                                Button(action: saveToPhotos) {
-                                    Image(systemName: "arrow.down.to.line")
-                                        .font(.title3)
-                                        .foregroundColor(.white)
-                                        .frame(width: 40, height: 40)
-                                        .background(
-                                            Circle()
-                                                .fill(.ultraThinMaterial)
-                                                .environment(\.colorScheme, .dark)
-                                        )
-                                }
-                                
                             }
                             .disabled(isDeleting)
                         }
@@ -140,38 +151,87 @@ struct MediaViewerView: View {
             }
             
             // Bottom UI Bar
-            if showUI && vm.items.count > 1 {
+            if showUI && vm.filteredItems.count > 1 {
                 VStack {
                     Spacer()
                     
-                    // Thumbnail strip
-                    ScrollViewReader { proxy in
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            LazyHStack(spacing: 8) {
-                                ForEach(Array(vm.items.enumerated()), id: \.element.id) { index, item in
-                                    ThumbnailView(vm: vm, item: item, isSelected: index == currentIndex)
-                                        .onTapGesture {
-                                            withAnimation(.easeInOut(duration: 0.3)) {
-                                                currentIndex = index
-                                            }
+                    // Photo info overlay
+                    VStack(spacing: 8) {
+                        // Uploader info
+                        if let uploaderInfo = getUploaderInfo() {
+                            HStack(spacing: 12) {
+                                // Profile photo
+                                Group {
+                                    if let photoURL = uploaderInfo.photoURL, !photoURL.isEmpty {
+                                        AsyncImage(url: URL(string: photoURL)) { image in
+                                            image
+                                                .resizable()
+                                                .aspectRatio(contentMode: .fill)
+                                        } placeholder: {
+                                            defaultAvatar(for: uploaderInfo)
                                         }
-                                        .id(index)
+                                        .frame(width: 32, height: 32)
+                                        .clipShape(Circle())
+                                        .overlay(Circle().stroke(.white.opacity(0.3), lineWidth: 1))
+                                    } else {
+                                        defaultAvatar(for: uploaderInfo)
+                                    }
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(uploaderInfo.displayName ?? "Bilinmeyen Kullanıcı")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .foregroundStyle(.white)
+                                    
+                                    Text(timeAgoText(currentItem.createdAt))
+                                        .font(.caption2)
+                                        .foregroundStyle(.white.opacity(0.7))
+                                }
+                                
+                                Spacer()
+                                
+                                // Favorite indicator
+                                if isFavorite {
+                                    Image(systemName: "heart.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.red)
                                 }
                             }
                             .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .fill(.ultraThinMaterial)
+                                    .environment(\.colorScheme, .dark)
+                            )
                         }
-                        .onChange(of: currentIndex) { newIndex in
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                proxy.scrollTo(newIndex, anchor: .center)
+                        
+                        // Thumbnail strip
+                        ScrollViewReader { proxy in
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                LazyHStack(spacing: 8) {
+                                    ForEach(Array(vm.filteredItems.enumerated()), id: \.element.id) { index, item in
+                                        ThumbnailView(vm: vm, item: item, isSelected: index == currentIndex)
+                                            .onTapGesture {
+                                                withAnimation(.easeInOut(duration: 0.3)) {
+                                                    currentIndex = index
+                                                }
+                                            }
+                                            .id(index)
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                            }
+                            .onChange(of: currentIndex) { newIndex in
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    proxy.scrollTo(newIndex, anchor: .center)
+                                }
                             }
                         }
+                        .frame(height: 70)
                     }
-                    .frame(height: 70)
-                    .background(
-                        Rectangle()
-                            .fill(.black.opacity(0.8))
-                            .blur(radius: 10)
-                    )
+                    .padding(.bottom, 20)
                 }
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
@@ -248,45 +308,63 @@ struct MediaViewerView: View {
         .disabled(isDeleting)
     }
     
-    private var actionButtons: some View {
-        HStack(spacing: 16) {
-            // Delete button - only for uploader
-            if canDeletePhoto {
-                Button(action: { showDeleteAlert = true }) {
-                    Image(systemName: "trash")
-                        .font(.title2)
-                        .foregroundColor(.red)
-                        .padding(10)
-                        .background(Circle().fill(.black.opacity(0.6)))
-                }
-                .disabled(isDeleting)
-            }
-            
-            Button(action: saveToPhotos) {
-                Image(systemName: "square.and.arrow.down")
-                    .font(.title2)
-                    .foregroundColor(.white)
-                    .padding(10)
-                    .background(Circle().fill(.black.opacity(0.6)))
-            }
-            .disabled(isDeleting)
-            
-            Button(action: shareImageDirectly) {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.title2)
-                    .foregroundColor(.white)
-                    .padding(10)
-                    .background(Circle().fill(.black.opacity(0.6)))
-            }
-            .disabled(isDeleting)
-        }
-    }
-    
     // MARK: - Helper Methods
     
     private var canDeletePhoto: Bool {
         guard let currentUID = vm.auth.uid else { return false }
         return currentItem.uploaderId == currentUID
+    }
+    
+    private func toggleFavorite() {
+        guard let itemId = currentItem.id else { return }
+        
+        vm.toggleFavorite(itemId)
+        
+        let message = vm.isFavorite(itemId) ? "Favorilere eklendi" : "Favorilerden çıkarıldı"
+        showToastMessage(message)
+        
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+    }
+    
+    private func getUploaderInfo() -> User? {
+        return vm.getUser(for: currentItem.uploaderId)
+    }
+    
+    private func defaultAvatar(for user: User) -> some View {
+        Circle()
+            .fill(.blue.gradient)
+            .frame(width: 32, height: 32)
+            .overlay {
+                Text(user.initials)
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.white)
+            }
+    }
+    
+    private func timeAgoText(_ date: Date) -> String {
+        let now = Date()
+        let timeInterval = now.timeIntervalSince(date)
+        
+        if timeInterval < 60 {
+            return "şimdi"
+        } else if timeInterval < 3600 {
+            let minutes = Int(timeInterval / 60)
+            return "\(minutes) dakika önce"
+        } else if timeInterval < 86400 {
+            let hours = Int(timeInterval / 3600)
+            return "\(hours) saat önce"
+        } else if timeInterval < 604800 {
+            let days = Int(timeInterval / 86400)
+            return "\(days) gün önce"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "dd MMMM"
+            formatter.locale = Locale(identifier: "tr_TR")
+            return formatter.string(from: date)
+        }
     }
     
     private func toggleUI() {
@@ -333,15 +411,15 @@ struct MediaViewerView: View {
     private func preloadAdjacentImages() {
         // Preload previous image
         if currentIndex > 0 {
-            let prevItem = vm.items[currentIndex - 1]
+            let prevItem = vm.filteredItems[currentIndex - 1]
             Task {
                 await loadImage(for: prevItem)
             }
         }
         
         // Preload next image
-        if currentIndex < vm.items.count - 1 {
-            let nextItem = vm.items[currentIndex + 1]
+        if currentIndex < vm.filteredItems.count - 1 {
+            let nextItem = vm.filteredItems[currentIndex + 1]
             Task {
                 await loadImage(for: nextItem)
             }
@@ -377,14 +455,14 @@ struct MediaViewerView: View {
                 showToastMessage("Fotoğraf silindi")
                 
                 // If it was the last photo, close viewer
-                if vm.items.count <= 1 {
+                if vm.filteredItems.count <= 1 {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                         onClose()
                     }
                 } else {
                     // Adjust index if needed
-                    if currentIndex >= vm.items.count {
-                        currentIndex = vm.items.count - 1
+                    if currentIndex >= vm.filteredItems.count {
+                        currentIndex = vm.filteredItems.count - 1
                     }
                 }
             }
@@ -536,7 +614,7 @@ struct MediaViewerView: View {
     }
 }
 
-// MARK: - Media Image View
+// MARK: - Media Image View (Unchanged)
 struct MediaImageView: View {
     @ObservedObject var vm: MediaViewModel
     let item: MediaItem
@@ -608,7 +686,7 @@ struct MediaImageView: View {
     }
 }
 
-// MARK: - Thumbnail View
+// MARK: - Thumbnail View (Unchanged)
 struct ThumbnailView: View {
     @ObservedObject var vm: MediaViewModel
     let item: MediaItem

@@ -9,8 +9,35 @@ struct AlbumDetailView: View {
     @State private var showLeaveAlert = false
     @State private var showDeleteAlert = false
     @State private var showRenameSheet = false
-    @State private var showMembersSheet = false // YENİ EKLENEN
+    @State private var showMembersSheet = false
     @State private var isDeleting = false
+    @State private var selectedCategory: MediaCategory = .all
+    @State private var showMediaGrid = false
+
+    enum MediaCategory: String, CaseIterable {
+        case all = "Tümü"
+        case favorites = "Favoriler"
+        case photos = "Fotoğraflar"
+        case videos = "Videolar"
+        
+        var icon: String {
+            switch self {
+            case .all: return "photo.stack"
+            case .favorites: return "heart.fill"
+            case .photos: return "photo"
+            case .videos: return "video"
+            }
+        }
+        
+        var color: Color {
+            switch self {
+            case .all: return .blue
+            case .favorites: return .red
+            case .photos: return .blue
+            case .videos: return .green
+            }
+        }
+    }
 
     init(album: Album, di: DIContainer) {
         self.album = album
@@ -18,8 +45,23 @@ struct AlbumDetailView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            MediaGridView(vm: vm)
+        VStack(spacing: 20) {
+            // Category Grid
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 1), spacing: 16) {
+                ForEach(MediaCategory.allCases, id: \.self) { category in
+                    CategoryCard(
+                        category: category,
+                        count: getCount(for: category),
+                        onTap: {
+                            selectedCategory = category
+                            showMediaGrid = true
+                        }
+                    )
+                }
+            }
+            .padding(.horizontal, 16)
+            
+            Spacer()
         }
         .navigationTitle(album.title)
         .navigationBarTitleDisplayMode(.large)
@@ -70,9 +112,9 @@ struct AlbumDetailView: View {
                 }
             }
             
-            // Üye sayısı göstergesi - ŞİMDİ TIKLANABAR
+            // Üye sayısı göstergesi
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: { showMembersSheet = true }) { // YENİ EKLENEN
+                Button(action: { showMembersSheet = true }) {
                     HStack(spacing: 4) {
                         Image(systemName: "person.3.fill")
                             .font(.caption)
@@ -88,13 +130,41 @@ struct AlbumDetailView: View {
                 }
             }
         }
+        .fullScreenCover(isPresented: $showMediaGrid) {
+            NavigationView {
+                MediaGridView(vm: vm)
+                    .navigationTitle(selectedCategory.rawValue)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button("Kapat") {
+                                showMediaGrid = false
+                                vm.setFilter(.all) // Reset filter
+                            }
+                        }
+                    }
+                    .onAppear {
+                        // Set filter based on selected category
+                        switch selectedCategory {
+                        case .all:
+                            vm.setFilter(.all)
+                        case .favorites:
+                            vm.setFilter(.favorites)
+                        case .photos:
+                            vm.setFilter(.photos)
+                        case .videos:
+                            vm.setFilter(.videos)
+                        }
+                    }
+            }
+        }
         .sheet(isPresented: $showInviteSheet) {
             InviteCodeView(album: album)
         }
         .sheet(isPresented: $showRenameSheet) {
             AlbumRenameSheet(album: album, albumRepo: di.albumRepo)
         }
-        .sheet(isPresented: $showMembersSheet) { // YENİ EKLENEN
+        .sheet(isPresented: $showMembersSheet) {
             AlbumMembersView(album: album, albumRepo: di.albumRepo)
         }
         .alert("Albümden Ayrıl", isPresented: $showLeaveAlert) {
@@ -130,6 +200,20 @@ struct AlbumDetailView: View {
                     .ignoresSafeArea()
             }
         }
+        .task { vm.start() }
+    }
+    
+    private func getCount(for category: MediaCategory) -> Int {
+        switch category {
+        case .all:
+            return vm.items.count
+        case .favorites:
+            return vm.favoritesCount
+        case .photos:
+            return vm.photosCount
+        case .videos:
+            return vm.videosCount
+        }
     }
     
     private func leaveAlbum() async {
@@ -164,7 +248,56 @@ struct AlbumDetailView: View {
     }
 }
 
-// MARK: - Album Members View (YENİ EKLENEN)
+// MARK: - Category Card
+struct CategoryCard: View {
+    let category: AlbumDetailView.MediaCategory
+    let count: Int
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 16) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(category.color.opacity(0.1))
+                        .frame(width: 60, height: 60)
+                    
+                    Image(systemName: category.icon)
+                        .font(.title2)
+                        .foregroundStyle(category.color)
+                }
+                
+                // Content
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(category.rawValue)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    
+                    Text("\(count) öğe")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                // Arrow
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.gray)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemBackground))
+                    .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Album Members View
 struct AlbumMembersView: View {
     let album: Album
     let albumRepo: AlbumRepository
@@ -376,9 +509,6 @@ struct AlbumMembersView: View {
                 // Local listeden de çıkar
                 members.removeAll { $0.uid == user.uid }
                 memberToRemove = nil
-                
-                // Başarı mesajı gösterebiliriz (isteğe bağlı)
-                // showSuccessMessage = true
             }
             
         } catch {

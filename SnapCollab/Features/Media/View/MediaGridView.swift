@@ -11,7 +11,7 @@ struct MediaGridView: View {
         GeometryReader { geometry in
             ScrollView {
                 PinterestGrid(
-                    items: vm.items,
+                    items: vm.filteredItems, // Use filteredItems instead of items
                     spacing: 8,
                     columns: 2,
                     containerWidth: geometry.size.width
@@ -88,6 +88,11 @@ struct MediaGridCard: View {
     @State private var uploaderUser: User?
     @State private var isLoadingUser = false
     
+    private var isFavorite: Bool {
+        guard let itemId = item.id else { return false }
+        return vm.isFavorite(itemId)
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             // Fotoğraf
@@ -104,6 +109,21 @@ struct MediaGridCard: View {
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(.white.opacity(0.1), lineWidth: 0.5)
                 )
+                .overlay(alignment: .topTrailing) {
+                    // Favorite indicator
+                    if isFavorite {
+                        Image(systemName: "heart.fill")
+                            .foregroundStyle(.red)
+                            .font(.caption)
+                            .padding(8)
+                            .background(
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .environment(\.colorScheme, .light)
+                            )
+                            .padding(8)
+                    }
+                }
                 .onTapGesture {
                     onTap()
                 }
@@ -402,5 +422,3 @@ struct PinterestAsyncImageView: View {
         aspectRatio = randomRatios.randomElement() ?? 1.0
     }
 }
-
-
