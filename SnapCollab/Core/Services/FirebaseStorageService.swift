@@ -20,4 +20,9 @@ final class FirebaseStorageService: ImageCaching {
         let ref = storage.reference(withPath: storagePath)
         _ = try await ref.putDataAsync(data)
     }
+    
+    func delete(path: String) async throws {  
+        let ref = storage.reference(withPath: path)
+        try await ref.delete()
+    }
 }

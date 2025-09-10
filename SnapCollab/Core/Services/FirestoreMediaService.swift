@@ -28,4 +28,14 @@ final class FirestoreMediaService: MediaProviding {
         let ref = db.collection("albums").document(albumId).collection("media").document(itemId)
         try ref.setData(from: item, merge: true)
     }
+    
 }
+
+extension FirestoreMediaService {
+    func deleteMedia(albumId: String, itemId: String) async throws {
+        let ref = db.collection("albums").document(albumId).collection("media").document(itemId)
+        try await ref.delete()
+    }
+}
+
+

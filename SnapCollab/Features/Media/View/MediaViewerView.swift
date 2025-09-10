@@ -12,6 +12,8 @@ struct MediaViewerView: View {
     @State private var scale: CGFloat = 1.0
     @State private var toastMessage: String?
     @State private var showToast = false
+    @State private var showDeleteAlert = false  // ← Silme alert'i için
+    @State private var isDeleting = false       // ← Silme işlemi için
 
     var body: some View {
         ZStack {
@@ -53,11 +55,36 @@ struct MediaViewerView: View {
         .gesture(
             DragGesture()
                 .onEnded { value in
-                    if value.translation.height > 100 {
+                    if value.translation.height > 100 && !isDeleting {
                         onClose()
                     }
                 }
         )
+        .alert("Fotoğrafı Sil", isPresented: $showDeleteAlert) {
+            Button("İptal", role: .cancel) { }
+            Button("Sil", role: .destructive) {
+                Task { await deletePhoto() }
+            }
+        } message: {
+            Text("Bu fotoğrafı kalıcı olarak silmek istediğinizden emin misiniz?")
+        }
+        .disabled(isDeleting)
+        .overlay {
+            if isDeleting {
+                Color.black.opacity(0.6)
+                    .overlay {
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(1.5)
+                            Text("Fotoğraf siliniyor...")
+                                .foregroundStyle(.white)
+                                .font(.caption)
+                        }
+                    }
+                    .ignoresSafeArea()
+            }
+        }
     }
     
     private var loadingView: some View {
@@ -121,10 +148,23 @@ struct MediaViewerView: View {
                 .padding(10)
                 .background(Circle().fill(.black.opacity(0.6)))
         }
+        .disabled(isDeleting)
     }
     
     private var actionButtons: some View {
         HStack(spacing: 16) {
+            // Silme butonu - sadece uploader için
+            if canDeletePhoto {
+                Button(action: { showDeleteAlert = true }) {
+                    Image(systemName: "trash")
+                        .font(.title2)
+                        .foregroundColor(.red)
+                        .padding(10)
+                        .background(Circle().fill(.black.opacity(0.6)))
+                }
+                .disabled(isDeleting)
+            }
+            
             Button(action: saveToPhotos) {
                 Image(systemName: "square.and.arrow.down")
                     .font(.title2)
@@ -132,6 +172,7 @@ struct MediaViewerView: View {
                     .padding(10)
                     .background(Circle().fill(.black.opacity(0.6)))
             }
+            .disabled(isDeleting)
             
             Button(action: shareImageDirectly) {
                 Image(systemName: "square.and.arrow.up")
@@ -140,7 +181,39 @@ struct MediaViewerView: View {
                     .padding(10)
                     .background(Circle().fill(.black.opacity(0.6)))
             }
+            .disabled(isDeleting)
         }
+    }
+    
+    // ← Silme yetkisi kontrolü
+    private var canDeletePhoto: Bool {
+        guard let currentUID = vm.auth.uid else { return false }
+        return item.uploaderId == currentUID
+    }
+    
+    // ← Fotoğraf silme metodu
+    private func deletePhoto() async {
+        isDeleting = true
+        
+        do {
+            try await vm.deletePhoto(item)
+            
+            await MainActor.run {
+                showToastMessage("Fotoğraf silindi")
+                // 1 saniye sonra viewer'ı kapat
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    onClose()
+                }
+            }
+            
+        } catch {
+            await MainActor.run {
+                let errorMsg = (error as? MediaError)?.errorDescription ?? error.localizedDescription
+                showToastMessage("Silme hatası: \(errorMsg)")
+            }
+        }
+        
+        isDeleting = false
     }
     
     private func toastView(_ message: String) -> some View {

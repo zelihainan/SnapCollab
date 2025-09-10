@@ -102,7 +102,6 @@ extension AlbumRepository {
         }
     }
 }
-// AlbumRepository.swift dosyasına eklenecek extension
 
 extension AlbumRepository {
     
@@ -186,6 +185,59 @@ extension AlbumRepository {
         
         return snapshot.documents.compactMap { try? $0.data(as: Album.self) }
     }
+    
+
+    /// Albüm adını güncelleme - sadece sahip yapabilir
+    func updateAlbumTitle(_ albumId: String, newTitle: String) async throws {
+        guard let uid = auth.uid else {
+            throw AlbumError.notAuthenticated
+        }
+        
+        // Albümü al ve yetki kontrol et
+        guard var album = try await getAlbum(by: albumId) else {
+            throw AlbumError.albumNotFound
+        }
+        
+        // Sadece sahip değiştirebilir
+        if !album.isOwner(uid) {
+            throw AlbumError.onlyOwnerCanEdit
+        }
+        
+        // Başlığı güncelle
+        let trimmedTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else {
+            throw AlbumError.invalidTitle
+        }
+        
+        album.title = trimmedTitle
+        album.updatedAt = .now
+        
+        // Mevcut updateAlbum metodunu kullan
+        try await updateAlbum(album)
+        print("AlbumRepo: Album title updated to: \(trimmedTitle)")
+    }
+
+    /// Albümü tamamen silme - sadece sahip yapabilir
+    func deleteAlbum(_ albumId: String) async throws {
+        guard let uid = auth.uid else {
+            throw AlbumError.notAuthenticated
+        }
+        
+        // Albümü al ve yetki kontrol et
+        guard let album = try await getAlbum(by: albumId) else {
+            throw AlbumError.albumNotFound
+        }
+        
+        // Sadece sahip silebilir
+        if !album.isOwner(uid) {
+            throw AlbumError.onlyOwnerCanDelete
+        }
+        
+        // TODO: Albümdeki tüm fotoğrafları da sil (Firebase Storage'dan)
+        // Şimdilik sadece Firestore'dan sil
+        try await service.deleteAlbum(id: albumId)
+        print("AlbumRepo: Album deleted: \(album.title)")
+    }
 }
 
 // MARK: - Album Error Enum
@@ -197,6 +249,10 @@ enum AlbumError: LocalizedError {
     case notMember
     case ownerCannotLeave
     case invalidInviteCode
+    case onlyOwnerCanEdit
+    case onlyOwnerCanDelete
+    case invalidTitle
+    case deleteError
     
     var errorDescription: String? {
         switch self {
@@ -212,6 +268,14 @@ enum AlbumError: LocalizedError {
             return "Albüm sahibi albümü terk edemez"
         case .invalidInviteCode:
             return "Geçersiz davet kodu"
+        case .onlyOwnerCanEdit:
+            return "Sadece albüm sahibi düzenleyebilir"
+        case .onlyOwnerCanDelete:
+            return "Sadece albüm sahibi silebilir"
+        case .invalidTitle:
+            return "Geçerli bir başlık giriniz"
+        case .deleteError:
+            return "Albüm silinirken hata oluştu"
         }
     }
 }

@@ -15,10 +15,11 @@ final class MediaViewModel: ObservableObject {
 
     private let repo: MediaRepository
     private let albumId: String
-
+    let auth: AuthRepository
     init(repo: MediaRepository, albumId: String) {
         self.repo = repo
         self.albumId = albumId
+        self.auth = repo.auth
     }
 
     func start() {
@@ -45,5 +46,10 @@ final class MediaViewModel: ObservableObject {
         } catch {
             return nil
         }
+    }
+    
+    func deletePhoto(_ item: MediaItem) async throws {
+        try await repo.deleteMedia(albumId: albumId, item: item)
+        print("MediaVM: Photo deleted successfully")
     }
 }
