@@ -55,9 +55,8 @@ final class AlbumRepository {
 // AlbumRepository.swift dosyasının sonuna ekle
 
 extension AlbumRepository {
-    // GEÇİCİ: Eski albümleri güncelle
     func migrateOldAlbums() async {
-        print("🔄 Migrating old albums...")
+        print("Migrating old albums...")
         
         guard let uid = auth.uid else { return }
         
@@ -76,7 +75,7 @@ extension AlbumRepository {
                 if data["updatedAt"] == nil {
                     data["updatedAt"] = Timestamp()
                     needsUpdate = true
-                    print("➕ Adding updatedAt to album: \(document.documentID)")
+                    print("Adding updatedAt to album: \(document.documentID)")
                 }
                 
                 // inviteCode yoksa ekle
@@ -85,20 +84,20 @@ extension AlbumRepository {
                     let code = String((0..<6).map { _ in characters.randomElement()! })
                     data["inviteCode"] = code
                     needsUpdate = true
-                    print("➕ Adding inviteCode (\(code)) to album: \(document.documentID)")
+                    print("Adding inviteCode (\(code)) to album: \(document.documentID)")
                 }
                 
                 // Güncelleme gerekiyorsa kaydet
                 if needsUpdate {
                     try await document.reference.updateData(data)
-                    print("✅ Updated album: \(document.documentID)")
+                    print("Updated album: \(document.documentID)")
                 }
             }
             
-            print("🎉 Migration completed!")
+            print("Migration completed!")
             
         } catch {
-            print("❌ Migration error: \(error)")
+            print("Migration error: \(error)")
         }
     }
 }
@@ -240,6 +239,108 @@ extension AlbumRepository {
     }
 }
 
+extension AlbumRepository {
+    
+    /// Albümden üye çıkarma - sadece albüm sahibi yapabilir
+    func removeMemberFromAlbum(_ albumId: String, memberUID: String) async throws {
+        guard let currentUID = auth.uid else {
+            throw AlbumError.notAuthenticated
+        }
+        
+        // Albümü al ve yetki kontrol et
+        guard var album = try await getAlbum(by: albumId) else {
+            throw AlbumError.albumNotFound
+        }
+        
+        // Sadece sahip üye çıkarabilir
+        if !album.isOwner(currentUID) {
+            throw AlbumError.onlyOwnerCanEdit
+        }
+        
+        // Sahip kendini çıkaramaz
+        if album.isOwner(memberUID) {
+            throw AlbumError.cannotRemoveOwner
+        }
+        
+        // Üye kontrol et
+        if !album.isMember(memberUID) {
+            throw AlbumError.notMember
+        }
+        
+        // Üyeyi çıkar
+        album.removeMember(memberUID)
+        
+        // Güncelle
+        try await updateAlbum(album)
+        print("AlbumRepo: Member \(memberUID) removed from album: \(album.title)")
+    }
+    
+    /// Albüm üyelerinin User bilgilerini getir
+    func getAlbumMembers(_ albumId: String) async throws -> [User] {
+        guard let album = try await getAlbum(by: albumId) else {
+            throw AlbumError.albumNotFound
+        }
+        
+        let userService = FirestoreUserService()
+        var members: [User] = []
+        
+        for memberUID in album.members {
+            do {
+                if let user = try await userService.getUser(uid: memberUID) {
+                    members.append(user)
+                } else {
+                    // Kullanıcı bulunamadıysa placeholder oluştur
+                    let placeholderUser = User(uid: memberUID, email: "Bilinmeyen kullanıcı", displayName: "Silinmiş hesap")
+                    members.append(placeholderUser)
+                }
+            } catch {
+                print("Error loading user \(memberUID): \(error)")
+                // Hata durumunda placeholder ekle
+                let placeholderUser = User(uid: memberUID, email: "Bilinmeyen kullanıcı", displayName: "Silinmiş hesap")
+                members.append(placeholderUser)
+            }
+        }
+        
+        return members
+    }
+    
+    /// Belirli bir üyenin albümü görme yetkisi var mı kontrol et
+    func canViewAlbum(_ albumId: String, userUID: String) async throws -> Bool {
+        guard let album = try await getAlbum(by: albumId) else {
+            return false
+        }
+        
+        return album.isMember(userUID)
+    }
+    
+    /// Albümün istatistiklerini getir
+    func getAlbumStats(_ albumId: String) async throws -> AlbumStats {
+        guard let album = try await getAlbum(by: albumId) else {
+            throw AlbumError.albumNotFound
+        }
+        
+        // Medya sayısını hesapla (MediaRepository kullanarak)
+        // Bu kısım isteğe bağlı - şimdilik basit tutuyoruz
+        
+        return AlbumStats(
+            memberCount: album.members.count,
+            createdDate: album.createdAt,
+            lastUpdated: album.updatedAt
+        )
+    }
+}
+
+// MARK: - Album Stats Model
+struct AlbumStats {
+    let memberCount: Int
+    let createdDate: Date
+    let lastUpdated: Date
+    // İleride eklenebilecek diğer istatistikler:
+    // let mediaCount: Int
+    // let totalSize: Int64
+    // let lastPhotoDate: Date?
+}
+
 // MARK: - Album Error Enum
 
 enum AlbumError: LocalizedError {
@@ -253,6 +354,7 @@ enum AlbumError: LocalizedError {
     case onlyOwnerCanDelete
     case invalidTitle
     case deleteError
+    case cannotRemoveOwner
     
     var errorDescription: String? {
         switch self {
@@ -260,6 +362,8 @@ enum AlbumError: LocalizedError {
             return "Giriş yapmanız gerekiyor"
         case .albumNotFound:
             return "Albüm bulunamadı"
+        case .cannotRemoveOwner:
+            return "Albüm sahibi çıkarılamaz"
         case .alreadyMember:
             return "Bu albümün zaten üyesisiniz"
         case .notMember:
