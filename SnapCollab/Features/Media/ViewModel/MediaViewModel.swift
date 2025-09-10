@@ -16,6 +16,10 @@ final class MediaViewModel: ObservableObject {
     private let repo: MediaRepository
     private let albumId: String
     let auth: AuthRepository
+    
+    // MARK: - User Cache (YENİ EKLENEN)
+    private var userCache: [String: User] = [:]
+    
     init(repo: MediaRepository, albumId: String) {
         self.repo = repo
         self.albumId = albumId
@@ -26,6 +30,8 @@ final class MediaViewModel: ObservableObject {
         Task {
             for await list in repo.observe(albumId: albumId) {
                 self.items = list
+                // Yeni gelen fotoğrafların kullanıcı bilgilerini preload et
+                await preloadUserInfo(for: list)
             }
         }
     }
@@ -52,7 +58,52 @@ final class MediaViewModel: ObservableObject {
         try await repo.deleteMedia(albumId: albumId, item: item)
         print("MediaVM: Photo deleted successfully")
     }
+    
+    // MARK: - User Cache Methods (YENİ EKLENEN)
+    
+    /// Cache'den kullanıcı bilgisini al
+    func getUser(for userId: String) -> User? {
+        return userCache[userId]
+    }
+    
+    /// Kullanıcıyı cache'le
+    func cacheUser(_ user: User?, for userId: String) {
+        userCache[userId] = user
+    }
+    
+    /// Cache'i temizle (memory yönetimi için)
+    func clearUserCache() {
+        userCache.removeAll()
+    }
+    
+    /// Yeni gelen medya itemların kullanıcı bilgilerini preload et
+    private func preloadUserInfo(for items: [MediaItem]) async {
+        let uniqueUploaderIds = Set(items.map { $0.uploaderId })
+        
+        for uploaderId in uniqueUploaderIds {
+            // Cache'de yoksa yükle
+            if userCache[uploaderId] == nil {
+                await loadUserInfo(for: uploaderId)
+            }
+        }
+    }
+    
+    /// Specific bir kullanıcı ID için bilgiyi yükle ve cache'le
+    private func loadUserInfo(for userId: String) async {
+        guard userCache[userId] == nil else { return } // Zaten cache'de varsa yükleme
+        
+        do {
+            let userService = FirestoreUserService()
+            let user = try await userService.getUser(uid: userId)
+            await MainActor.run {
+                userCache[userId] = user
+            }
+        } catch {
+            print("Failed to load user info for \(userId): \(error)")
+        }
+    }
 }
+
 // MARK: - Date Grouping Extension
 extension MediaViewModel {
     var groupedByDate: [(key: String, value: [MediaItem])] {
@@ -112,4 +163,3 @@ extension MediaViewModel {
         return (total: items.count, today: today, thisWeek: thisWeek, thisMonth: thisMonth)
     }
 }
-

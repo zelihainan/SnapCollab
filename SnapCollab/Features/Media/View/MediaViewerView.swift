@@ -60,29 +60,79 @@ struct MediaViewerView: View {
             // Top UI Bar
             if showUI {
                 VStack {
+                    // Top bar
                     HStack {
                         closeButton
                         
                         Spacer()
                         
-                        // Image counter
-                        Text("\(currentIndex + 1) / \(vm.items.count)")
-                            .foregroundStyle(.white)
-                            .font(.caption)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule()
-                                    .fill(.black.opacity(0.6))
-                            )
+                        // Image counter with modern design
+                        HStack(spacing: 4) {
+                            Image(systemName: "photo")
+                                .font(.caption)
+                            Text("\(currentIndex + 1) of \(vm.items.count)")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(.ultraThinMaterial)
+                                .environment(\.colorScheme, .dark)
+                        )
                         
                         Spacer()
                         
+                        // Action buttons with modern glass effect
                         if loadedImages[currentItem.id ?? ""] != nil {
-                            actionButtons
+                            HStack(spacing: 8) {
+                                // More menu
+                                Menu {
+                                    
+                                    Button(action: shareImageDirectly) {
+                                        Label("Paylaş", systemImage: "square.and.arrow.up")
+                                    }
+                                    
+                                    if canDeletePhoto {
+                                        Divider()
+                                        Button(role: .destructive, action: { showDeleteAlert = true }) {
+                                            Label("Sil", systemImage: "trash")
+                                        }
+                                    }
+                                    
+                                } label: {
+                                    Image(systemName: "ellipsis")
+                                        .font(.title3)
+                                        .foregroundColor(.white)
+                                        .frame(width: 40, height: 40)
+                                        .background(
+                                            Circle()
+                                                .fill(.ultraThinMaterial)
+                                                .environment(\.colorScheme, .dark)
+                                        )
+                                }
+                                
+                                // Download
+                                Button(action: saveToPhotos) {
+                                    Image(systemName: "arrow.down.to.line")
+                                        .font(.title3)
+                                        .foregroundColor(.white)
+                                        .frame(width: 40, height: 40)
+                                        .background(
+                                            Circle()
+                                                .fill(.ultraThinMaterial)
+                                                .environment(\.colorScheme, .dark)
+                                        )
+                                }
+                                
+                            }
+                            .disabled(isDeleting)
                         }
                     }
-                    .padding()
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
                     
                     Spacer()
                 }

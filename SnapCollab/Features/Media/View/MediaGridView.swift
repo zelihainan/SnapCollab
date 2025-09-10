@@ -85,28 +85,165 @@ struct MediaGridCard: View {
     @ObservedObject var vm: MediaViewModel
     let item: MediaItem
     let onTap: () -> Void
+    @State private var uploaderUser: User?
+    @State private var isLoadingUser = false
     
     var body: some View {
-        AsyncImageView(pathProvider: { await vm.imageURL(for: item) })
-            .aspectRatio(contentMode: .fit)
-            .cornerRadius(12)
-            .shadow(
-                color: .black.opacity(0.08),
-                radius: 4,
-                x: 0,
-                y: 2
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(.white.opacity(0.1), lineWidth: 0.5)
-            )
-            .onTapGesture {
-                onTap()
+        VStack(spacing: 0) {
+            // Fotoğraf
+            AsyncImageView(pathProvider: { await vm.imageURL(for: item) })
+                .aspectRatio(contentMode: .fit)
+                .cornerRadius(12)
+                .shadow(
+                    color: .black.opacity(0.08),
+                    radius: 4,
+                    x: 0,
+                    y: 2
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(.white.opacity(0.1), lineWidth: 0.5)
+                )
+                .onTapGesture {
+                    onTap()
+                }
+                .hoverEffect(.lift) // iOS 17+ hover effect
+            
+            // Kullanıcı bilgisi footer
+            HStack(spacing: 8) {
+                // Profil fotoğrafı
+                Group {
+                    if isLoadingUser {
+                        Circle()
+                            .fill(.secondary.opacity(0.3))
+                            .frame(width: 24, height: 24)
+                            .overlay {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                            }
+                    } else if let photoURL = uploaderUser?.photoURL, !photoURL.isEmpty {
+                        AsyncImage(url: URL(string: photoURL)) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            defaultAvatar
+                        }
+                        .frame(width: 24, height: 24)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(.white.opacity(0.3), lineWidth: 0.5))
+                    } else {
+                        defaultAvatar
+                    }
+                }
+                
+                // İsim ve zaman
+                VStack(alignment: .leading, spacing: 2) {
+                    if isLoadingUser {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(.secondary.opacity(0.3))
+                            .frame(width: 60, height: 10)
+                    } else {
+                        Text(uploaderUser?.displayName ?? "Bilinmeyen Kullanıcı")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                    }
+                    
+                    Text(timeAgoText(item.createdAt))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                
+                Spacer(minLength: 0)
             }
-            .hoverEffect(.lift) // iOS 17+ hover effect
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(.ultraThinMaterial)
+            )
+            .padding(.top, 4)
+        }
+        .onAppear {
+            loadUploaderInfo()
+        }
+    }
+    
+    // MARK: - Helper Views
+    
+    private var defaultAvatar: some View {
+        Circle()
+            .fill(.blue.gradient)
+            .frame(width: 24, height: 24)
+            .overlay {
+                Text(uploaderUser?.initials ?? "?")
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.white)
+            }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func loadUploaderInfo() {
+        // Önce cache'den kontrol et (eğer MediaViewModel'de cache varsa)
+        if let cachedUser = vm.getUser(for: item.uploaderId) {
+            uploaderUser = cachedUser
+            return
+        }
+        
+        // Cache'de yoksa yükle
+        guard !isLoadingUser else { return }
+        isLoadingUser = true
+        
+        Task {
+            do {
+                let userService = FirestoreUserService()
+                let user = try await userService.getUser(uid: item.uploaderId)
+                
+                await MainActor.run {
+                    uploaderUser = user
+                    isLoadingUser = false
+                    
+                    // MediaViewModel'de cache varsa orada da sakla
+                    vm.cacheUser(user, for: item.uploaderId)
+                }
+            } catch {
+                print("Failed to load uploader info: \(error)")
+                await MainActor.run {
+                    isLoadingUser = false
+                }
+            }
+        }
+    }
+    
+    private func timeAgoText(_ date: Date) -> String {
+        let now = Date()
+        let timeInterval = now.timeIntervalSince(date)
+        
+        if timeInterval < 60 {
+            return "şimdi"
+        } else if timeInterval < 3600 {
+            let minutes = Int(timeInterval / 60)
+            return "\(minutes)dk"
+        } else if timeInterval < 86400 {
+            let hours = Int(timeInterval / 3600)
+            return "\(hours)sa"
+        } else if timeInterval < 604800 {
+            let days = Int(timeInterval / 86400)
+            return "\(days)g"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "dd.MM"
+            formatter.locale = Locale(identifier: "tr_TR")
+            return formatter.string(from: date)
+        }
     }
 }
 
+// MARK: - Pinterest Grid
 struct PinterestGrid<Item: Identifiable, Content: View>: View {
     let items: [Item]
     let spacing: CGFloat
@@ -145,7 +282,7 @@ struct PinterestGrid<Item: Identifiable, Content: View>: View {
     }
 }
 
-// Alternative: Dynamic height Pinterest grid
+// MARK: - Dynamic Pinterest Grid (Alternative)
 struct DynamicPinterestGrid<Item: Identifiable, Content: View>: View {
     let items: [Item]
     let spacing: CGFloat
@@ -190,7 +327,7 @@ struct DynamicPinterestGrid<Item: Identifiable, Content: View>: View {
     }
 }
 
-// Enhanced AsyncImageView for Pinterest layout
+// MARK: - Pinterest AsyncImageView
 struct PinterestAsyncImageView: View {
     let pathProvider: () async -> URL?
     @State private var url: URL?
@@ -265,3 +402,5 @@ struct PinterestAsyncImageView: View {
         aspectRatio = randomRatios.randomElement() ?? 1.0
     }
 }
+
+
