@@ -20,9 +20,13 @@ struct MediaViewerView: View {
     @State private var uiTimer: Timer?
 
     private var currentItem: MediaItem {
-        // Use filteredItems instead of items to respect current filter
-        guard currentIndex < vm.filteredItems.count else { return initialItem }
-        return vm.filteredItems[currentIndex]
+        if currentIndex < vm.filteredItems.count {
+            return vm.filteredItems[currentIndex]
+        } else if let item = vm.items.first(where: { $0.id == initialItem.id }) {
+            return item
+        } else {
+            return initialItem
+        }
     }
     
     private var isFavorite: Bool {
