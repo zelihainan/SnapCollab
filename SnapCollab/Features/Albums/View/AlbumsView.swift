@@ -183,40 +183,25 @@ struct ProfilePhotoButton: View {
     }
 }
 
-// MARK: - Enhanced Album Row with Owner Photo
+// MARK: - Enhanced Album Row
 struct EnhancedAlbumRow: View {
     let album: Album
     let currentUserId: String?
     @StateObject var userCache: UserCacheManager
     let userService: UserProviding
     
-    @State private var ownerUser: User?
-    @State private var isLoadingOwner = false
-    
     var body: some View {
         HStack(spacing: 12) {
-            // Album Owner's Profile Photo
+            // Album Icon (Always show album icon, not user photo)
             VStack {
-                if let ownerUser = ownerUser {
-                    UserProfilePhoto(user: ownerUser, size: 44)
-                } else if isLoadingOwner {
-                    Circle()
-                        .fill(.gray.opacity(0.2))
-                        .frame(width: 44, height: 44)
-                        .overlay {
-                            ProgressView()
-                                .scaleEffect(0.7)
-                        }
-                } else {
-                    Circle()
-                        .fill(.blue.gradient)
-                        .frame(width: 44, height: 44)
-                        .overlay {
-                            Image(systemName: "person.crop.circle")
-                                .foregroundStyle(.white)
-                                .font(.title3)
-                        }
-                }
+                Circle()
+                    .fill(.blue.gradient)
+                    .frame(width: 44, height: 44)
+                    .overlay {
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .foregroundStyle(.white)
+                            .font(.title3)
+                    }
             }
             
             // Album Info
@@ -226,31 +211,26 @@ struct EnhancedAlbumRow: View {
                     .foregroundStyle(.primary)
                 
                 HStack(spacing: 6) {
-                    // Owner name or member count
-                    if let ownerUser = ownerUser, !ownerUser.displayName.isNilOrEmpty {
-                        Text(ownerUser.displayName ?? "İsimsiz")
+                    // Always show member count with icon
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.2")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        HStack(spacing: 4) {
-                            Image(systemName: "person.2")
-                                .font(.caption)
-                            Text("\(album.members.count)")
-                                .font(.caption)
-                        }
-                        .foregroundStyle(.secondary)
+                        Text("\(album.members.count)")
+                            .font(.caption)
                     }
+                    .foregroundStyle(.secondary)
                     
-                    Spacer()
-                    
-                    // Owner badge (if applicable)
+                    // Owner badge with proper spacing
                     if album.isOwner(currentUserId ?? "") {
                         HStack(spacing: 2) {
                             Image(systemName: "crown.fill")
                                 .font(.caption)
                                 .foregroundStyle(.orange)
                         }
+                        .padding(.leading, 4) // Add spacing from the member count
                     }
+                    
+                    Spacer()
                     
                     // Simple time
                     Text(simpleTimeText(album.updatedAt))
@@ -267,36 +247,6 @@ struct EnhancedAlbumRow: View {
                 .fill(.clear)
         )
         .contentShape(Rectangle())
-        .task {
-            await loadOwnerInfo()
-        }
-    }
-    
-    private func loadOwnerInfo() async {
-        if let cachedOwner = userCache.getUser(uid: album.ownerId) {
-            ownerUser = cachedOwner
-            return
-        }
-        
-        isLoadingOwner = true
-        
-        do {
-            let owner = try await userService.getUser(uid: album.ownerId)
-            
-            await MainActor.run {
-                ownerUser = owner
-                isLoadingOwner = false
-                
-                if let owner = owner {
-                    userCache.setUser(owner)
-                }
-            }
-        } catch {
-            await MainActor.run {
-                isLoadingOwner = false
-                print("Failed to load owner info: \(error)")
-            }
-        }
     }
     
     private func simpleTimeText(_ date: Date) -> String {
