@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Foundation
+import AVKit
 
 @MainActor
 final class MediaViewModel: ObservableObject {
@@ -33,7 +34,7 @@ final class MediaViewModel: ObservableObject {
         case favorites
     }
     
-    private let repo: MediaRepository
+    let repo: MediaRepository
     private let albumId: String
     let auth: AuthRepository
     
@@ -103,14 +104,59 @@ final class MediaViewModel: ObservableObject {
         }
     }
     
+    // MediaViewModel.swift içindeki video URL metodunu güncelleyin
+
+    // MediaViewModel.swift dosyasına eklenecek/güncellenecek metodlar:
+
+    // MediaViewModel.swift içindeki videoURL metodunu bu şekilde güncelleyin:
+
+    // MediaViewModel.swift - videoURL metodunu basitleştirin:
+
     // Video için orijinal URL'yi al (oynatma için)
     func videoURL(for item: MediaItem) async -> URL? {
-        guard item.isVideo else { return nil }
+        guard item.isVideo else {
+            print("MediaVM: Item is not a video: \(item.type)")
+            return nil
+        }
+        
+        print("MediaVM: Getting video URL for path: \(item.path)")
         
         do {
-            return try await repo.downloadURL(for: item.path)
+            let url = try await repo.downloadURL(for: item.path)
+            print("MediaVM: Successfully got video URL: \(url.absoluteString)")
+            
+            // Content-type kontrolü kaldırıldı - QuickTime dosyaları da desteklenmeli
+            return url
+            
         } catch {
+            print("MediaVM: Error getting video URL: \(error)")
             return nil
+        }
+    }
+    
+
+    func debugVideoURL(for item: MediaItem) async {
+        guard item.isVideo else { return }
+        
+        do {
+            let url = try await repo.downloadURL(for: item.path)
+            print("🎬 DEBUG Video URL: \(url.absoluteString)")
+            
+            let asset = AVAsset(url: url)
+            let playable = try await asset.load(.isPlayable)
+            let duration = try await asset.load(.duration)
+            
+            print("🎬 DEBUG Video playable: \(playable)")
+            print("🎬 DEBUG Video duration: \(duration.seconds) seconds")
+            
+            if playable && duration.seconds > 0 {
+                print("🎬 DEBUG Video seems valid!")
+            } else {
+                print("🎬 DEBUG Video has issues")
+            }
+            
+        } catch {
+            print("🎬 DEBUG Video test failed: \(error)")
         }
     }
     

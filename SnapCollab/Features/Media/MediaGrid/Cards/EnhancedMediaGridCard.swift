@@ -44,24 +44,24 @@ struct EnhancedMediaGridCard: View {
                             .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
                     )
                     .overlay(
-                        // Video play indicator
+                        // Video play indicator - Sol altta
                         VStack {
+                            Spacer()
+                            
                             HStack {
-                                Spacer()
-                                
-                                // Video type indicator (top right)
+                                // Video play button (sol alt)
                                 Image(systemName: "play.circle.fill")
-                                    .font(.title3)
+                                    .font(.title2)
                                     .foregroundStyle(Color.white)
                                     .background(
                                         Circle()
                                             .fill(Color.black.opacity(0.6))
-                                            .frame(width: 32, height: 32)
+                                            .frame(width: 36, height: 36)
                                     )
+                                
+                                Spacer()
                             }
                             .padding(8)
-                            
-                            Spacer()
                         }
                     )
                     .onTapGesture {

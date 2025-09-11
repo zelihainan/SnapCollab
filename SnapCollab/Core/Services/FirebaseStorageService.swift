@@ -2,7 +2,7 @@
 //  FirebaseStorageService.swift
 //  SnapCollab
 //
-//  Created by Zeliha İnan on 8.09.2025.
+//  Metadata desteği eklendi
 //
 
 import FirebaseStorage
@@ -18,10 +18,28 @@ final class FirebaseStorageService: ImageCaching {
 
     func put(data: Data, to storagePath: String) async throws {
         let ref = storage.reference(withPath: storagePath)
-        _ = try await ref.putDataAsync(data)
+        
+        // Content-Type'ı dosya uzantısına göre belirle
+        var metadata = StorageMetadata()
+        
+        if storagePath.lowercased().hasSuffix(".mp4") {
+            metadata.contentType = "video/mp4"
+        } else if storagePath.lowercased().hasSuffix(".mov") {
+            metadata.contentType = "video/quicktime"
+        } else if storagePath.lowercased().hasSuffix(".jpg") || storagePath.lowercased().hasSuffix(".jpeg") {
+            metadata.contentType = "image/jpeg"
+        } else if storagePath.lowercased().hasSuffix(".png") {
+            metadata.contentType = "image/png"
+        }
+        
+        // Cache control ekle
+        metadata.cacheControl = "public, max-age=300"
+        
+        _ = try await ref.putDataAsync(data, metadata: metadata)
+        print("🔥 Firebase Storage: Uploaded with content-type: \(metadata.contentType ?? "none")")
     }
     
-    func delete(path: String) async throws {  
+    func delete(path: String) async throws {
         let ref = storage.reference(withPath: path)
         try await ref.delete()
     }

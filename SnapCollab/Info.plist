@@ -41,5 +41,39 @@
     <!-- Microphone Permissions (Video için) -->
     <key>NSMicrophoneUsageDescription</key>
     <string>Video çekerken ses kaydetmek için mikrofon erişimi gerekiyor.</string>
+    
+    <!-- App Transport Security Settings -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <false/>
+        <key>NSExceptionDomains</key>
+        <dict>
+            <!-- Firebase Storage için -->
+            <key>firebasestorage.googleapis.com</key>
+            <dict>
+                <key>NSExceptionAllowsInsecureHTTPLoads</key>
+                <true/>
+                <key>NSExceptionMinimumTLSVersion</key>
+                <string>TLSv1.0</string>
+                <key>NSIncludesSubdomains</key>
+                <true/>
+            </dict>
+            <!-- Firebase Storage app domain için -->
+            <key>firebasestorage.app</key>
+            <dict>
+                <key>NSExceptionAllowsInsecureHTTPLoads</key>
+                <true/>
+                <key>NSExceptionMinimumTLSVersion</key>
+                <string>TLSv1.0</string>
+                <key>NSIncludesSubdomains</key>
+                <true/>
+            </dict>
+        </dict>
+    </dict>
+    
+    <!-- File Provider için -->
+    <key>NSSupportsLiveActivities</key>
+    <false/>
 </dict>
 </plist>

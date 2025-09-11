@@ -2,7 +2,7 @@
 //  MediaRepository.swift
 //  SnapCollab
 //
-//  Video desteği eklendi
+//  Video desteği eklendi - Complete version
 //
 
 import FirebaseFirestore
@@ -61,8 +61,24 @@ final class MediaRepository {
         let thumbPath = "albums/\(albumId)/\(mediaId)/thumb.jpg"
         
         // Video dosyasını Data olarak oku
+        guard videoURL.startAccessingSecurityScopedResource() else {
+            throw MediaError.uploadError
+        }
+        defer { videoURL.stopAccessingSecurityScopedResource() }
+        
         let videoData = try Data(contentsOf: videoURL)
         print("Video data size: \(videoData.count) bytes")
+        
+        // Video boyut kontrolü (50MB limit)
+        let maxVideoSize = 50 * 1024 * 1024 // 50MB
+        guard videoData.count <= maxVideoSize else {
+            throw MediaError.fileTooLarge
+        }
+        
+        // Video format kontrolü
+        guard isValidVideoFormat(data: videoData) else {
+            throw MediaError.unsupportedFileType
+        }
         
         // Video thumbnail oluştur
         let thumbnailImage = try await generateThumbnail(from: videoURL)
@@ -75,6 +91,17 @@ final class MediaRepository {
         try await storage.put(data: thumbnailData, to: thumbPath)
         
         print("VIDEO & THUMBNAIL STORAGE OK")
+        
+        // Upload sonrası URL'lerin erişilebilir olduğunu doğrula
+        do {
+            let videoURL = try await storage.url(for: videoPath)
+            print("Video uploaded to: \(videoURL.absoluteString)")
+            
+            let thumbURL = try await storage.url(for: thumbPath)
+            print("Thumbnail uploaded to: \(thumbURL.absoluteString)")
+        } catch {
+            print("Warning: Could not verify upload URLs: \(error)")
+        }
         
         // Firestore'a kaydet
         let item = MediaItem(
@@ -90,30 +117,74 @@ final class MediaRepository {
         print("FIRESTORE OK → video doc:", docId)
     }
     
-    // MARK: - Thumbnail Generation
+    // Video format kontrolü
+    private func isValidVideoFormat(data: Data) -> Bool {
+        // MP4 magic number kontrolü
+        let mp4Headers: [[UInt8]] = [
+            [0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70], // ftyp
+            [0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70], // ftyp
+            [0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70]  // ftyp
+        ]
+        
+        guard data.count >= 8 else { return false }
+        
+        let headerBytes = Array(data.prefix(8))
+        
+        for header in mp4Headers {
+            if headerBytes.starts(with: header) {
+                return true
+            }
+        }
+        
+        // QuickTime format kontrolü
+        if headerBytes.count >= 4 {
+            let qtHeader = Array(headerBytes[4..<8])
+            if qtHeader == [0x66, 0x74, 0x79, 0x70] { // "ftyp"
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    // MARK: - Thumbnail Generation (Güncellenmiş)
     private func generateThumbnail(from videoURL: URL) async throws -> UIImage {
         return try await withCheckedThrowingContinuation { continuation in
             let asset = AVAsset(url: videoURL)
             let imageGenerator = AVAssetImageGenerator(asset: asset)
             imageGenerator.appliesPreferredTrackTransform = true
-            imageGenerator.maximumSize = CGSize(width: 300, height: 300)
+            imageGenerator.maximumSize = CGSize(width: 400, height: 400) // Daha yüksek kalite
             
-            let time = CMTime(seconds: 1, preferredTimescale: 600)
+            // Birden fazla zaman noktasını dene
+            let times = [
+                CMTime(seconds: 1, preferredTimescale: 600),
+                CMTime(seconds: 0.5, preferredTimescale: 600),
+                CMTime(seconds: 0.1, preferredTimescale: 600)
+            ]
             
-            imageGenerator.generateCGImagesAsynchronously(forTimes: [NSValue(time: time)]) { _, cgImage, _, result, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-                
-                guard let cgImage = cgImage else {
+            var attemptCount = 0
+            
+            func tryNextTime() {
+                guard attemptCount < times.count else {
                     continuation.resume(throwing: MediaError.uploadError)
                     return
                 }
                 
-                let uiImage = UIImage(cgImage: cgImage)
-                continuation.resume(returning: uiImage)
+                let time = times[attemptCount]
+                attemptCount += 1
+                
+                imageGenerator.generateCGImagesAsynchronously(forTimes: [NSValue(time: time)]) { _, cgImage, _, result, error in
+                    if let cgImage = cgImage {
+                        let uiImage = UIImage(cgImage: cgImage)
+                        continuation.resume(returning: uiImage)
+                    } else {
+                        print("Thumbnail generation failed at time \(time.seconds), trying next...")
+                        tryNextTime()
+                    }
+                }
             }
+            
+            tryNextTime()
         }
     }
 
@@ -190,7 +261,7 @@ enum MediaError: LocalizedError {
         case .unsupportedFileType:
             return "Desteklenmeyen dosya türü"
         case .fileTooLarge:
-            return "Dosya boyutu çok büyük"
+            return "Dosya boyutu çok büyük (maksimum 50MB)"
         }
     }
 }
