@@ -2,7 +2,7 @@
 //  EnhancedMediaGridCard.swift
 //  SnapCollab
 //
-//  Simplified media card with only favorite functionality
+//  Video desteği eklendi - Hatalar düzeltildi
 //
 
 import SwiftUI
@@ -32,24 +32,67 @@ struct EnhancedMediaGridCard: View {
     
     var body: some View {
         ZStack {
-            // Main Image
-            AsyncImageView(pathProvider: { await vm.imageURL(for: item) })
-                .aspectRatio(contentMode: .fit)
-                .cornerRadius(12)
-                .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(.white.opacity(0.1), lineWidth: 0.5)
-                )
-                .onTapGesture {
-                    onTap()
-                }
-                .onTapGesture(count: 2) {
-                    doubleTapToFavorite()
-                }
-                .contextMenu {
-                    contextMenuItems
-                }
+            // Main Media Content
+            if item.isVideo {
+                // Video Thumbnail with play indicator
+                AsyncImageView(pathProvider: { await vm.imageURL(for: item) })
+                    .aspectRatio(contentMode: .fit)
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+                    )
+                    .overlay(
+                        // Video play indicator
+                        VStack {
+                            HStack {
+                                Spacer()
+                                
+                                // Video type indicator (top right)
+                                Image(systemName: "play.circle.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(Color.white)
+                                    .background(
+                                        Circle()
+                                            .fill(Color.black.opacity(0.6))
+                                            .frame(width: 32, height: 32)
+                                    )
+                            }
+                            .padding(8)
+                            
+                            Spacer()
+                        }
+                    )
+                    .onTapGesture {
+                        onTap()
+                    }
+                    .onTapGesture(count: 2) {
+                        doubleTapToFavorite()
+                    }
+                    .contextMenu {
+                        contextMenuItems
+                    }
+            } else {
+                // Image
+                AsyncImageView(pathProvider: { await vm.imageURL(for: item) })
+                    .aspectRatio(contentMode: .fit)
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+                    )
+                    .onTapGesture {
+                        onTap()
+                    }
+                    .onTapGesture(count: 2) {
+                        doubleTapToFavorite()
+                    }
+                    .contextMenu {
+                        contextMenuItems
+                    }
+            }
             
             // Heart Button
             VStack {
@@ -65,7 +108,7 @@ struct EnhancedMediaGridCard: View {
                             
                             Image(systemName: isFavorite ? "heart.fill" : "heart")
                                 .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(isFavorite ? .red : .white)
+                                .foregroundStyle(isFavorite ? Color.red : Color.white)
                                 .scaleEffect(heartScale)
                                 .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isFavorite)
                         }
@@ -88,8 +131,8 @@ struct EnhancedMediaGridCard: View {
             if isAnimating && isFavorite {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 60, weight: .bold))
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.3), radius: 4)
+                    .foregroundStyle(Color.white)
+                    .shadow(color: Color.black.opacity(0.3), radius: 4)
                     .scaleEffect(isAnimating ? 1.0 : 0.5)
                     .opacity(isAnimating ? 1.0 : 0.0)
                     .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isAnimating)
@@ -112,12 +155,14 @@ struct EnhancedMediaGridCard: View {
                   systemImage: isFavorite ? "heart.slash" : "heart.fill")
         }
         
-        Button(action: shareImage) {
+        Button(action: shareMedia) {
             Label("Paylaş", systemImage: "square.and.arrow.up")
         }
         
-        Button(action: saveToPhotos) {
-            Label("Galeriye Kaydet", systemImage: "arrow.down.to.line")
+        if !item.isVideo {
+            Button(action: saveToPhotos) {
+                Label("Galeriye Kaydet", systemImage: "arrow.down.to.line")
+            }
         }
         
         if canDelete {
@@ -163,11 +208,13 @@ struct EnhancedMediaGridCard: View {
         }
     }
     
-    private func shareImage() {
-        print("Share image: \(item.id ?? "")")
+    private func shareMedia() {
+        print("Share media: \(item.id ?? "")")
+        // TODO: Media paylaşma implementasyonu
     }
     
     private func saveToPhotos() {
         print("Save to photos: \(item.id ?? "")")
+        // TODO: Fotoğraf galeriye kaydetme implementasyonu
     }
 }

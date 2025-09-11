@@ -2,11 +2,12 @@
 //  MediaRepository.swift
 //  SnapCollab
 //
-//  Created by Zeliha İnan on 8.09.2025.
+//  Video desteği eklendi
 //
 
 import FirebaseFirestore
 import UIKit
+import AVFoundation
 
 final class MediaRepository {
     private let service: MediaProviding
@@ -29,7 +30,7 @@ final class MediaRepository {
         }
     }
     
-
+    // MARK: - Image Upload
     func upload(image: UIImage, albumId: String) async throws {
         guard let uid = auth.uid else { return }
         guard let data = image.jpegData(compressionQuality: 0.9) else { return }
@@ -46,6 +47,75 @@ final class MediaRepository {
         let docId = try await service.createMedia(albumId: albumId, item: item)
         print("FIRESTORE OK → media doc:", docId)
     }
+    
+    // MARK: - Video Upload
+    func uploadVideo(from videoURL: URL, albumId: String) async throws {
+        guard let uid = auth.uid else {
+            throw MediaError.notAuthenticated
+        }
+        
+        print("VIDEO UPLOAD start → \(videoURL)")
+        
+        let mediaId = UUID().uuidString
+        let videoPath = "albums/\(albumId)/\(mediaId)/video.mp4"
+        let thumbPath = "albums/\(albumId)/\(mediaId)/thumb.jpg"
+        
+        // Video dosyasını Data olarak oku
+        let videoData = try Data(contentsOf: videoURL)
+        print("Video data size: \(videoData.count) bytes")
+        
+        // Video thumbnail oluştur
+        let thumbnailImage = try await generateThumbnail(from: videoURL)
+        guard let thumbnailData = thumbnailImage.jpegData(compressionQuality: 0.8) else {
+            throw MediaError.uploadError
+        }
+        
+        // Video ve thumbnail'i Storage'a yükle
+        try await storage.put(data: videoData, to: videoPath)
+        try await storage.put(data: thumbnailData, to: thumbPath)
+        
+        print("VIDEO & THUMBNAIL STORAGE OK")
+        
+        // Firestore'a kaydet
+        let item = MediaItem(
+            id: nil,
+            path: videoPath,
+            thumbPath: thumbPath,
+            type: "video",
+            uploaderId: uid,
+            createdAt: .now
+        )
+        
+        let docId = try await service.createMedia(albumId: albumId, item: item)
+        print("FIRESTORE OK → video doc:", docId)
+    }
+    
+    // MARK: - Thumbnail Generation
+    private func generateThumbnail(from videoURL: URL) async throws -> UIImage {
+        return try await withCheckedThrowingContinuation { continuation in
+            let asset = AVAsset(url: videoURL)
+            let imageGenerator = AVAssetImageGenerator(asset: asset)
+            imageGenerator.appliesPreferredTrackTransform = true
+            imageGenerator.maximumSize = CGSize(width: 300, height: 300)
+            
+            let time = CMTime(seconds: 1, preferredTimescale: 600)
+            
+            imageGenerator.generateCGImagesAsynchronously(forTimes: [NSValue(time: time)]) { _, cgImage, _, result, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                
+                guard let cgImage = cgImage else {
+                    continuation.resume(throwing: MediaError.uploadError)
+                    return
+                }
+                
+                let uiImage = UIImage(cgImage: cgImage)
+                continuation.resume(returning: uiImage)
+            }
+        }
+    }
 
     func downloadURL(for path: String) async throws -> URL {
         try await storage.url(for: path)
@@ -56,11 +126,6 @@ final class MediaRepository {
         try await service.updateMedia(albumId: albumId, itemId: itemId, item: item)
     }
     
-}
-
-extension MediaRepository {
-    
-    /// Medya dosyasını sil - sadece yükleyen kişi veya albüm sahibi silebilir
     func deleteMedia(albumId: String, item: MediaItem) async throws {
         guard let uid = auth.uid else {
             throw MediaError.notAuthenticated
@@ -73,9 +138,6 @@ extension MediaRepository {
         // Yetki kontrolü - ya uploader ya da album owner olmalı
         let isUploader = item.uploaderId == uid
         
-        // Albüm bilgisini al ve owner kontrolü yap
-        // Bu kısımda AlbumRepository'ye erişim gerekiyor
-        // Şimdilik basit tutuyoruz - sadece uploader silebilir
         if !isUploader {
             // TODO: Album owner kontrolü eklenecek
             throw MediaError.noPermissionToDelete
@@ -86,7 +148,7 @@ extension MediaRepository {
             try await service.deleteMedia(albumId: albumId, itemId: itemId)
             print("MediaRepo: Deleted from Firestore: \(itemId)")
             
-            // Sonra Storage'dan sil
+            // Sonra Storage'dan ana dosyayı sil
             try await storage.delete(path: item.path)
             print("MediaRepo: Deleted from Storage: \(item.path)")
             
@@ -110,6 +172,8 @@ enum MediaError: LocalizedError {
     case noPermissionToDelete
     case deleteError
     case uploadError
+    case unsupportedFileType
+    case fileTooLarge
     
     var errorDescription: String? {
         switch self {
@@ -118,11 +182,15 @@ enum MediaError: LocalizedError {
         case .invalidMediaItem:
             return "Geçersiz medya dosyası"
         case .noPermissionToDelete:
-            return "Bu fotoğrafı silme yetkiniz yok"
+            return "Bu medyayı silme yetkiniz yok"
         case .deleteError:
-            return "Fotoğraf silinirken hata oluştu"
+            return "Medya silinirken hata oluştu"
         case .uploadError:
-            return "Fotoğraf yüklenirken hata oluştu"
+            return "Medya yüklenirken hata oluştu"
+        case .unsupportedFileType:
+            return "Desteklenmeyen dosya türü"
+        case .fileTooLarge:
+            return "Dosya boyutu çok büyük"
         }
     }
 }

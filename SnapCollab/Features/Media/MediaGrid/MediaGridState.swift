@@ -2,7 +2,7 @@
 //  MediaGridState.swift
 //  SnapCollab
 //
-//  Simplified state management for MediaGrid - no selection mode
+//  Video desteği eklendi
 //
 
 import SwiftUI
@@ -10,8 +10,10 @@ import PhotosUI
 
 @MainActor
 final class MediaGridState: ObservableObject {
-    // MARK: - Photo Picker
-    @Published var pickerItem: PhotosPickerItem?
+    // MARK: - Media Picker
+    @Published var showMediaPicker = false
+    @Published var selectedImage: UIImage?
+    @Published var selectedVideoURL: URL?
     
     // MARK: - Viewer
     @Published var selectedItem: MediaItem?
@@ -45,5 +47,13 @@ final class MediaGridState: ObservableObject {
     func cancelDelete() {
         itemToDelete = nil
         showDeleteAlert = false
+    }
+    
+    // MARK: - Media Picker Methods
+    
+    func resetMediaSelection() {
+        selectedImage = nil
+        selectedVideoURL = nil
+        showMediaPicker = false
     }
 }

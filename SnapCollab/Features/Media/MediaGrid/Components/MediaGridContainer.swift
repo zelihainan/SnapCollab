@@ -2,7 +2,7 @@
 //  MediaGridContainer.swift
 //  SnapCollab
 //
-//  Simplified container for MediaGrid - no selection mode
+//  Video desteği eklendi
 //
 
 import SwiftUI
@@ -26,8 +26,18 @@ struct MediaGridContainer: View {
         .toolbar {
             MediaGridToolbarContent(vm: vm, state: state)
         }
-        .onChange(of: state.pickerItem) { newValue in
-            handleImagePicker(newValue)
+        .sheet(isPresented: $state.showMediaPicker) {
+            MediaPickerSheet(
+                isPresented: $state.showMediaPicker,
+                selectedImage: $state.selectedImage,
+                selectedVideoURL: $state.selectedVideoURL
+            )
+        }
+        .onChange(of: state.selectedImage) { newImage in
+            handleImageSelection(newImage)
+        }
+        .onChange(of: state.selectedVideoURL) { newVideoURL in
+            handleVideoSelection(newVideoURL)
         }
         .fullScreenCover(isPresented: $state.showViewer) {
             state.closeViewer()
@@ -38,25 +48,42 @@ struct MediaGridContainer: View {
                 }
             }
         }
-        .alert("Fotoğrafı Sil", isPresented: $state.showDeleteAlert) {
+        .alert("Medyayı Sil", isPresented: $state.showDeleteAlert) {
             MediaGridDeleteAlert(state: state, vm: vm)
+        } message: {
+            if let item = state.itemToDelete {
+                Text("Bu \(item.isVideo ? "videoyu" : "fotoğrafı") kalıcı olarak silmek istediğinizden emin misiniz?")
+            }
         }
     }
     
     // MARK: - Helper Methods
     
-    private func handleImagePicker(_ pickerItem: PhotosPickerItem?) {
-        guard let pickerItem = pickerItem else { return }
+    private func handleImageSelection(_ image: UIImage?) {
+        guard let image = image else { return }
         
+        vm.pickedImage = image
         Task {
-            if let data = try? await pickerItem.loadTransferable(type: Data.self),
-               let img = UIImage(data: data) {
-                vm.pickedImage = img
-                await vm.uploadPicked()
-            }
-            await MainActor.run {
-                state.pickerItem = nil
-            }
+            await vm.uploadPicked()
+        }
+        
+        // Reset selection
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            state.resetMediaSelection()
+        }
+    }
+    
+    private func handleVideoSelection(_ videoURL: URL?) {
+        guard let videoURL = videoURL else { return }
+        
+        vm.pickedVideoURL = videoURL
+        Task {
+            await vm.uploadPicked()
+        }
+        
+        // Reset selection
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            state.resetMediaSelection()
         }
     }
 }
@@ -77,7 +104,6 @@ struct MediaGridScrollView: View {
     }
     
     private var regularGrid: some View {
-        // Always use newest sort for simplicity
         let sortedItems = vm.sortedItems(by: .newest)
         
         return PinterestGrid(

@@ -28,9 +28,18 @@
         </dict>
     </array>
     
+    <!-- Photo Library Permissions -->
     <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>Fotoğrafları galeriye kaydetmek için izin gerekiyor.</string>
+    <string>Fotoğrafları ve videoları galeriye kaydetmek için izin gerekiyor.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Fotoğrafları galeriye kaydetmek için izin gerekiyor.</string>
+    <string>Galeriden fotoğraf ve video seçmek için izin gerekiyor.</string>
+    
+    <!-- Camera Permissions -->
+    <key>NSCameraUsageDescription</key>
+    <string>Fotoğraf çekmek için kamera erişimi gerekiyor.</string>
+    
+    <!-- Microphone Permissions (Video için) -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Video çekerken ses kaydetmek için mikrofon erişimi gerekiyor.</string>
 </dict>
 </plist>

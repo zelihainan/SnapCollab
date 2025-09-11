@@ -2,10 +2,11 @@
 //  MediaViewModel.swift
 //  SnapCollab
 //
-//  Enhanced with filtering capabilities
+//  Video desteği eklendi
 //
 
 import SwiftUI
+import Foundation
 
 @MainActor
 final class MediaViewModel: ObservableObject {
@@ -13,25 +14,25 @@ final class MediaViewModel: ObservableObject {
     @Published var filteredItems: [MediaItem] = []
     @Published var isPicking = false
     @Published var pickedImage: UIImage?
+    @Published var pickedVideoURL: URL? // Video URL'si için eklendi
     @Published var currentFilter: MediaFilter = .all
-    @Published var favorites: Set<String> = [] // Favori fotoğraf ID'leri
-    @Published var favoriteAnimations: [String: Bool] = [:] // Animation state tracking
-
+    @Published var favorites: Set<String> = []
+    @Published var favoriteAnimations: [String: Bool] = [:]
+    
     enum MediaFilter {
         case all
         case photos
         case videos
         case favorites
     }
-
-    // SortType enum'unu buraya taşıyoruz
+    
     enum SortType: Hashable {
         case newest
         case oldest
         case uploader
         case favorites
     }
-
+    
     private let repo: MediaRepository
     private let albumId: String
     let auth: AuthRepository
@@ -47,31 +48,67 @@ final class MediaViewModel: ObservableObject {
         // Load favorites from UserDefaults
         loadFavorites()
     }
-
+    
     func start() {
         Task {
             for await list in repo.observe(albumId: albumId) {
                 self.items = list
                 self.applyFilter()
-                // Yeni gelen fotoğrafların kullanıcı bilgilerini preload et
                 await preloadUserInfo(for: list)
             }
         }
     }
-
+    
+    // MARK: - Upload Methods
+    
     func uploadPicked() async {
-        guard let img = pickedImage else { return }
-        do {
-            try await repo.upload(image: img, albumId: albumId)
-            pickedImage = nil
-        } catch {
-            print("upload error:", error)
+        // Önce fotoğraf varsa onu yükle
+        if let image = pickedImage {
+            await uploadPickedImage(image)
+        }
+        
+        // Sonra video varsa onu yükle
+        if let videoURL = pickedVideoURL {
+            await uploadPickedVideo(videoURL)
         }
     }
-
+    
+    private func uploadPickedImage(_ image: UIImage) async {
+        do {
+            try await repo.upload(image: image, albumId: albumId)
+            pickedImage = nil
+            print("Image upload successful")
+        } catch {
+            print("Image upload error:", error)
+        }
+    }
+    
+    private func uploadPickedVideo(_ videoURL: URL) async {
+        do {
+            try await repo.uploadVideo(from: videoURL, albumId: albumId)
+            pickedVideoURL = nil
+            print("Video upload successful")
+        } catch {
+            print("Video upload error:", error)
+        }
+    }
+    
     func imageURL(for item: MediaItem) async -> URL? {
         do {
-            return try await repo.downloadURL(for: item.thumbPath ?? item.path)
+            // Video için thumbnail kullan, fotoğraf için orijinal
+            let pathToUse = item.isVideo ? (item.thumbPath ?? item.path) : item.path
+            return try await repo.downloadURL(for: pathToUse)
+        } catch {
+            return nil
+        }
+    }
+    
+    // Video için orijinal URL'yi al (oynatma için)
+    func videoURL(for item: MediaItem) async -> URL? {
+        guard item.isVideo else { return nil }
+        
+        do {
+            return try await repo.downloadURL(for: item.path)
         } catch {
             return nil
         }
@@ -79,7 +116,7 @@ final class MediaViewModel: ObservableObject {
     
     func deletePhoto(_ item: MediaItem) async throws {
         try await repo.deleteMedia(albumId: albumId, item: item)
-        print("MediaVM: Photo deleted successfully")
+        print("MediaVM: Media deleted successfully")
         
         // Remove from favorites if it was favorited
         if let itemId = item.id {
@@ -123,13 +160,13 @@ final class MediaViewModel: ObservableObject {
     func addFavorite(_ itemId: String) {
         favorites.insert(itemId)
         saveFavorites()
-        applyFilter() // Refresh filtered items
+        applyFilter()
     }
     
     func removeFavorite(_ itemId: String) {
         favorites.remove(itemId)
         saveFavorites()
-        applyFilter() // Refresh filtered items
+        applyFilter()
     }
     
     func isFavorite(_ itemId: String) -> Bool {
@@ -157,36 +194,30 @@ final class MediaViewModel: ObservableObject {
     
     // MARK: - User Cache Methods
     
-    /// Cache'den kullanıcı bilgisini al
     func getUser(for userId: String) -> User? {
         return userCache[userId]
     }
     
-    /// Kullanıcıyı cache'le
     func cacheUser(_ user: User?, for userId: String) {
         userCache[userId] = user
     }
     
-    /// Cache'i temizle (memory yönetimi için)
     func clearUserCache() {
         userCache.removeAll()
     }
     
-    /// Yeni gelen medya itemların kullanıcı bilgilerini preload et
     private func preloadUserInfo(for items: [MediaItem]) async {
         let uniqueUploaderIds = Set(items.map { $0.uploaderId })
         
         for uploaderId in uniqueUploaderIds {
-            // Cache'de yoksa yükle
             if userCache[uploaderId] == nil {
                 await loadUserInfo(for: uploaderId)
             }
         }
     }
     
-    /// Specific bir kullanıcı ID için bilgiyi yükle ve cache'le
     private func loadUserInfo(for userId: String) async {
-        guard userCache[userId] == nil else { return } // Zaten cache'de varsa yükleme
+        guard userCache[userId] == nil else { return }
         
         do {
             let userService = FirestoreUserService()
@@ -222,7 +253,6 @@ final class MediaViewModel: ObservableObject {
         guard !query.isEmpty else { return filteredItems }
         
         return filteredItems.filter { item in
-            // Search by uploader name or date
             if let user = userCache[item.uploaderId] {
                 let userName = user.displayName ?? user.email
                 return userName.localizedCaseInsensitiveContains(query)
@@ -245,77 +275,28 @@ final class MediaViewModel: ObservableObject {
                 let name2 = user2?.displayName ?? user2?.email ?? ""
                 return name1.localizedCaseInsensitiveCompare(name2) == .orderedAscending
             }
-        case .favorites: // <- Bu case'i ekliyoruz
-            // Favorileri listenin başına taşıma mantığı
+        case .favorites:
             return filteredItems.sorted { item1, item2 in
                 let isFavorite1 = favorites.contains(item1.id ?? "")
                 let isFavorite2 = favorites.contains(item2.id ?? "")
                 
                 if isFavorite1 && !isFavorite2 {
-                    return true // item1 favori ise ve item2 değilse, item1 önde gelir
+                    return true
                 } else if !isFavorite1 && isFavorite2 {
-                    return false // item2 favori ise ve item1 değilse, item2 önde gelir
+                    return false
                 } else {
-                    // Her ikisi de favori veya hiçbiri favori değilse, varsayılan bir sıralama (örn: en yeni)
                     return item1.createdAt > item2.createdAt
                 }
             }
         }
     }
     
-    // MARK: - Date Grouping Extension
-    // Bu extension'ı MediaViewModel sınıfının dışında tutuyoruz,
-    // veya sınıfın içine alıp property'i compute edilen bir değişken olarak kullanabiliriz.
-    // Ancak orijinal yapıyı bozmamak için sınıfın dışında bırakıp MediaViewModel'a uygulayabiliriz.
-}
-
-extension MediaViewModel { // <- Doğru yer: Sınıfın kapanışından sonra
-    var groupedByDate: [(key: String, value: [MediaItem])] {
-        let calendar = Calendar.current
-        let grouped = Dictionary(grouping: filteredItems) { item in
-            calendar.dateInterval(of: .day, for: item.createdAt)?.start ?? item.createdAt
-        }
-        
-        return grouped
-            .sorted { $0.key > $1.key } // En yeni tarih önce
-            .map { (key: formatDate($0.key), value: $0.value.sorted { $0.createdAt > $1.createdAt }) }
-    }
+    // MARK: - Animation helpers
     
-    private func formatDate(_ date: Date) -> String {
-        let calendar = Calendar.current
-        let now = Date()
-        
-        if calendar.isDateInToday(date) {
-            return "Bugün"
-        } else if calendar.isDateInYesterday(date) {
-            return "Dün"
-        } else if calendar.dateInterval(of: .weekOfYear, for: now)?.contains(date) == true {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "EEEE"
-            formatter.locale = Locale(identifier: "tr_TR")
-            return formatter.string(from: date)
-        } else if calendar.isDate(date, equalTo: now, toGranularity: .year) {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "d MMMM EEEE"
-            formatter.locale = Locale(identifier: "tr_TR")
-            return formatter.string(from: date)
-        } else {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "d MMMM yyyy"
-            formatter.locale = Locale(identifier: "tr_TR")
-            return formatter.string(from: date)
-        }
-    }
-    // MediaViewModel.swift içine bu metodları ekle:
-
-    // MARK: - Missing Methods for MediaGrid
-
-    /// Check if item is currently animating
     func isAnimating(_ itemId: String) -> Bool {
         return favoriteAnimations[itemId] ?? false
     }
-
-    /// Bulk favorite operations
+    
     func addMultipleToFavorites(_ itemIds: [String]) {
         for itemId in itemIds {
             favorites.insert(itemId)
@@ -324,18 +305,16 @@ extension MediaViewModel { // <- Doğru yer: Sınıfın kapanışından sonra
         saveFavorites()
         applyFilter()
         
-        // Staggered animation reset
         for (index, itemId) in itemIds.enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.1 + 0.3) {
                 self.favoriteAnimations[itemId] = false
             }
         }
         
-        // Success haptic
         let successFeedback = UINotificationFeedbackGenerator()
         successFeedback.notificationOccurred(.success)
     }
-
+    
     func removeMultipleFromFavorites(_ itemIds: [String]) {
         for itemId in itemIds {
             favorites.remove(itemId)
@@ -343,30 +322,7 @@ extension MediaViewModel { // <- Doğru yer: Sınıfın kapanışından sonra
         saveFavorites()
         applyFilter()
         
-        // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()
-    }
-
-    // Eğer favoriteAnimations yoksa, bu property'yi de ekle:
-    
-    // Fotoğraf istatistikleri - filteredItems yerine items kullanarak gerçek sayıları göster
-    var photoStats: (total: Int, today: Int, thisWeek: Int, thisMonth: Int) {
-        let calendar = Calendar.current
-        let now = Date()
-        
-        let today = items.filter { calendar.isDateInToday($0.createdAt) }.count
-        
-        let thisWeek = items.filter { item in
-            guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: now) else { return false }
-            return weekInterval.contains(item.createdAt)
-        }.count
-        
-        let thisMonth = items.filter { item in
-            guard let monthInterval = calendar.dateInterval(of: .month, for: now) else { return false }
-            return monthInterval.contains(item.createdAt)
-        }.count
-        
-        return (total: items.count, today: today, thisWeek: thisWeek, thisMonth: thisMonth)
     }
 }

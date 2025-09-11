@@ -2,7 +2,6 @@
 //  MediaGridToolbarContent.swift
 //  SnapCollab
 //
-//  Simplified toolbar content for MediaGrid - only add photo button
 //
 
 import SwiftUI
@@ -15,7 +14,9 @@ struct MediaGridToolbarContent: ToolbarContent {
     var body: some ToolbarContent {
         ToolbarItem(placement: .navigationBarTrailing) {
             if shouldShowAddButton {
-                PhotosPicker(selection: $state.pickerItem, matching: .images) {
+                Button(action: {
+                    state.showMediaPicker = true
+                }) {
                     Image(systemName: "plus")
                         .font(.title2)
                 }
@@ -26,6 +27,7 @@ struct MediaGridToolbarContent: ToolbarContent {
     // MARK: - Computed Properties
     
     private var shouldShowAddButton: Bool {
+        // Favorites filtresi dışında her yerde göster
         vm.currentFilter != .favorites
     }
 }
