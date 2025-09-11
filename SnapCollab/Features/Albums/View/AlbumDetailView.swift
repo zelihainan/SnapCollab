@@ -47,7 +47,7 @@ struct AlbumDetailView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            // HEADER - Kapak fotoğrafı, albüm adı, üye butonu
+            // HEADER - Kapak fotoğrafı ve üye butonu
             VStack(spacing: 16) {
                 // Kapak fotoğrafı
                 AlbumCoverPhoto(
@@ -62,7 +62,7 @@ struct AlbumDetailView: View {
                     }
                 }
                 
-                
+                // ÜYE BUTONU - Bu toolbar'daki butonun yerine geçiyor
                 Button(action: {
                     showMembersSheet = true
                 }) {
@@ -102,8 +102,10 @@ struct AlbumDetailView: View {
         .navigationTitle(album.title)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
+            // SADECE 3 NOKTA BUTONU
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
+                    // Sahip için özel aksiyonlar
                     if album.isOwner(di.authRepo.uid ?? "") {
                         Button(action: { showCoverManagement = true }) {
                             Label("Kapak Fotoğrafı", systemImage: "photo.circle")
@@ -180,6 +182,7 @@ struct AlbumDetailView: View {
             AlbumMembersView(album: album, albumRepo: di.albumRepo)
         }
         .sheet(isPresented: $showCoverManagement) {
+            // Tüm üyeler kapak fotoğrafını değiştirebilir
             AlbumCoverManagementSheet(album: album, albumRepo: di.albumRepo)
         }
         .alert("Albümden Ayrıl", isPresented: $showLeaveAlert) {
@@ -644,4 +647,3 @@ struct MemberRowView: View {
             }
     }
 }
-

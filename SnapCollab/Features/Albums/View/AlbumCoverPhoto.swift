@@ -57,29 +57,6 @@ struct AlbumCoverPhoto: View {
                 }
             }
             
-            // Edit Button Overlay
-            if showEditButton && isOwner {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Button(action: {
-                            showActionSheet = true
-                        }) {
-                            Image(systemName: "camera.circle.fill")
-                                .font(.system(size: size * 0.25))
-                                .foregroundStyle(.white)
-                                .background(
-                                    Circle()
-                                        .fill(.blue)
-                                        .frame(width: size * 0.35, height: size * 0.35)
-                                )
-                        }
-                        .offset(x: -size * 0.05, y: -size * 0.05)
-                    }
-                }
-            }
-            
             // Loading Overlay
             if isUpdating {
                 Circle()

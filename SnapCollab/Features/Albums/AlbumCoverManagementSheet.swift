@@ -2,6 +2,7 @@
 //  AlbumCoverManagementSheet.swift
 //  SnapCollab
 //
+//  Detailed cover photo management sheet
 //
 
 import SwiftUI
@@ -28,28 +29,8 @@ struct AlbumCoverManagementSheet: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 24) {
-                    // Header
+                    // Current Cover Preview (Basitleştirilmiş - sadece büyük kapak)
                     VStack(spacing: 16) {
-                        Image(systemName: "photo.circle")
-                            .font(.system(size: 60))
-                            .foregroundStyle(.blue)
-                        
-                        Text("Kapak Fotoğrafı")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        Text(album.title)
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(.top, 20)
-                    
-                    // Current Cover Preview
-                    VStack(spacing: 16) {
-                        Text("Mevcut Kapak")
-                            .font(.headline)
-                        
                         ZStack {
                             if let coverURL = coverImageURL {
                                 AsyncImage(url: coverURL) { image in
@@ -90,61 +71,46 @@ struct AlbumCoverManagementSheet: View {
                         }
                     }
                     
-                    if isOwner {
-                        // Action Buttons
-                        VStack(spacing: 16) {
-                            Text("Kapak Fotoğrafını Değiştir")
-                                .font(.headline)
+                    // Kapak Fotoğrafını Değiştir seçenekleri
+                    VStack(spacing: 16) {
+                        Text("Kapak Fotoğrafını Değiştir")
+                            .font(.headline)
+                        
+                        VStack(spacing: 12) {
+                            // Gallery Button
+                            CoverActionButton(
+                                icon: "photo",
+                                title: "Galeriden Seç",
+                                subtitle: "Galeriden fotoğraf seçin",
+                                color: .blue
+                            ) {
+                                showImagePicker = true
+                            }
                             
-                            VStack(spacing: 12) {
-                                // Gallery Button
+                            // Camera Button
+                            CoverActionButton(
+                                icon: "camera",
+                                title: "Fotoğraf Çek",
+                                subtitle: "Kamera ile fotoğraf çekin",
+                                color: .green
+                            ) {
+                                showCameraPicker = true
+                            }
+                            
+                            // Remove Button (only if cover exists)
+                            if album.hasCoverImage {
                                 CoverActionButton(
-                                    icon: "photo",
-                                    title: "Galeriden Seç",
-                                    subtitle: "Galeriden fotoğraf seçin",
-                                    color: .blue
+                                    icon: "trash",
+                                    title: "Kapak Fotoğrafını Kaldır",
+                                    subtitle: "Varsayılan ikona dön",
+                                    color: .red
                                 ) {
-                                    showImagePicker = true
-                                }
-                                
-                                // Camera Button
-                                CoverActionButton(
-                                    icon: "camera",
-                                    title: "Fotoğraf Çek",
-                                    subtitle: "Kamera ile fotoğraf çekin",
-                                    color: .green
-                                ) {
-                                    showCameraPicker = true
-                                }
-                                
-                                // Remove Button (only if cover exists)
-                                if album.hasCoverImage {
-                                    CoverActionButton(
-                                        icon: "trash",
-                                        title: "Kapak Fotoğrafını Kaldır",
-                                        subtitle: "Varsayılan ikona dön",
-                                        color: .red
-                                    ) {
-                                        Task { await removeCoverImage() }
-                                    }
+                                    Task { await removeCoverImage() }
                                 }
                             }
                         }
-                        .disabled(isUpdating)
-                    } else {
-                        // Non-owner message
-                        VStack(spacing: 12) {
-                            Image(systemName: "lock.circle")
-                                .font(.system(size: 40))
-                                .foregroundStyle(.gray)
-                            
-                            Text("Sadece albüm sahibi kapak fotoğrafını değiştirebilir")
-                                .font(.body)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding(.vertical, 20)
                     }
+                    .disabled(isUpdating)
                     
                     // Error Message
                     if let error = errorMessage {
@@ -169,6 +135,7 @@ struct AlbumCoverManagementSheet: View {
                     Spacer(minLength: 40)
                 }
                 .padding(.horizontal, 24)
+                .padding(.top, 20)
             }
             .navigationTitle("Kapak Fotoğrafı")
             .navigationBarTitleDisplayMode(.inline)
