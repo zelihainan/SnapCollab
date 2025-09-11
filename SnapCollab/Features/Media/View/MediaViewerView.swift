@@ -1,10 +1,3 @@
-//
-//  MediaViewerView.swift
-//  SnapCollab
-//
-//  Inline video player ile - iPhone Photos tarzı
-//
-
 import SwiftUI
 import Photos
 import AVKit
@@ -15,514 +8,528 @@ struct MediaViewerView: View {
     let initialItem: MediaItem
     let onClose: () -> Void
 
-    @State private var currentIndex: Int = 0
+    // State
+    @State private var currentIndex = 0
     @State private var loadedImages: [String: UIImage] = [:]
     @State private var showUI = true
     @State private var showDeleteAlert = false
     @State private var isDeleting = false
     @State private var toastMessage: String?
     @State private var showToast = false
-    
-    // INLINE VIDEO PLAYER STATE
-    @State private var inlineVideoPlayers: [String: AVPlayer] = [:]
-    @State private var currentPlayingVideoId: String?
 
+    // Inline video
+    @State private var players: [String: AVPlayer] = [:]
+    @State private var currentPlayingId: String?
+    @State private var muteStates: [String: Bool] = [:]
+
+    // Layout
+    private let thumbnailBarHeight: CGFloat = 86
+    private let controlsGapAboveThumbs: CGFloat = 22
+    private let soundIconExtraTop: CGFloat = 18
+
+    private var items: [MediaItem] { vm.filteredItems }
     private var currentItem: MediaItem {
-        guard currentIndex < vm.filteredItems.count else { return initialItem }
-        return vm.filteredItems[currentIndex]
+        guard currentIndex < items.count else { return initialItem }
+        return items[currentIndex]
     }
-    
     private var isFavorite: Bool {
-        guard let itemId = currentItem.id else { return false }
-        return vm.isFavorite(itemId)
+        guard let id = currentItem.id else { return false }
+        return vm.isFavorite(id)
+    }
+    private var canDelete: Bool {
+        guard let uid = vm.auth.uid else { return false }
+        return currentItem.uploaderId == uid
     }
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            
-            // Main Content
-            mediaContentView
-            
-            // UI Overlay
-            if showUI {
-                topUIBar
-                if vm.filteredItems.count > 1 {
-                    bottomUIBar
+
+            // Pager
+            TabView(selection: $currentIndex) {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    ZStack {
+                        if item.isVideo {
+                            videoPage(for: item)
+                        } else {
+                            imagePage(for: item)
+                        }
+                    }
+                    .tag(index)
+                    .contentShape(Rectangle())
+                    .onTapGesture { withAnimation(.easeInOut(duration: 0.25)) { showUI.toggle() } }
+                    .onAppear { if item.isVideo { Task { await ensurePlayer(for: item) } } }
                 }
             }
-            
-            // Toast
-            if showToast, let message = toastMessage {
-                toastView(message)
-            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+
+            if showUI { topBar }
+            if showUI && items.count > 1 { thumbnailBar }
+
+            if showToast, let msg = toastMessage { toastView(msg) }
         }
         .alert("Medyayı Sil", isPresented: $showDeleteAlert) {
-            deleteAlertButtons
+            Button("İptal", role: .cancel) {}
+            Button("Sil", role: .destructive) { Task { await deleteCurrent() } }
         } message: {
             Text("Bu \(currentItem.isVideo ? "videoyu" : "fotoğrafı") kalıcı olarak silmek istediğinizden emin misiniz?")
         }
         .onAppear {
-            setupInitialState()
+            if let i = items.firstIndex(where: { $0.id == initialItem.id }) { currentIndex = i }
+            loadIfNeeded(currentItem)
         }
-        .onDisappear {
-            stopAllInlineVideos()
-        }
+        .onDisappear { stopAll() }
         .onChange(of: currentIndex) { _ in
-            loadCurrentMedia()
-            stopAllInlineVideos() // Index değişince videoları durdur
+            stopAll()
+            loadIfNeeded(currentItem)
         }
     }
-    
-    // MARK: - UI Components
-    
-    private var mediaContentView: some View {
-        TabView(selection: $currentIndex) {
-            ForEach(Array(vm.filteredItems.enumerated()), id: \.element.id) { index, item in
-                if item.isVideo {
-                    videoItemView(item: item, index: index)
-                } else {
-                    imageItemView(item: item, index: index)
-                }
-            }
-        }
-        .tabViewStyle(.page(indexDisplayMode: .never))
-    }
-    
-    private func videoItemView(item: MediaItem, index: Int) -> some View {
-        ZStack {
-            // Video player veya thumbnail
-            if let player = getPlayerForItem(item) {
-                // Inline video player - iPhone Photos tarzı
-                VideoPlayer(player: player)
-                    .aspectRatio(contentMode: .fit)
-                    .onAppear {
-                        print("🎬 Inline VideoPlayer appeared for item: \(item.id ?? "")")
-                    }
-                    .onDisappear {
-                        player.pause()
-                        print("🎬 Inline VideoPlayer disappeared")
-                    }
-            } else {
-                // Thumbnail göster + play button
-                AsyncImageView(pathProvider: { await vm.imageURL(for: item) })
-                    .aspectRatio(contentMode: .fit)
-                    .overlay {
-                        Button(action: { startInlineVideo(item) }) {
-                            Image(systemName: "play.circle.fill")
-                                .font(.system(size: 80))
-                                .foregroundStyle(.white)
-                                .background(
-                                    Circle()
-                                        .fill(.black.opacity(0.3))
-                                        .frame(width: 100, height: 100)
-                                )
-                        }
-                    }
-            }
-        }
-        .tag(index)
-        .onTapGesture { toggleUI() }
-    }
-    
-    private func imageItemView(item: MediaItem, index: Int) -> some View {
-        let itemId = item.id ?? ""
-        
+
+    // MARK: - Pages
+
+    private func imagePage(for item: MediaItem) -> some View {
+        let id = item.id ?? ""
         return Group {
-            if let image = loadedImages[itemId] {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
+            if let img = loadedImages[id] {
+                Image(uiImage: img).resizable().scaledToFit()
             } else {
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    .onAppear {
-                        Task { await loadImage(for: item) }
-                    }
+                    .progressViewStyle(.circular)
+                    .onAppear { Task { await loadImage(item) } }
             }
         }
-        .tag(index)
-        .onTapGesture { toggleUI() }
     }
-    
-    private var topUIBar: some View {
+
+    private func videoPage(for item: MediaItem) -> some View {
+        let id = item.id ?? ""
+        let player = players[id]
+
+        return ZStack {
+            if let player {
+                // Poster üstünde büyük play yok. Kontrol yalnız alttaki Play/Pause.
+                InlineVideoView(
+                    player: player,
+                    itemId: id,
+                    isMuted: Binding(
+                        get: { muteStates[id] ?? false },
+                        set: { muteStates[id] = $0; player.isMuted = $0 }
+                    ),
+                    bottomOverlayPadding: thumbnailBarHeight + controlsGapAboveThumbs,
+                    topRightExtraTop: soundIconExtraTop
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                // Player hazır değilken sadece poster
+                AsyncImageView(pathProvider: { await vm.imageURL(for: item) })
+                    .scaledToFit()
+            }
+        }
+    }
+
+    // MARK: - Top / Bottom UI
+
+    private var topBar: some View {
         VStack {
             HStack {
-                closeButton
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.title2)
+                        .foregroundColor(.white)
+                        .padding(10)
+                        .background(Circle().fill(.black.opacity(0.6)))
+                }
+
                 Spacer()
-                mediaCounterView
+
+                HStack(spacing: 4) {
+                    Image(systemName: currentItem.isVideo ? "video" : "photo").font(.caption)
+                    Text("\(currentIndex + 1) of \(items.count)")
+                        .font(.caption).fontWeight(.medium)
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule().fill(.ultraThinMaterial)
+                        .environment(\.colorScheme, .dark)
+                )
+
                 Spacer()
-                actionButtonsView
+
+                HStack(spacing: 8) {
+                    Button(action: toggleFavorite) {
+                        Image(systemName: isFavorite ? "heart.fill" : "heart")
+                            .font(.title3)
+                            .foregroundColor(isFavorite ? .red : .white)
+                            .frame(width: 40, height: 40)
+                            .background(
+                                Circle().fill(.ultraThinMaterial)
+                                    .environment(\.colorScheme, .dark)
+                            )
+                    }
+
+                    Menu {
+                        Button("Paylaş", action: shareCurrent)
+                        Button("Galeriye Kaydet", action: saveCurrent)
+                        if canDelete {
+                            Divider()
+                            Button("Sil", role: .destructive) { showDeleteAlert = true }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.title3)
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(
+                                Circle().fill(.ultraThinMaterial)
+                                    .environment(\.colorScheme, .dark)
+                            )
+                    }
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 10)
-            
+
             Spacer()
         }
     }
-    
-    private var closeButton: some View {
-        Button(action: onClose) {
-            Image(systemName: "xmark")
-                .font(.title2)
-                .foregroundColor(.white)
-                .padding(10)
-                .background(Circle().fill(.black.opacity(0.6)))
-        }
-    }
-    
-    private var mediaCounterView: some View {
-        HStack(spacing: 4) {
-            Image(systemName: currentItem.isVideo ? "video" : "photo")
-                .font(.caption)
-            Text("\(currentIndex + 1) of \(vm.filteredItems.count)")
-                .font(.caption)
-                .fontWeight(.medium)
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .environment(\.colorScheme, .dark)
-        )
-    }
-    
-    private var actionButtonsView: some View {
-        HStack(spacing: 8) {
-            favoriteButton
-            moreMenuButton
-        }
-    }
-    
-    private var favoriteButton: some View {
-        Button(action: toggleFavorite) {
-            Image(systemName: isFavorite ? "heart.fill" : "heart")
-                .font(.title3)
-                .foregroundColor(isFavorite ? .red : .white)
-                .frame(width: 40, height: 40)
-                .background(
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .environment(\.colorScheme, .dark)
-                )
-        }
-    }
-    
-    private var moreMenuButton: some View {
-        Menu {
-            Button("Paylaş", action: shareMedia)
-            if !currentItem.isVideo {
-                Button("Galeriye Kaydet", action: saveToPhotos)
-            }
-            if canDeleteMedia {
-                Divider()
-                Button("Sil", role: .destructive) { showDeleteAlert = true }
-            }
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.title3)
-                .foregroundColor(.white)
-                .frame(width: 40, height: 40)
-                .background(
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .environment(\.colorScheme, .dark)
-                )
-        }
-    }
-    
-    private var bottomUIBar: some View {
+
+    private var thumbnailBar: some View {
         VStack {
             Spacer()
-            
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 8) {
-                    ForEach(Array(vm.filteredItems.enumerated()), id: \.element.id) { index, item in
-                        thumbnailView(for: item, at: index)
+                    ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
+                        let selected = idx == currentIndex
+                        AsyncImageView(pathProvider: { await vm.imageURL(for: item) })
+                            .frame(width: 50, height: 50)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(selected ? Color.white : .clear, lineWidth: 2)
+                            )
+                            .overlay(alignment: .topTrailing) {
+                                if item.isVideo {
+                                    Image(systemName: "video.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.white)
+                                        .padding(2)
+                                        .background(Circle().fill(.black.opacity(0.6)))
+                                        .clipShape(Circle())
+                                        .padding(2)
+                                }
+                            }
+                            .opacity(selected ? 1 : 0.6)
+                            .scaleEffect(selected ? 1.1 : 1.0)
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    currentIndex = idx
+                                }
+                            }
                     }
                 }
                 .padding(.horizontal, 16)
             }
             .frame(height: 70)
-            .padding(.bottom, 20)
+            .padding(.bottom, 16)
+            .background(Color.black.opacity(0.0001))
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    
-    private func thumbnailView(for item: MediaItem, at index: Int) -> some View {
-        let isSelected = index == currentIndex
-        
-        return AsyncImageView(pathProvider: { await vm.imageURL(for: item) })
-            .frame(width: 50, height: 50)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.white : Color.clear, lineWidth: 2)
-            )
-            .overlay(
-                videoIndicatorOverlay(for: item)
-            )
-            .opacity(isSelected ? 1.0 : 0.6)
-            .scaleEffect(isSelected ? 1.1 : 1.0)
-            .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    currentIndex = index
-                }
-            }
-    }
-    
-    @ViewBuilder
-    private func videoIndicatorOverlay(for item: MediaItem) -> some View {
-        if item.isVideo {
-            VStack {
-                HStack {
-                    Spacer()
-                    Image(systemName: "video.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.white)
-                        .background(
-                            Circle()
-                                .fill(.black.opacity(0.6))
-                                .frame(width: 16, height: 16)
-                        )
-                }
-                Spacer()
-            }
-            .padding(2)
-        }
-    }
-    
-    private var deleteAlertButtons: some View {
-        Group {
-            Button("İptal", role: .cancel) { }
-            Button("Sil", role: .destructive) {
-                Task { await deleteMedia() }
+
+    // MARK: - Video prepare / stop
+
+    private func ensurePlayer(for item: MediaItem) async {
+        guard let id = item.id, players[id] == nil else { return }
+        guard let url = await vm.videoURL(for: item) else { return }
+        await MainActor.run {
+            let p = AVPlayer(url: url)
+            p.isMuted = muteStates[id] ?? false
+            p.pause()                      // <<< başlangıçta DURAKLAT
+            players[id] = p
+            currentPlayingId = id
+
+            NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemDidPlayToEndTime,
+                object: p.currentItem,
+                queue: .main
+            ) { _ in
+                p.seek(to: .zero)
             }
         }
     }
-    
-    // MARK: - Inline Video Methods
-    
-    private func getPlayerForItem(_ item: MediaItem) -> AVPlayer? {
-        guard let itemId = item.id else { return nil }
-        return inlineVideoPlayers[itemId]
-    }
-    
-    private func startInlineVideo(_ item: MediaItem) {
-        guard item.isVideo, let itemId = item.id else { return }
-        
-        print("🎬 Starting inline video for item: \(itemId)")
-        
-        // Diğer videoları durdur
-        stopAllInlineVideos()
-        
-        Task {
-            guard let videoURL = await vm.videoURL(for: item) else {
-                showToastMessage("Video URL'si alınamadı")
-                return
-            }
-            
-            await MainActor.run {
-                // Yeni player oluştur
-                let player = AVPlayer(url: videoURL)
-                inlineVideoPlayers[itemId] = player
-                currentPlayingVideoId = itemId
-                
-                // Auto-play
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    player.play()
-                    print("🎬 Inline video started playing")
-                }
-                
-                // Video bitince thumbnail'e dön
-                NotificationCenter.default.addObserver(
-                    forName: .AVPlayerItemDidPlayToEndTime,
-                    object: player.currentItem,
-                    queue: .main
-                ) { _ in
-                    self.stopInlineVideo(itemId)
-                }
-            }
-        }
-    }
-    
-    private func stopInlineVideo(_ itemId: String) {
-        print("🎬 Stopping inline video: \(itemId)")
-        
-        inlineVideoPlayers[itemId]?.pause()
-        inlineVideoPlayers.removeValue(forKey: itemId)
-        
-        if currentPlayingVideoId == itemId {
-            currentPlayingVideoId = nil
-        }
-        
+
+    private func stopAll() {
+        for (_, p) in players { p.pause() }
+        players.removeAll()
+        currentPlayingId = nil
         NotificationCenter.default.removeObserver(self)
     }
-    
-    private func stopAllInlineVideos() {
-        print("🎬 Stopping all inline videos")
-        
-        for (itemId, player) in inlineVideoPlayers {
-            player.pause()
-        }
-        inlineVideoPlayers.removeAll()
-        currentPlayingVideoId = nil
-        NotificationCenter.default.removeObserver(self)
+
+    // MARK: - Data / Actions
+
+    private func loadIfNeeded(_ item: MediaItem) {
+        if !item.isVideo { Task { await loadImage(item) } }
     }
-    
-    // MARK: - Helper Methods
-    
-    private func setupInitialState() {
-        if let index = vm.filteredItems.firstIndex(where: { $0.id == initialItem.id }) {
-            currentIndex = index
-        }
-        loadCurrentMedia()
-    }
-    
-    private var canDeleteMedia: Bool {
-        guard let currentUID = vm.auth.uid else { return false }
-        return currentItem.uploaderId == currentUID
-    }
-    
-    private func toggleUI() {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            showUI.toggle()
-        }
-    }
-    
-    private func toggleFavorite() {
-        guard let itemId = currentItem.id else { return }
-        vm.toggleFavorite(itemId)
-        let message = vm.isFavorite(itemId) ? "Favorilere eklendi" : "Favorilerden çıkarıldı"
-        showToastMessage(message)
-    }
-    
-    private func loadCurrentMedia() {
-        if !currentItem.isVideo {
-            let itemId = currentItem.id ?? ""
-            if loadedImages[itemId] == nil {
-                Task { await loadImage(for: currentItem) }
-            }
-        }
-    }
-    
-    private func loadImage(for item: MediaItem) async {
-        let itemId = item.id ?? ""
-        guard loadedImages[itemId] == nil else { return }
-        
+
+    private func loadImage(_ item: MediaItem) async {
+        let id = item.id ?? ""
+        guard loadedImages[id] == nil else { return }
         do {
             guard let url = await vm.imageURL(for: item) else { return }
             let (data, _) = try await URLSession.shared.data(from: url)
-            guard let image = UIImage(data: data) else { return }
-            
-            await MainActor.run {
-                loadedImages[itemId] = image
+            if let img = UIImage(data: data) {
+                await MainActor.run { loadedImages[id] = img }
             }
-        } catch {
-            print("Failed to load image: \(error)")
-        }
+        } catch { print("Image load error:", error) }
     }
-    
-    private func deleteMedia() async {
+
+    private func toggleFavorite() {
+        guard let id = currentItem.id else { return }
+        vm.toggleFavorite(id)
+        showToast(vm.isFavorite(id) ? "Favorilere eklendi" : "Favorilerden çıkarıldı")
+    }
+
+    private func deleteCurrent() async {
         isDeleting = true
-        
         do {
             try await vm.deletePhoto(currentItem)
-            
             await MainActor.run {
-                showToastMessage("\(currentItem.isVideo ? "Video" : "Fotoğraf") silindi")
-                
-                if vm.filteredItems.count <= 1 {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                        onClose()
-                    }
-                } else {
-                    if currentIndex >= vm.filteredItems.count {
-                        currentIndex = vm.filteredItems.count - 1
-                    }
+                showToast("\(currentItem.isVideo ? "Video" : "Fotoğraf") silindi")
+                if items.count <= 1 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) { onClose() }
+                } else if currentIndex >= items.count {
+                    currentIndex = max(0, items.count - 1)
                 }
             }
         } catch {
-            await MainActor.run {
-                showToastMessage("Silme hatası")
-            }
+            await MainActor.run { showToast("Silme hatası") }
         }
-        
         isDeleting = false
     }
-    
-    private func shareMedia() {
-        showToastMessage("Paylaşım özelliği yakında eklenecek")
+
+    private func shareCurrent() { showToast("Paylaşım yakında") }
+
+    private func saveCurrent() {
+        currentItem.isVideo ? saveVideo() : saveImage()
     }
-    
-    private func saveToPhotos() {
-        guard !currentItem.isVideo, let image = loadedImages[currentItem.id ?? ""] else {
-            showToastMessage("Henüz görsel yüklenmedi")
-            return
-        }
-        
+
+    private func saveImage() {
+        guard let img = loadedImages[currentItem.id ?? ""] else { showToast("Henüz görsel yüklenmedi"); return }
         Task {
-            let status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
-            
-            if status == .authorized || status == .limited {
-                await performSave(image: image)
-            } else if status == .notDetermined {
-                let newStatus = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
-                if newStatus == .authorized || newStatus == .limited {
-                    await performSave(image: image)
-                } else {
-                    showToastMessage("Fotoğraf izni gerekli")
-                }
-            } else {
-                showToastMessage("Fotoğraf izni reddedildi")
-            }
+            let st = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+            if st == .authorized || st == .limited {
+                await performSaveImage(img)
+            } else if st == .notDetermined {
+                let ns = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+                if ns == .authorized || ns == .limited { await performSaveImage(img) }
+                else { showToast("Fotoğraf izni gerekli") }
+            } else { showToast("Fotoğraf izni reddedildi") }
         }
     }
-    
-    private func performSave(image: UIImage) async {
+
+    private func saveVideo() {
+        Task {
+            let st = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+            if st == .authorized || st == .limited {
+                await performSaveVideo()
+            } else if st == .notDetermined {
+                let ns = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+                if ns == .authorized || ns == .limited { await performSaveVideo() }
+                else { showToast("Fotoğraf izni gerekli") }
+            } else { showToast("Fotoğraf izni reddedildi") }
+        }
+    }
+
+    private func performSaveImage(_ image: UIImage) async {
         do {
             try await PHPhotoLibrary.shared().performChanges {
                 PHAssetChangeRequest.creationRequestForAsset(from: image)
             }
-            await MainActor.run {
-                showToastMessage("Galeriye kaydedildi")
-            }
-        } catch {
-            await MainActor.run {
-                showToastMessage("Kaydetme hatası")
-            }
-        }
+            await MainActor.run { showToast("Fotoğraf galeriye kaydedildi") }
+        } catch { await MainActor.run { showToast("Kaydetme hatası") } }
     }
-    
+
+    private func performSaveVideo() async {
+        do {
+            guard let url = await vm.videoURL(for: currentItem) else { showToast("Video URL'si alınamadı"); return }
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let tmp = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString).appendingPathExtension("mp4")
+            try data.write(to: tmp)
+            try await PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: tmp)
+            }
+            try? FileManager.default.removeItem(at: tmp)
+            await MainActor.run { showToast("Video galeriye kaydedildi") }
+        } catch { await MainActor.run { showToast("Video kaydetme hatası") } }
+    }
+
     private func toastView(_ message: String) -> some View {
         VStack {
             Spacer()
-            
             Text(message)
                 .foregroundColor(.white)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 25)
-                        .fill(.black.opacity(0.8))
-                )
+                .padding(.horizontal, 20).padding(.vertical, 12)
+                .background(RoundedRectangle(cornerRadius: 25).fill(.black.opacity(0.8)))
                 .padding(.bottom, 100)
         }
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                withAnimation {
-                    showToast = false
-                }
+                withAnimation { showToast = false }
             }
         }
     }
-    
-    private func showToastMessage(_ message: String) {
-        toastMessage = message
-        withAnimation(.spring()) {
-            showToast = true
+
+    private func showToast(_ msg: String) {
+        toastMessage = msg
+        withAnimation(.spring()) { showToast = true }
+    }
+}
+
+// MARK: - InlineVideoView
+private struct InlineVideoView: View {
+    let player: AVPlayer
+    let itemId: String
+    @Binding var isMuted: Bool
+
+    let bottomOverlayPadding: CGFloat
+    let topRightExtraTop: CGFloat
+
+    @State private var isPlaying = false
+    @State private var current: Double = 0
+    @State private var duration: Double = 0
+    @State private var showControls = true
+    @State private var timer: Timer?
+
+    var body: some View {
+        ZStack {
+            PlayerViewRepresentable(player: player)     // sağlam görüntü
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .onTapGesture { showControlsTemporarily() }
+
+            if showControls {
+                VStack {
+                    // Ses
+                    HStack {
+                        Spacer()
+                        Button {
+                            isMuted.toggle()
+                            player.isMuted = isMuted
+                            showControlsTemporarily()
+                        } label: {
+                            Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                                .font(.title2)
+                                .foregroundColor(.white)
+                                .padding(12)
+                                .background(Circle().fill(.black.opacity(0.6)))
+                        }
+                        .padding(.trailing, 16)
+                        .padding(.top, 50 + topRightExtraTop)
+                    }
+
+                    Spacer()
+
+                    // Slider + Play/Pause
+                    VStack(spacing: 8) {
+                        HStack {
+                            Text(format(current)).font(.caption).foregroundColor(.white).monospacedDigit()
+                            Slider(value: $current, in: 0...max(duration, 1), onEditingChanged: { editing in
+                                if !editing {
+                                    player.seek(to: CMTime(seconds: current, preferredTimescale: 600))
+                                }
+                            })
+                            Text(format(duration)).font(.caption).foregroundColor(.white).monospacedDigit()
+                        }
+                        .padding(.horizontal, 16)
+
+                        HStack {
+                            Spacer()
+                            Button {
+                                if isPlaying { player.pause() } else { player.play() }
+                                showControlsTemporarily()
+                            } label: {
+                                Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                                    .font(.system(size: 44))
+                                    .foregroundColor(.white)
+                            }
+                            Spacer()
+                        }
+                    }
+                    .padding(.bottom, bottomOverlayPadding)
+                    .background(
+                        LinearGradient(colors: [.clear, .black.opacity(0.7)],
+                                       startPoint: .top, endPoint: .bottom)
+                            .frame(height: 120)
+                    )
+                }
+                .transition(.opacity)
+            }
+        }
+        .onAppear {
+            setupObservers()
+            showControlsTemporarily()
+            player.isMuted = isMuted
+        }
+        .onDisappear { timer?.invalidate() }
+    }
+
+    private func setupObservers() {
+        if let item = player.currentItem {
+            NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemDidPlayToEndTime,
+                object: item, queue: .main
+            ) { _ in
+                player.seek(to: .zero)
+                isPlaying = false
+            }
+        }
+        player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600),
+                                       queue: .main) { t in
+            current = t.seconds
+            isPlaying = player.rate > 0
+            if let it = player.currentItem { duration = it.duration.seconds }
+        }
+    }
+
+    private func showControlsTemporarily() {
+        withAnimation { showControls = true }
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { _ in
+            withAnimation { showControls = false }
+        }
+    }
+
+    private func format(_ s: Double) -> String {
+        guard s.isFinite else { return "0:00" }
+        let i = Int(s), m = i / 60, r = i % 60
+        return String(format: "%d:%02d", m, r)
+    }
+}
+
+// MARK: - AVPlayerLayer tabanlı sağlam container
+private struct PlayerViewRepresentable: UIViewRepresentable {
+    let player: AVPlayer
+
+    func makeUIView(context: Context) -> PlayerView {
+        let v = PlayerView()
+        v.playerLayer.player = player
+        v.playerLayer.videoGravity = .resizeAspect // contain
+        return v
+    }
+
+    func updateUIView(_ uiView: PlayerView, context: Context) {
+        uiView.playerLayer.player = player
+        uiView.playerLayer.videoGravity = .resizeAspect
+    }
+
+    final class PlayerView: UIView {
+        override class var layerClass: AnyClass { AVPlayerLayer.self }
+        var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            // AVPlayerLayer kendi bounds'unu zaten view.bounds'a uyar.
         }
     }
 }
