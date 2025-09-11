@@ -2,7 +2,7 @@
 //  MediaGridContainer.swift
 //  SnapCollab
 //
-//  Main container for MediaGrid
+//  Simplified container for MediaGrid - no selection mode
 //
 
 import SwiftUI
@@ -20,25 +20,9 @@ struct MediaGridContainer: View {
                     favoritesCount: vm.favoritesCount
                 )
             } else {
-                VStack(spacing: 0) {
-                    if state.isSelecting {
-                        MediaGridSelectionToolbar(state: state, vm: vm)
-                    }
-                    
-                    MediaGridScrollView(vm: vm, state: state, geometry: geometry)
-                    
-                    if state.isSelecting {
-                        VStack {
-                            Spacer()
-                            MediaGridBatchActions(vm: vm, state: state)
-                                .padding(.bottom, 20)
-                        }
-                        .transition(.move(edge: .bottom))
-                    }
-                }
+                MediaGridScrollView(vm: vm, state: state, geometry: geometry)
             }
         }
-        .navigationBarBackButtonHidden(state.isSelecting)
         .toolbar {
             MediaGridToolbarContent(vm: vm, state: state)
         }
@@ -85,11 +69,7 @@ struct MediaGridScrollView: View {
     
     var body: some View {
         ScrollView {
-            if state.isSelecting {
-                selectableGrid
-            } else {
-                regularGrid
-            }
+            regularGrid
         }
         .refreshable {
             await refreshData()
@@ -97,7 +77,8 @@ struct MediaGridScrollView: View {
     }
     
     private var regularGrid: some View {
-        let sortedItems = vm.sortedItems(by: state.currentSort)
+        // Always use newest sort for simplicity
+        let sortedItems = vm.sortedItems(by: .newest)
         
         return PinterestGrid(
             items: sortedItems,
@@ -113,28 +94,6 @@ struct MediaGridScrollView: View {
                 },
                 onDelete: { item in
                     state.showDeleteConfirmation(for: item)
-                }
-            )
-        }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-    }
-    
-    private var selectableGrid: some View {
-        let sortedItems = vm.sortedItems(by: state.currentSort)
-        
-        return PinterestGrid(
-            items: sortedItems,
-            spacing: 8,
-            columns: 2,
-            containerWidth: geometry.size.width
-        ) { item in
-            SelectableMediaCard(
-                vm: vm,
-                item: item,
-                isSelected: state.isSelected(item.id ?? ""),
-                onSelection: { itemId in
-                    state.toggleSelection(for: itemId)
                 }
             )
         }
