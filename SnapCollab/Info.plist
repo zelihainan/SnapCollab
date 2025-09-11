@@ -2,78 +2,68 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleURLTypes</key>
-    <array>
-        <!-- Google Sign In URL Scheme -->
-        <dict>
-            <key>CFBundleTypeRole</key>
-            <string>Editor</string>
-            <key>CFBundleURLIconFile</key>
-            <string></string>
-            <key>CFBundleURLName</key>
-            <string>GoogleSignIn</string>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <string>com.googleusercontent.apps.1099472256100-bh4jjndtg5fa54dfob781e08tgeai36q</string>
-            </array>
-        </dict>
-        <!-- SnapCollab Deep Link URL Scheme -->
-        <dict>
-            <key>CFBundleURLName</key>
-            <string>snapcollab.invite</string>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <string>snapcollab</string>
-            </array>
-        </dict>
-    </array>
-    
-    <!-- Photo Library Permissions -->
-    <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>Fotoğrafları ve videoları galeriye kaydetmek için izin gerekiyor.</string>
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>Galeriden fotoğraf ve video seçmek için izin gerekiyor.</string>
-    
-    <!-- Camera Permissions -->
-    <key>NSCameraUsageDescription</key>
-    <string>Fotoğraf çekmek için kamera erişimi gerekiyor.</string>
-    
-    <!-- Microphone Permissions (Video için) -->
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Video çekerken ses kaydetmek için mikrofon erişimi gerekiyor.</string>
-    
-    <!-- App Transport Security Settings -->
-    <key>NSAppTransportSecurity</key>
-    <dict>
-        <key>NSAllowsArbitraryLoads</key>
-        <false/>
-        <key>NSExceptionDomains</key>
-        <dict>
-            <!-- Firebase Storage için -->
-            <key>firebasestorage.googleapis.com</key>
-            <dict>
-                <key>NSExceptionAllowsInsecureHTTPLoads</key>
-                <true/>
-                <key>NSExceptionMinimumTLSVersion</key>
-                <string>TLSv1.0</string>
-                <key>NSIncludesSubdomains</key>
-                <true/>
-            </dict>
-            <!-- Firebase Storage app domain için -->
-            <key>firebasestorage.app</key>
-            <dict>
-                <key>NSExceptionAllowsInsecureHTTPLoads</key>
-                <true/>
-                <key>NSExceptionMinimumTLSVersion</key>
-                <string>TLSv1.0</string>
-                <key>NSIncludesSubdomains</key>
-                <true/>
-            </dict>
-        </dict>
-    </dict>
-    
-    <!-- File Provider için -->
-    <key>NSSupportsLiveActivities</key>
-    <false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLIconFile</key>
+			<string></string>
+			<key>CFBundleURLName</key>
+			<string>GoogleSignIn</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.1099472256100-bh4jjndtg5fa54dfob781e08tgeai36q</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>snapcollab.invite</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>snapcollab</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Fotoğrafları ve videoları galeriye kaydetmek için izin gerekiyor.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Galeriden fotoğraf ve video seçmek için izin gerekiyor.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Fotoğraf çekmek için kamera erişimi gerekiyor.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Video çekerken ses kaydetmek için mikrofon erişimi gerekiyor.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>firebasestorage.googleapis.com</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSExceptionMinimumTLSVersion</key>
+				<string>TLSv1.0</string>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+			<key>firebasestorage.app</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSExceptionMinimumTLSVersion</key>
+				<string>TLSv1.0</string>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>AlbertSans-Regular.ttf</string>
+	</array>
+	<key>NSSupportsLiveActivities</key>
+	<false/>
 </dict>
 </plist>

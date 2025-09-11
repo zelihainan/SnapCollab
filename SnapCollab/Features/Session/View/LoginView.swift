@@ -31,46 +31,8 @@ struct LoginView: View {
                             
                             // Logo and Title
                             VStack(spacing: 16) {
-                                // Logo with gradient and shadow
-                                ZStack {
-                                    Circle()
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [.white.opacity(0.3), .white.opacity(0.1)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                        .frame(width: 120, height: 120)
-                                        .blur(radius: 1)
-                                    
-                                    Image(systemName: "camera.aperture")
-                                        .font(.system(size: 64, weight: .light))
-                                        .foregroundStyle(
-                                            LinearGradient(
-                                                colors: [.white, .white.opacity(0.8)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                        .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                                }
-                                .scaleEffect(animateGradient ? 1.05 : 1.0)
-                                .animation(.easeInOut(duration: 3).repeatForever(autoreverses: true), value: animateGradient)
-                                
-                                VStack(spacing: 8) {
-                                    Text("SnapCollab")
-                                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                                        .foregroundStyle(
-                                            LinearGradient(
-                                                colors: [.white, .white.opacity(0.9)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                        .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
-
-                                }
+                                WordmarkLogo()
+                            
                             }
                             
                             Spacer(minLength: 10)
@@ -295,6 +257,40 @@ struct AnimatedGradientBackground: View {
                 .onChange(of: animate) { on in
                     // İstersen animate=false ile durdurabilirsin
                     drift = on
+                }
+        }
+    }
+}
+
+// MARK: - Wordmark Logo (ikon yok, yazı + hafif glow)
+struct WordmarkLogo: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.white.opacity(0.18))
+                .frame(width: 140, height: 140)
+                .blur(radius: 32)
+
+            Text("SnapCollab")
+                .font(.custom("AlbertSans-Bold", size: 40, relativeTo: .largeTitle)) 
+                .kerning(0.5)
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.55, green: 0.47, blue: 1.00),
+                            Color(red: 0.80, green: 0.50, blue: 1.00)
+                        ],
+                        startPoint: .leading, endPoint: .trailing
+                    )
+                )
+                .shadow(color: .black.opacity(0.25), radius: 4, x: 0, y: 2)
+                .overlay {
+                    Text("SnapCollab")
+                        .font(.custom("AlbertSans-Bold", size: 40, relativeTo: .largeTitle))
+                        .foregroundColor(.white.opacity(0.25))
+                        .offset(y: -1)
+                        .mask(LinearGradient(colors: [.white, .clear],
+                                             startPoint: .top, endPoint: .bottom))
                 }
         }
     }
