@@ -2,13 +2,13 @@
 //  MediaViewerView.swift
 //  SnapCollab
 //
-//  Basitleştirilmiş video desteği (Emergency Player)
+//  Inline video player ile - iPhone Photos tarzı
 //
 
 import SwiftUI
 import Photos
-import AVKit       // ⬅️ VideoPlayer/AVPlayer için
-import UIKit       // ⬅️ UIApplication, UIPasteboard için
+import AVKit
+import AVFoundation
 
 struct MediaViewerView: View {
     @ObservedObject var vm: MediaViewModel
@@ -20,10 +20,12 @@ struct MediaViewerView: View {
     @State private var showUI = true
     @State private var showDeleteAlert = false
     @State private var isDeleting = false
-    @State private var showVideoPlayer = false
-    @State private var videoPlayerURL: URL?
     @State private var toastMessage: String?
     @State private var showToast = false
+    
+    // INLINE VIDEO PLAYER STATE
+    @State private var inlineVideoPlayers: [String: AVPlayer] = [:]
+    @State private var currentPlayingVideoId: String?
 
     private var currentItem: MediaItem {
         guard currentIndex < vm.filteredItems.count else { return initialItem }
@@ -36,7 +38,6 @@ struct MediaViewerView: View {
     }
 
     var body: some View {
-        let _ = print("🎬 MediaViewer body - showVideoPlayer: \(showVideoPlayer), videoPlayerURL: \(videoPlayerURL?.absoluteString ?? "nil")")
         ZStack {
             Color.black.ignoresSafeArea()
             
@@ -56,25 +57,6 @@ struct MediaViewerView: View {
                 toastView(message)
             }
         }
-
-        .fullScreenCover(isPresented: $showVideoPlayer) {
-            if let videoURL = videoPlayerURL {
-                // SEÇENEK 1: Stable Video Player (Temp file kullanır - En güvenilir)
-                StableVideoPlayer(videoURL: videoURL) {
-                    showVideoPlayer = false
-                    videoPlayerURL = nil
-                }
-                
-                // VEYA SEÇENEK 2: WebView Player (Her zaman çalışır)
-                /*
-                WebViewVideoPlayer(videoURL: videoURL) {
-                    showVideoPlayer = false
-                    videoPlayerURL = nil
-                }
-                */
-            }
-        }
-        
         .alert("Medyayı Sil", isPresented: $showDeleteAlert) {
             deleteAlertButtons
         } message: {
@@ -82,6 +64,13 @@ struct MediaViewerView: View {
         }
         .onAppear {
             setupInitialState()
+        }
+        .onDisappear {
+            stopAllInlineVideos()
+        }
+        .onChange(of: currentIndex) { _ in
+            loadCurrentMedia()
+            stopAllInlineVideos() // Index değişince videoları durdur
         }
     }
     
@@ -98,44 +87,42 @@ struct MediaViewerView: View {
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
-        .onChange(of: currentIndex) { _ in
-            loadCurrentMedia()
-        }
     }
     
     private func videoItemView(item: MediaItem, index: Int) -> some View {
-        AsyncImageView(pathProvider: { await vm.imageURL(for: item) })
-            .aspectRatio(contentMode: .fit)
-            .overlay {
-                // Play button - daha büyük ve ortalanmış
-                Button(action: { playVideo(item) }) {
-                    Image(systemName: "play.circle.fill")
-                        .font(.system(size: 80))
-                        .foregroundStyle(.white)
-                        .shadow(color: .black.opacity(0.3), radius: 4)
-                }
-            }
-            .overlay(
-                // Video indicator - sol alt köşe
-                VStack {
-                    Spacer()
-                    HStack {
-                        Image(systemName: "video.fill")
-                            .font(.caption)
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 4)
-                            .background(
-                                Capsule()
-                                    .fill(.black.opacity(0.7))
-                            )
-                        Spacer()
+        ZStack {
+            // Video player veya thumbnail
+            if let player = getPlayerForItem(item) {
+                // Inline video player - iPhone Photos tarzı
+                VideoPlayer(player: player)
+                    .aspectRatio(contentMode: .fit)
+                    .onAppear {
+                        print("🎬 Inline VideoPlayer appeared for item: \(item.id ?? "")")
                     }
-                    .padding(12)
-                }
-            )
-            .tag(index)
-            .onTapGesture { toggleUI() }
+                    .onDisappear {
+                        player.pause()
+                        print("🎬 Inline VideoPlayer disappeared")
+                    }
+            } else {
+                // Thumbnail göster + play button
+                AsyncImageView(pathProvider: { await vm.imageURL(for: item) })
+                    .aspectRatio(contentMode: .fit)
+                    .overlay {
+                        Button(action: { startInlineVideo(item) }) {
+                            Image(systemName: "play.circle.fill")
+                                .font(.system(size: 80))
+                                .foregroundStyle(.white)
+                                .background(
+                                    Circle()
+                                        .fill(.black.opacity(0.3))
+                                        .frame(width: 100, height: 100)
+                                )
+                        }
+                    }
+            }
+        }
+        .tag(index)
+        .onTapGesture { toggleUI() }
     }
     
     private func imageItemView(item: MediaItem, index: Int) -> some View {
@@ -203,15 +190,9 @@ struct MediaViewerView: View {
     }
     
     private var actionButtonsView: some View {
-        let hasContent = shouldShowActionButtons()
-        
-        return Group {
-            if hasContent {
-                HStack(spacing: 8) {
-                    favoriteButton
-                    moreMenuButton
-                }
-            }
+        HStack(spacing: 8) {
+            favoriteButton
+            moreMenuButton
         }
     }
     
@@ -321,6 +302,75 @@ struct MediaViewerView: View {
         }
     }
     
+    // MARK: - Inline Video Methods
+    
+    private func getPlayerForItem(_ item: MediaItem) -> AVPlayer? {
+        guard let itemId = item.id else { return nil }
+        return inlineVideoPlayers[itemId]
+    }
+    
+    private func startInlineVideo(_ item: MediaItem) {
+        guard item.isVideo, let itemId = item.id else { return }
+        
+        print("🎬 Starting inline video for item: \(itemId)")
+        
+        // Diğer videoları durdur
+        stopAllInlineVideos()
+        
+        Task {
+            guard let videoURL = await vm.videoURL(for: item) else {
+                showToastMessage("Video URL'si alınamadı")
+                return
+            }
+            
+            await MainActor.run {
+                // Yeni player oluştur
+                let player = AVPlayer(url: videoURL)
+                inlineVideoPlayers[itemId] = player
+                currentPlayingVideoId = itemId
+                
+                // Auto-play
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    player.play()
+                    print("🎬 Inline video started playing")
+                }
+                
+                // Video bitince thumbnail'e dön
+                NotificationCenter.default.addObserver(
+                    forName: .AVPlayerItemDidPlayToEndTime,
+                    object: player.currentItem,
+                    queue: .main
+                ) { _ in
+                    self.stopInlineVideo(itemId)
+                }
+            }
+        }
+    }
+    
+    private func stopInlineVideo(_ itemId: String) {
+        print("🎬 Stopping inline video: \(itemId)")
+        
+        inlineVideoPlayers[itemId]?.pause()
+        inlineVideoPlayers.removeValue(forKey: itemId)
+        
+        if currentPlayingVideoId == itemId {
+            currentPlayingVideoId = nil
+        }
+        
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    private func stopAllInlineVideos() {
+        print("🎬 Stopping all inline videos")
+        
+        for (itemId, player) in inlineVideoPlayers {
+            player.pause()
+        }
+        inlineVideoPlayers.removeAll()
+        currentPlayingVideoId = nil
+        NotificationCenter.default.removeObserver(self)
+    }
+    
     // MARK: - Helper Methods
     
     private func setupInitialState() {
@@ -328,12 +378,6 @@ struct MediaViewerView: View {
             currentIndex = index
         }
         loadCurrentMedia()
-    }
-    
-    private func shouldShowActionButtons() -> Bool {
-        if currentItem.isVideo { return true }
-        if currentItem.isImage && loadedImages[currentItem.id ?? ""] != nil { return true }
-        return false
     }
     
     private var canDeleteMedia: Bool {
@@ -352,127 +396,6 @@ struct MediaViewerView: View {
         vm.toggleFavorite(itemId)
         let message = vm.isFavorite(itemId) ? "Favorilere eklendi" : "Favorilerden çıkarıldı"
         showToastMessage(message)
-    }
-    
-    private func diagnoseVideo(_ item: MediaItem) {
-        guard item.isVideo else { return }
-        
-        print("🔍 VIDEO DIAGNOSIS START")
-        print("🔍 Item ID: \(item.id ?? "nil")")
-        print("🔍 Item Type: \(item.type)")
-        print("🔍 Item Path: \(item.path)")
-        print("🔍 Item ThumbPath: \(item.thumbPath ?? "nil")")
-        print("🔍 Item Created: \(item.createdAt)")
-        
-        Task {
-            do {
-                // 1. Ana video path'ini kontrol et
-                print("🔍 Step 1: Getting main video URL...")
-                let mainURL = try await vm.repo.downloadURL(for: item.path)
-                print("🔍 Main Video URL: \(mainURL.absoluteString)")
-                
-                // 2. Video URL'sine HEAD request at
-                var request = URLRequest(url: mainURL)
-                request.httpMethod = "HEAD"
-                request.timeoutInterval = 10
-                
-                let (_, response) = try await URLSession.shared.data(for: request)
-                
-                if let httpResponse = response as? HTTPURLResponse {
-                    print("🔍 Step 2: HEAD Response Status: \(httpResponse.statusCode)")
-                    print("🔍 Step 2: Headers: \(httpResponse.allHeaderFields)")
-                    
-                    if let contentLength = httpResponse.allHeaderFields["Content-Length"] as? String {
-                        print("🔍 File Size: \(contentLength) bytes")
-                        
-                        if let size = Int(contentLength), size < 1000 {
-                            print("🔍 WARNING: File is very small (\(size) bytes) - probably corrupted!")
-                        }
-                    }
-                    
-                    if let contentType = httpResponse.allHeaderFields["Content-Type"] as? String {
-                        print("🔍 Content-Type: \(contentType)")
-                    }
-                }
-                
-                // 3. İlk birkaç byte'ı kontrol et (file signature)
-                print("🔍 Step 3: Checking file signature...")
-                let (data, _) = try await URLSession.shared.data(from: mainURL)
-                
-                print("🔍 Total file size: \(data.count) bytes")
-                
-                if data.count >= 12 {
-                    let header = Array(data.prefix(12))
-                    print("🔍 File header (hex): \(header.map { String(format: "%02X", $0) }.joined(separator: " "))")
-                    
-                    // MP4 signature kontrol
-                    if data.count >= 8 {
-                        let signature = Array(data[4..<8])
-                        let signatureString = String(bytes: signature, encoding: .ascii) ?? ""
-                        print("🔍 File signature: '\(signatureString)'")
-                        
-                        if signatureString == "ftyp" {
-                            print("🔍 ✅ Valid MP4 signature detected")
-                        } else {
-                            print("🔍 ❌ Invalid MP4 signature - Expected 'ftyp', got '\(signatureString)'")
-                        }
-                    }
-                }
-                
-                // 4. Thumbnail URL'sini kontrol et
-                if let thumbPath = item.thumbPath {
-                    print("🔍 Step 4: Checking thumbnail...")
-                    let thumbURL = try await vm.repo.downloadURL(for: thumbPath)
-                    print("🔍 Thumbnail URL: \(thumbURL.absoluteString)")
-                    
-                    var thumbRequest = URLRequest(url: thumbURL)
-                    thumbRequest.httpMethod = "HEAD"
-                    let (_, thumbResponse) = try await URLSession.shared.data(for: thumbRequest)
-                    
-                    if let httpResponse = thumbResponse as? HTTPURLResponse {
-                        print("🔍 Thumbnail Status: \(httpResponse.statusCode)")
-                        if let contentType = httpResponse.allHeaderFields["Content-Type"] as? String {
-                            print("🔍 Thumbnail Content-Type: \(contentType)")
-                        }
-                    }
-                }
-                
-                print("🔍 VIDEO DIAGNOSIS COMPLETE")
-                
-            } catch {
-                print("🔍 DIAGNOSIS ERROR: \(error)")
-            }
-        }
-    }
-
-    private func playVideo(_ item: MediaItem) {
-        guard item.isVideo else {
-            showToastMessage("Bu dosya video değil")
-            return
-        }
-        
-        print("🎬 MediaViewer: Playing video for item: \(item.id ?? "")")
-        print("🎬 MediaViewer: Current showVideoPlayer state: \(showVideoPlayer)")
-        print("🎬 MediaViewer: Current videoPlayerURL: \(videoPlayerURL?.absoluteString ?? "nil")")
-        
-        Task {
-            guard let videoURL = await vm.videoURL(for: item) else {
-                await MainActor.run {
-                    showToastMessage("Video URL'si alınamadı")
-                }
-                return
-            }
-            
-            print("🎬 MediaViewer: Got video URL: \(videoURL.absoluteString)")
-            
-            await MainActor.run {
-                print("🎬 MediaViewer: Setting videoPlayerURL and showVideoPlayer to true")
-                videoPlayerURL = videoURL
-                showVideoPlayer = true
-                print("🎬 MediaViewer: After setting - showVideoPlayer: \(showVideoPlayer)")
-                print("🎬 MediaViewer: After setting - videoPlayerURL: \(videoPlayerURL?.absoluteString ?? "nil")")
-            }
-        }
     }
     
     private func loadCurrentMedia() {
@@ -600,86 +523,6 @@ struct MediaViewerView: View {
         toastMessage = message
         withAnimation(.spring()) {
             showToast = true
-        }
-    }
-}
-
-// MARK: - Emergency Video View (Safari + Kopyala + Native Player Denemesi)
-struct EmergencyVideoView: View {
-    let videoURL: URL
-    let onClose: () -> Void
-    
-    @State private var player: AVPlayer
-    
-    init(videoURL: URL, onClose: @escaping () -> Void) {
-        self.videoURL = videoURL
-        self.onClose = onClose
-        _player = State(initialValue: AVPlayer(url: videoURL))
-    }
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 30) {
-                Image(systemName: "play.circle.fill")
-                    .font(.system(size: 100))
-                    .foregroundColor(.blue)
-                
-                Text("Video Oynatıcı")
-                    .font(.title)
-                
-                Text("Video URL'si:")
-                    .font(.headline)
-                
-                Text(videoURL.absoluteString)
-                    .font(.caption)
-                    .multilineTextAlignment(.center)
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
-                
-                VStack(spacing: 16) {
-                    Button("Safari'de Aç") {
-                        UIApplication.shared.open(videoURL)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .frame(maxWidth: .infinity)
-                    
-                    Button("URL'yi Kopyala") {
-                        UIPasteboard.general.string = videoURL.absoluteString
-                    }
-                    .buttonStyle(.bordered)
-                    .frame(maxWidth: .infinity)
-                }
-                
-                // Native iOS VideoPlayer
-                VideoPlayer(player: player)
-                    .frame(height: 220)
-                    .background(Color.black)
-                    .cornerRadius(8)
-                    .onAppear {
-                        // Basit zaman gözlemi + otomatik oynatma
-                        _ = player.addPeriodicTimeObserver(
-                            forInterval: CMTime(seconds: 1, preferredTimescale: 1),
-                            queue: .main
-                        ) { time in
-                            print("🎬 Player time: \(time.seconds)s")
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            player.play()
-                            print("🎬 Player.play() called")
-                        }
-                    }
-                
-                Spacer()
-            }
-            .padding()
-            .navigationTitle("Video Test")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Kapat") { onClose() }
-                }
-            }
         }
     }
 }
