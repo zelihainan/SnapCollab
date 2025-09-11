@@ -2,7 +2,7 @@
 //  MediaGridContainer.swift
 //  SnapCollab
 //
-//  Video desteği eklendi
+//  Video desteği eklendi - Filter aware picker
 //
 
 import SwiftUI
@@ -30,7 +30,8 @@ struct MediaGridContainer: View {
             MediaPickerSheet(
                 isPresented: $state.showMediaPicker,
                 selectedImage: $state.selectedImage,
-                selectedVideoURL: $state.selectedVideoURL
+                selectedVideoURL: $state.selectedVideoURL,
+                currentFilter: vm.currentFilter // Filter bilgisini geçiyoruz
             )
         }
         .onChange(of: state.selectedImage) { newImage in

@@ -2,7 +2,7 @@
 //  MediaPickerSheet.swift
 //  SnapCollab
 //
-//  Created by Zeliha İnan on 11.09.2025.
+//  Filter'a göre farklı seçenekler gösterir
 //
 
 import SwiftUI
@@ -13,73 +13,54 @@ struct MediaPickerSheet: View {
     @Binding var selectedImage: UIImage?
     @Binding var selectedVideoURL: URL?
     
+    // Filter bilgisini alıyoruz
+    let currentFilter: MediaViewModel.MediaFilter
+    
     @State private var showImagePicker = false
     @State private var showVideoPicker = false
+    @State private var showCameraPicker = false
     @State private var pickerItem: PhotosPickerItem?
+    @State private var cameraSourceType: UIImagePickerController.SourceType = .camera
     
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
                 // Header
                 VStack(spacing: 12) {
-                    Image(systemName: "plus.circle.fill")
+                    Image(systemName: iconForFilter)
                         .font(.system(size: 60))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(colorForFilter)
                     
-                    Text("İçerik Ekle")
+                    Text(titleForFilter)
                         .font(.title2)
                         .fontWeight(.semibold)
                     
-                    Text("Albüme fotoğraf veya video ekleyin")
+                    Text(subtitleForFilter)
                         .font(.body)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
                 .padding(.top, 20)
                 
-                // Options
+                // Options based on filter
                 VStack(spacing: 16) {
-                    // Photo from Library
-                    PhotosPicker(selection: $pickerItem, matching: .images) {
-                        MediaOptionButton(
-                            icon: "photo",
-                            title: "Fotoğraf Seç",
-                            subtitle: "Galeriden fotoğraf seçin",
-                            color: .blue
-                        )
+                    switch currentFilter {
+                    case .all:
+                        allFilterOptions
+                    case .photos:
+                        photoFilterOptions
+                    case .videos:
+                        videoFilterOptions
+                    case .favorites:
+                        // Favorites'ta + butonu gösterilmeyecek zaten
+                        EmptyView()
                     }
-                    
-                    // Photo from Camera
-                    Button(action: {
-                        showImagePicker = true
-                    }) {
-                        MediaOptionButton(
-                            icon: "camera",
-                            title: "Fotoğraf Çek",
-                            subtitle: "Kamera ile fotoğraf çekin",
-                            color: .green
-                        )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    // Video from Library
-                    Button(action: {
-                        showVideoPicker = true
-                    }) {
-                        MediaOptionButton(
-                            icon: "video",
-                            title: "Video Seç",
-                            subtitle: "Galeriden video seçin",
-                            color: .purple
-                        )
-                    }
-                    .buttonStyle(PlainButtonStyle())
                 }
                 .padding(.horizontal, 20)
                 
                 Spacer()
             }
-            .navigationTitle("İçerik Ekle")
+            .navigationTitle(titleForFilter)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -93,7 +74,7 @@ struct MediaPickerSheet: View {
             handlePhotosPickerItem(newValue)
         }
         .sheet(isPresented: $showImagePicker) {
-            ImagePicker(selectedImage: $selectedImage, sourceType: .camera)
+            ImagePicker(selectedImage: $selectedImage, sourceType: cameraSourceType)
                 .onDisappear {
                     if selectedImage != nil {
                         isPresented = false
@@ -108,14 +89,158 @@ struct MediaPickerSheet: View {
                     }
                 }
         }
+        .sheet(isPresented: $showCameraPicker) {
+            CameraPicker(
+                selectedImage: $selectedImage,
+                selectedVideoURL: $selectedVideoURL,
+                sourceType: cameraSourceType
+            )
+            .onDisappear {
+                if selectedImage != nil || selectedVideoURL != nil {
+                    isPresented = false
+                }
+            }
+        }
+    }
+    
+    // MARK: - Filter Specific Options
+    
+    @ViewBuilder
+    private var allFilterOptions: some View {
+        // Galeriden Seç (Hem fotoğraf hem video)
+        PhotosPicker(
+            selection: $pickerItem,
+            matching: .any(of: [.images, .videos])
+        ) {
+            MediaOptionButton(
+                icon: "photo.on.rectangle.angled",
+                title: "Galeriden Seç",
+                subtitle: "Fotoğraf veya video seçin",
+                color: .blue
+            )
+        }
+        
+        // Çek (Hem fotoğraf hem video)
+        Button(action: {
+            showCameraPicker = true
+        }) {
+            MediaOptionButton(
+                icon: "camera",
+                title: "Çek",
+                subtitle: "Fotoğraf çek veya video kaydet",
+                color: .green
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    @ViewBuilder
+    private var photoFilterOptions: some View {
+        // Galeriden Fotoğraf Seç
+        PhotosPicker(selection: $pickerItem, matching: .images) {
+            MediaOptionButton(
+                icon: "photo",
+                title: "Galeriden Fotoğraf Seç",
+                subtitle: "Galeriden fotoğraf seçin",
+                color: .blue
+            )
+        }
+        
+        // Fotoğraf Çek
+        Button(action: {
+            cameraSourceType = .camera
+            showImagePicker = true
+        }) {
+            MediaOptionButton(
+                icon: "camera",
+                title: "Fotoğraf Çek",
+                subtitle: "Kamera ile fotoğraf çekin",
+                color: .green
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    @ViewBuilder
+    private var videoFilterOptions: some View {
+        // Galeriden Video Seç
+        Button(action: {
+            showVideoPicker = true
+        }) {
+            MediaOptionButton(
+                icon: "video",
+                title: "Galeriden Video Seç",
+                subtitle: "Galeriden video seçin",
+                color: .purple
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        
+        // Video Çek
+        Button(action: {
+            cameraSourceType = .camera
+            showCameraPicker = true
+        }) {
+            MediaOptionButton(
+                icon: "video.badge.plus",
+                title: "Video Çek",
+                subtitle: "Kamera ile video kaydedin",
+                color: .red
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    // MARK: - Computed Properties
+    
+    private var iconForFilter: String {
+        switch currentFilter {
+        case .all: return "plus.circle.fill"
+        case .photos: return "photo.circle.fill"
+        case .videos: return "video.circle.fill"
+        case .favorites: return "heart.circle.fill"
+        }
+    }
+    
+    private var colorForFilter: Color {
+        switch currentFilter {
+        case .all: return .blue
+        case .photos: return .blue
+        case .videos: return .purple
+        case .favorites: return .red
+        }
+    }
+    
+    private var titleForFilter: String {
+        switch currentFilter {
+        case .all: return "İçerik Ekle"
+        case .photos: return "Fotoğraf Ekle"
+        case .videos: return "Video Ekle"
+        case .favorites: return "Favori Ekle"
+        }
+    }
+    
+    private var subtitleForFilter: String {
+        switch currentFilter {
+        case .all: return "Albüme fotoğraf veya video ekleyin"
+        case .photos: return "Albüme fotoğraf ekleyin"
+        case .videos: return "Albüme video ekleyin"
+        case .favorites: return "Favorilere öğe ekleyin"
+        }
     }
     
     private func handlePhotosPickerItem(_ pickerItem: PhotosPickerItem?) {
         guard let pickerItem = pickerItem else { return }
         
         Task {
-            if let data = try? await pickerItem.loadTransferable(type: Data.self),
-               let image = UIImage(data: data) {
+            // Önce video olup olmadığını kontrol et
+            if let videoTransfer = try? await pickerItem.loadTransferable(type: VideoTransferable.self) {
+                await MainActor.run {
+                    selectedVideoURL = videoTransfer.url
+                    isPresented = false
+                }
+            } else if let data = try? await pickerItem.loadTransferable(type: Data.self),
+                      let image = UIImage(data: data) {
                 await MainActor.run {
                     selectedImage = image
                     isPresented = false
@@ -125,7 +250,125 @@ struct MediaPickerSheet: View {
     }
 }
 
-// MARK: - Media Option Button
+// MARK: - Video Camera Picker (Sadece video kayıt için)
+struct VideoCameraPicker: UIViewControllerRepresentable {
+    @Binding var selectedVideoURL: URL?
+    @Environment(\.dismiss) var dismiss
+    
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.delegate = context.coordinator
+        picker.sourceType = .camera
+        picker.mediaTypes = ["public.movie"] // Sadece video
+        picker.allowsEditing = false
+        picker.videoQuality = .typeHigh
+        picker.videoMaximumDuration = 300 // 5 dakika
+        picker.cameraCaptureMode = .video // Video modu
+        
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: VideoCameraPicker
+        
+        init(_ parent: VideoCameraPicker) {
+            self.parent = parent
+        }
+        
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            
+            // Sadece video kontrolü
+            if let videoURL = info[.mediaURL] as? URL {
+                parent.selectedVideoURL = videoURL
+                print("📹 Video captured: \(videoURL.absoluteString)")
+            }
+            
+            parent.dismiss()
+        }
+        
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
+        }
+    }
+}
+
+// MARK: - Camera Picker (Hem fotoğraf hem video için)
+struct CameraPicker: UIViewControllerRepresentable {
+    @Binding var selectedImage: UIImage?
+    @Binding var selectedVideoURL: URL?
+    @Environment(\.dismiss) var dismiss
+    
+    var sourceType: UIImagePickerController.SourceType = .camera
+    
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.delegate = context.coordinator
+        picker.sourceType = sourceType
+        picker.mediaTypes = ["public.image", "public.movie"] // Hem fotoğraf hem video
+        picker.allowsEditing = false
+        picker.videoMaximumDuration = 300 // 5 dakika
+        
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: CameraPicker
+        
+        init(_ parent: CameraPicker) {
+            self.parent = parent
+        }
+        
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            
+            // Video kontrolü
+            if let videoURL = info[.mediaURL] as? URL {
+                parent.selectedVideoURL = videoURL
+            }
+            // Fotoğraf kontrolü
+            else if let image = info[.originalImage] as? UIImage {
+                parent.selectedImage = image
+            }
+            
+            parent.dismiss()
+        }
+        
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
+        }
+    }
+}
+
+// MARK: - Video Transferable (PhotosPicker için)
+struct VideoTransferable: Transferable {
+    let url: URL
+    
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(contentType: .movie) { video in
+            SentTransferredFile(video.url)
+        } importing: { received in
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension("mov")
+            
+            try FileManager.default.copyItem(at: received.file, to: tempURL)
+            return VideoTransferable(url: tempURL)
+        }
+    }
+}
+
+// MARK: - Media Option Button (Aynı kalacak)
 struct MediaOptionButton: View {
     let icon: String
     let title: String
