@@ -2,7 +2,7 @@
 //  Album.swift
 //  SnapCollab
 //
-//  Created by Zeliha İnan on 8.09.2025.
+//  Updated with cover image support
 //
 
 import Foundation
@@ -16,6 +16,7 @@ struct Album: Identifiable, Codable {
     var createdAt: Date
     var updatedAt: Date
     var inviteCode: String?
+    var coverImagePath: String? // Yeni: Kapak fotoğrafı path'i
     
     init(title: String, ownerId: String) {
         self.title = title
@@ -24,6 +25,7 @@ struct Album: Identifiable, Codable {
         self.createdAt = .now
         self.updatedAt = .now
         self.inviteCode = Album.generateInviteCode()
+        self.coverImagePath = nil
     }
     
     // Davet kodu oluşturma
@@ -51,5 +53,16 @@ struct Album: Identifiable, Codable {
     mutating func removeMember(_ userId: String) {
         members.removeAll { $0 == userId }
         updatedAt = .now
+    }
+    
+    // Kapak fotoğrafı güncellemesi
+    mutating func updateCoverImage(_ imagePath: String?) {
+        coverImagePath = imagePath
+        updatedAt = .now
+    }
+    
+    // Kapak fotoğrafı var mı kontrolü
+    var hasCoverImage: Bool {
+        return coverImagePath != nil && !coverImagePath!.isEmpty
     }
 }

@@ -55,7 +55,8 @@ struct AlbumsView: View {
                         album: album,
                         currentUserId: di.authRepo.uid,
                         userCache: userCache,
-                        userService: FirestoreUserService()
+                        userService: FirestoreUserService(),
+                        albumRepo: di.albumRepo
                     )
                 }
                 .listRowSeparator(.hidden)
@@ -148,7 +149,8 @@ struct AlbumsView: View {
         }
         .task {
             vm.start()
-            await di.albumRepo.migrateOldAlbums()
+            // Güncellenmiş migration - hem eski hem yeni alanları kontrol eder
+            await di.albumRepo.migrateAllAlbumFields()
         }
     }
 }
@@ -183,26 +185,23 @@ struct ProfilePhotoButton: View {
     }
 }
 
-// MARK: - Enhanced Album Row
+// MARK: - Enhanced Album Row with Cover Photo
 struct EnhancedAlbumRow: View {
     let album: Album
     let currentUserId: String?
     @StateObject var userCache: UserCacheManager
     let userService: UserProviding
+    let albumRepo: AlbumRepository
     
     var body: some View {
         HStack(spacing: 12) {
-            // Album Icon (Always show album icon, not user photo)
-            VStack {
-                Circle()
-                    .fill(.blue.gradient)
-                    .frame(width: 44, height: 44)
-                    .overlay {
-                        Image(systemName: "photo.on.rectangle.angled")
-                            .foregroundStyle(.white)
-                            .font(.title3)
-                    }
-            }
+            // Album Cover Photo (Updated - artık kapak fotoğrafı gösterir)
+            AlbumCoverPhoto(
+                album: album,
+                albumRepo: albumRepo,
+                size: 44,
+                showEditButton: false
+            )
             
             // Album Info
             VStack(alignment: .leading, spacing: 2) {

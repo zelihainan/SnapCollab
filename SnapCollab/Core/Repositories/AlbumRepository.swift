@@ -329,6 +329,261 @@ extension AlbumRepository {
         )
     }
 }
+extension AlbumRepository {
+    
+    // MARK: - Cover Image Management
+    
+    /// Albüm kapak fotoğrafını güncelle
+    func updateCoverImage(_ albumId: String, coverImage: UIImage) async throws {
+        guard let uid = auth.uid else {
+            throw AlbumError.notAuthenticated
+        }
+        
+        // Albümü al ve yetki kontrol et
+        guard var album = try await getAlbum(by: albumId) else {
+            throw AlbumError.albumNotFound
+        }
+        
+        // Sadece sahip kapak fotoğrafını değiştirebilir
+        if !album.isOwner(uid) {
+            throw AlbumError.onlyOwnerCanEdit
+        }
+        
+        // Eski kapak fotoğrafını sil (varsa)
+        if let oldCoverPath = album.coverImagePath {
+            do {
+                let mediaRepo = MediaRepository(
+                    service: FirestoreMediaService(),
+                    storage: FirebaseStorageService(),
+                    auth: auth
+                )
+                try await mediaRepo.storage.delete(path: oldCoverPath)
+                print("AlbumRepo: Old cover image deleted: \(oldCoverPath)")
+            } catch {
+                print("AlbumRepo: Failed to delete old cover image: \(error)")
+                // Devam et - yeni fotoğraf yüklenebilir
+            }
+        }
+        
+        // Yeni kapak fotoğrafını yükle
+        let newCoverPath = try await uploadCoverImage(coverImage, albumId: albumId)
+        
+        // Albümü güncelle
+        album.updateCoverImage(newCoverPath)
+        try await updateAlbum(album)
+        
+        print("AlbumRepo: Cover image updated successfully")
+    }
+    
+    /// Albüm kapak fotoğrafını sil
+    func removeCoverImage(_ albumId: String) async throws {
+        guard let uid = auth.uid else {
+            throw AlbumError.notAuthenticated
+        }
+        
+        // Albümü al ve yetki kontrol et
+        guard var album = try await getAlbum(by: albumId) else {
+            throw AlbumError.albumNotFound
+        }
+        
+        // Sadece sahip kapak fotoğrafını silebilir
+        if !album.isOwner(uid) {
+            throw AlbumError.onlyOwnerCanEdit
+        }
+        
+        // Kapak fotoğrafı var mı kontrol et
+        guard let coverPath = album.coverImagePath else {
+            throw AlbumError.noCoverImageToDelete
+        }
+        
+        // Storage'dan sil
+        let mediaRepo = MediaRepository(
+            service: FirestoreMediaService(),
+            storage: FirebaseStorageService(),
+            auth: auth
+        )
+        try await mediaRepo.storage.delete(path: coverPath)
+        
+        // Albümden kaldır
+        album.updateCoverImage(nil)
+        try await updateAlbum(album)
+        
+        print("AlbumRepo: Cover image removed successfully")
+    }
+    
+    /// Kapak fotoğrafı URL'sini al
+    func getCoverImageURL(_ albumId: String) async throws -> URL? {
+        guard let album = try await getAlbum(by: albumId),
+              let coverPath = album.coverImagePath else {
+            return nil
+        }
+        
+        let mediaRepo = MediaRepository(
+            service: FirestoreMediaService(),
+            storage: FirebaseStorageService(),
+            auth: auth
+        )
+        
+        return try await mediaRepo.storage.url(for: coverPath)
+    }
+    
+    // MARK: - Private Helper Methods
+    
+    private func uploadCoverImage(_ image: UIImage, albumId: String) async throws -> String {
+        // Resmi optimize et (512x512, dairesel gösterim için kare olmalı)
+        let optimizedImage = await optimizeForCover(image)
+        
+        guard let imageData = optimizedImage.jpegData(compressionQuality: 0.8) else {
+            throw AlbumError.imageProcessingFailed
+        }
+        
+        // Storage path oluştur
+        let fileName = "cover_\(Date().timeIntervalSince1970).jpg"
+        let storagePath = "albums/\(albumId)/cover/\(fileName)"
+        
+        // Storage'a yükle
+        let mediaRepo = MediaRepository(
+            service: FirestoreMediaService(),
+            storage: FirebaseStorageService(),
+            auth: auth
+        )
+        try await mediaRepo.storage.put(data: imageData, to: storagePath)
+        
+        print("AlbumRepo: Cover image uploaded to: \(storagePath)")
+        return storagePath
+    }
+    
+    private func optimizeForCover(_ image: UIImage) async -> UIImage {
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let targetSize = CGSize(width: 512, height: 512)
+                
+                UIGraphicsBeginImageContextWithOptions(targetSize, false, 0)
+                
+                // Görüntüyü kare olarak crop et
+                let imageSize = image.size
+                let cropSize = min(imageSize.width, imageSize.height)
+                let cropOrigin = CGPoint(
+                    x: (imageSize.width - cropSize) / 2,
+                    y: (imageSize.height - cropSize) / 2
+                )
+                
+                let cropRect = CGRect(origin: cropOrigin, size: CGSize(width: cropSize, height: cropSize))
+                
+                if let croppedCGImage = image.cgImage?.cropping(to: cropRect) {
+                    let croppedImage = UIImage(cgImage: croppedCGImage)
+                    croppedImage.draw(in: CGRect(origin: .zero, size: targetSize))
+                }
+                
+                let optimizedImage = UIGraphicsGetImageFromCurrentImageContext()
+                UIGraphicsEndImageContext()
+                
+                continuation.resume(returning: optimizedImage ?? image)
+            }
+        }
+    }
+}
+
+//
+//  AlbumRepository.swift - Migration Extension
+//  SnapCollab
+//
+//  Migration for cover image support
+//
+
+extension AlbumRepository {
+    
+    /// Eski albümleri yeni cover image field'ı ile güncelle
+    func migrateCoverImageSupport() async {
+        print("Migrating albums for cover image support...")
+        
+        guard let uid = auth.uid else { return }
+        
+        do {
+            // Tüm albümleri çek
+            let snapshot = try await Firestore.firestore()
+                .collection("albums")
+                .whereField("members", arrayContains: uid)
+                .getDocuments()
+            
+            for document in snapshot.documents {
+                var data = document.data()
+                var needsUpdate = false
+                
+                // coverImagePath yoksa null olarak ekle
+                if data["coverImagePath"] == nil {
+                    data["coverImagePath"] = NSNull()
+                    needsUpdate = true
+                    print("Adding coverImagePath field to album: \(document.documentID)")
+                }
+                
+                // Güncelleme gerekiyorsa kaydet
+                if needsUpdate {
+                    try await document.reference.updateData(data)
+                    print("Updated album for cover image support: \(document.documentID)")
+                }
+            }
+            
+            print("Cover image migration completed!")
+            
+        } catch {
+            print("Cover image migration error: \(error)")
+        }
+    }
+    
+    /// Gelişmiş migration - hem eski hem yeni alanları kontrol et
+    func migrateAllAlbumFields() async {
+        print("Running complete album migration...")
+        
+        guard let uid = auth.uid else { return }
+        
+        do {
+            let snapshot = try await Firestore.firestore()
+                .collection("albums")
+                .whereField("members", arrayContains: uid)
+                .getDocuments()
+            
+            for document in snapshot.documents {
+                var data = document.data()
+                var needsUpdate = false
+                
+                // updatedAt yoksa ekle
+                if data["updatedAt"] == nil {
+                    data["updatedAt"] = Timestamp()
+                    needsUpdate = true
+                    print("Adding updatedAt to album: \(document.documentID)")
+                }
+                
+                // inviteCode yoksa ekle
+                if data["inviteCode"] == nil {
+                    let characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+                    let code = String((0..<6).map { _ in characters.randomElement()! })
+                    data["inviteCode"] = code
+                    needsUpdate = true
+                    print("Adding inviteCode (\(code)) to album: \(document.documentID)")
+                }
+                
+                // coverImagePath yoksa null olarak ekle
+                if data["coverImagePath"] == nil {
+                    data["coverImagePath"] = NSNull()
+                    needsUpdate = true
+                    print("Adding coverImagePath field to album: \(document.documentID)")
+                }
+                
+                // Güncelleme gerekiyorsa kaydet
+                if needsUpdate {
+                    try await document.reference.updateData(data)
+                    print("Updated album: \(document.documentID)")
+                }
+            }
+            
+            print("Complete album migration finished!")
+            
+        } catch {
+            print("Complete migration error: \(error)")
+        }
+    }
+}
 
 // MARK: - Album Stats Model
 struct AlbumStats {
@@ -340,8 +595,6 @@ struct AlbumStats {
     // let totalSize: Int64
     // let lastPhotoDate: Date?
 }
-
-// MARK: - Album Error Enum
 
 enum AlbumError: LocalizedError {
     case notAuthenticated
@@ -355,6 +608,8 @@ enum AlbumError: LocalizedError {
     case invalidTitle
     case deleteError
     case cannotRemoveOwner
+    case noCoverImageToDelete        // Yeni: Silinecek kapak fotoğrafı yok
+    case imageProcessingFailed       // Yeni: Görüntü işleme hatası
     
     var errorDescription: String? {
         switch self {
@@ -380,6 +635,10 @@ enum AlbumError: LocalizedError {
             return "Geçerli bir başlık giriniz"
         case .deleteError:
             return "Albüm silinirken hata oluştu"
+        case .noCoverImageToDelete:      // Yeni case
+            return "Silinecek kapak fotoğrafı yok"
+        case .imageProcessingFailed:     // Yeni case
+            return "Görüntü işleme hatası"
         }
     }
 }
