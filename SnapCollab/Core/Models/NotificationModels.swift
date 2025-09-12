@@ -1,0 +1,71 @@
+//
+//  NotificationModels.swift
+//  SnapCollab
+//
+//  Created by Zeliha İnan on 12.09.2025.
+//
+
+import Foundation
+import FirebaseFirestore
+
+// MARK: - Notification Model
+struct AppNotification: Identifiable, Codable {
+    @DocumentID var id: String?
+    var type: NotificationType
+    var title: String
+    var message: String
+    var fromUserId: String
+    var toUserId: String
+    var albumId: String?
+    var mediaId: String?
+    var isRead: Bool
+    var createdAt: Date
+    
+    init(
+        type: NotificationType,
+        title: String,
+        message: String,
+        fromUserId: String,
+        toUserId: String,
+        albumId: String? = nil,
+        mediaId: String? = nil
+    ) {
+        self.type = type
+        self.title = title
+        self.message = message
+        self.fromUserId = fromUserId
+        self.toUserId = toUserId
+        self.albumId = albumId
+        self.mediaId = mediaId
+        self.isRead = false
+        self.createdAt = .now
+    }
+}
+
+enum NotificationType: String, Codable, CaseIterable {
+    case photoAdded = "photo_added"
+    case videoAdded = "video_added"
+    case memberJoined = "member_joined"
+    case albumInvite = "album_invite"
+    case albumUpdated = "album_updated"
+    
+    var icon: String {
+        switch self {
+        case .photoAdded: return "photo.fill"
+        case .videoAdded: return "video.fill"
+        case .memberJoined: return "person.badge.plus"
+        case .albumInvite: return "envelope.fill"
+        case .albumUpdated: return "pencil.circle.fill"
+        }
+    }
+    
+    var color: String {
+        switch self {
+        case .photoAdded: return "blue"
+        case .videoAdded: return "purple"
+        case .memberJoined: return "green"
+        case .albumInvite: return "orange"
+        case .albumUpdated: return "blue"
+        }
+    }
+}

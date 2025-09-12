@@ -2,8 +2,7 @@
 //  MediaItem.swift
 //  SnapCollab
 //
-//  Video desteği eklendi
-//
+
 
 import Foundation
 import FirebaseFirestore
@@ -24,7 +23,6 @@ struct MediaItem: Identifiable, Codable, Equatable {
     }
 }
 
-// MARK: - Media Type Extensions
 extension MediaItem {
     var isVideo: Bool {
         return type == "video"

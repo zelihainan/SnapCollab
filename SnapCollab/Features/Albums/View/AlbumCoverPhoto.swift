@@ -2,7 +2,6 @@
 //  AlbumCoverPhoto.swift
 //  SnapCollab
 //
-//  Albüm kapak fotoğrafı bileşeni
 //
 
 import SwiftUI
@@ -34,7 +33,6 @@ struct AlbumCoverPhoto: View {
     
     var body: some View {
         ZStack {
-            // Main Cover Photo
             Group {
                 if let coverURL = coverImageURL {
                     AsyncImage(url: coverURL) { image in
@@ -57,7 +55,6 @@ struct AlbumCoverPhoto: View {
                 }
             }
             
-            // Loading Overlay
             if isUpdating {
                 Circle()
                     .fill(.black.opacity(0.4))
@@ -109,7 +106,6 @@ struct AlbumCoverPhoto: View {
             }
     }
     
-    // MARK: - Methods
     
     private func loadCoverImage() {
         guard let albumId = album.id else { return }
@@ -175,24 +171,4 @@ struct AlbumCoverPhoto: View {
         
         isUpdating = false
     }
-}
-
-// MARK: - Preview
-#Preview {
-    let mockAlbum = Album(title: "Test Album", ownerId: "test-uid")
-    let mockAuthRepo = AuthRepository(
-        service: FirebaseAuthService(),
-        userService: FirestoreUserService()
-    )
-    let mockAlbumRepo = AlbumRepository(
-        service: FirestoreAlbumService(),
-        auth: mockAuthRepo,
-        userService: FirestoreUserService()
-    )
-    
-    VStack(spacing: 20) {
-        AlbumCoverPhoto(album: mockAlbum, albumRepo: mockAlbumRepo, size: 60)
-        AlbumCoverPhoto(album: mockAlbum, albumRepo: mockAlbumRepo, size: 100, showEditButton: true)
-    }
-    .padding()
 }

@@ -1,5 +1,3 @@
-
-
 import SwiftUI
 
 struct InviteCodeView: View {
@@ -13,7 +11,6 @@ struct InviteCodeView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 32) {
-                    // Header
                     VStack(spacing: 16) {
                         Image(systemName: "qrcode")
                             .font(.system(size: 70))
@@ -30,12 +27,10 @@ struct InviteCodeView: View {
                     }
                     .padding(.top, 20)
                     
-                    // Invite Code Section
                     VStack(spacing: 20) {
                         Text("Davet Kodu")
                             .font(.headline)
                         
-                        // Code Display
                         HStack(spacing: 8) {
                             ForEach(Array(album.inviteCode ?? "INVALID"), id: \.self) { char in
                                 Text(String(char))
@@ -50,7 +45,6 @@ struct InviteCodeView: View {
                             }
                         }
                         
-                        // Copy Code Button
                         Button {
                             copyInviteCode()
                         } label: {
@@ -63,13 +57,11 @@ struct InviteCodeView: View {
                         .buttonStyle(.bordered)
                     }
                     
-                    // Share Options
                     VStack(spacing: 16) {
                         Text("Paylaşım Seçenekleri")
                             .font(.headline)
                         
                         VStack(spacing: 12) {
-                            // Share Link Button
                             ShareOptionButton(
                                 icon: "link",
                                 title: "Davet Linkini Paylaş",
@@ -79,7 +71,6 @@ struct InviteCodeView: View {
                                 shareInviteLink()
                             }
                             
-                            // Share Text Button
                             ShareOptionButton(
                                 icon: "text.bubble",
                                 title: "Metin Olarak Paylaş",
@@ -89,7 +80,6 @@ struct InviteCodeView: View {
                                 shareInviteText()
                             }
                             
-                            // Copy Link Button
                             ShareOptionButton(
                                 icon: "doc.on.clipboard",
                                 title: "Linki Kopyala",
@@ -101,7 +91,6 @@ struct InviteCodeView: View {
                         }
                     }
                     
-                    // Album Info
                     AlbumInfoCard(album: album)
                     
                     Spacer(minLength: 20)
@@ -134,7 +123,6 @@ struct InviteCodeView: View {
     private func copyInviteLink() {
         if let link = deepLinkHandler.generateInviteLink(for: album) {
             UIPasteboard.general.string = link
-            // Toast message eklenebilir
         }
     }
     
@@ -160,7 +148,6 @@ struct InviteCodeView: View {
     }
     
     private func showShareWithText(_ text: String) {
-        // UIKit yaklaşımı ile share sheet göster
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = windowScene.windows.first,
               let rootViewController = window.rootViewController else { return }
@@ -184,7 +171,6 @@ struct InviteCodeView: View {
     }
 }
 
-// MARK: - Share Option Button
 struct ShareOptionButton: View {
     let icon: String
     let title: String
@@ -232,7 +218,6 @@ struct ShareOptionButton: View {
     }
 }
 
-// MARK: - Album Info Card
 struct AlbumInfoCard: View {
     let album: Album
     
@@ -273,7 +258,6 @@ struct AlbumInfoCard: View {
     }
 }
 
-// MARK: - Info Item
 struct InfoItem: View {
     let icon: String
     let title: String
@@ -298,9 +282,4 @@ struct InfoItem: View {
                 .fontWeight(.medium)
         }
     }
-}
-
-#Preview {
-    let mockAlbum = Album(title: "Test Album", ownerId: "test-uid")
-    InviteCodeView(album: mockAlbum)
 }

@@ -2,7 +2,6 @@
 //  PinterestGrid.swift
 //  SnapCollab
 //
-//  Pinterest-style grid layout
 //
 
 import SwiftUI

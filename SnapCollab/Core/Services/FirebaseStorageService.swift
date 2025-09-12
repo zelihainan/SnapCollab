@@ -2,7 +2,6 @@
 //  FirebaseStorageService.swift
 //  SnapCollab
 //
-//  Metadata desteği eklendi
 //
 
 import FirebaseStorage
@@ -19,7 +18,6 @@ final class FirebaseStorageService: ImageCaching {
     func put(data: Data, to storagePath: String) async throws {
         let ref = storage.reference(withPath: storagePath)
         
-        // Content-Type'ı dosya uzantısına göre belirle
         var metadata = StorageMetadata()
         
         if storagePath.lowercased().hasSuffix(".mp4") {
@@ -32,7 +30,6 @@ final class FirebaseStorageService: ImageCaching {
             metadata.contentType = "image/png"
         }
         
-        // Cache control ekle
         metadata.cacheControl = "public, max-age=300"
         
         _ = try await ref.putDataAsync(data, metadata: metadata)

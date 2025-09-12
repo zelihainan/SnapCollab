@@ -1,5 +1,5 @@
 //
-//  RootView.swift - Basit Çözüm
+//  RootView.swift 
 //  SnapCollab
 //
 
@@ -16,19 +16,13 @@ struct RootView: View {
         let sessionVM = sessionVMHolder.resolve(di: di, state: state)
 
         Group {
-            // ÖNCE ONBOARDING KONTROL ET
             if !onboardingManager.hasCompletedOnboarding {
-                // Onboarding göster
                 OnboardingView {
                     onboardingManager.completeOnboarding()
                 }
             } else if state.isSignedIn {
-                // Ana uygulama
-                NavigationStack {
-                    AlbumsView(vm: .init(repo: di.albumRepo))
-                }
+                MainTabView()
             } else {
-                // Login ekranı
                 CleanLoginView(vm: sessionVM)
             }
         }

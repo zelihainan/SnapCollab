@@ -2,7 +2,6 @@
 //  HeartParticlesView.swift
 //  SnapCollab
 //
-//  Heart particles animation for favorite interactions
 //
 
 import SwiftUI

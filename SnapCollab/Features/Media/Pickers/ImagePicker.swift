@@ -2,7 +2,6 @@
 //  ImagePicker.swift
 //  SnapCollab
 //
-//  Kamera ve galeri desteği
 //
 
 import SwiftUI
@@ -20,7 +19,6 @@ struct ImagePicker: UIViewControllerRepresentable {
         picker.sourceType = sourceType
         picker.allowsEditing = true
         
-        // Kamera kullanılabilirliğini kontrol et
         if sourceType == .camera && !UIImagePickerController.isSourceTypeAvailable(.camera) {
             picker.sourceType = .photoLibrary
         }

@@ -64,18 +64,12 @@ struct AlbumsView: View {
             }
         }
         .listStyle(.plain)
-        .navigationTitle("Albums")
+        .navigationTitle("Albümler")
         .navigationBarTitleDisplayMode(.automatic)
         .toolbar(content: {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: { showProfile = true }) {
-                    ProfilePhotoButton(user: appState.currentUser)
-                }
-            }
             
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
-                    // Sort Menu
                     Menu {
                         ForEach(SortMode.allCases, id: \.self) { mode in
                             Button {
@@ -98,9 +92,7 @@ struct AlbumsView: View {
                         Image(systemName: "arrow.up.arrow.down")
                             .font(.body)
                     }
-                    
-                    // Add Menu
-                    Menu {
+                                        Menu {
                         Button {
                             vm.showCreate = true
                         } label: {
@@ -149,13 +141,11 @@ struct AlbumsView: View {
         }
         .task {
             vm.start()
-            // Güncellenmiş migration - hem eski hem yeni alanları kontrol eder
             await di.albumRepo.migrateAllAlbumFields()
         }
     }
 }
 
-// MARK: - Profile Photo Button
 struct ProfilePhotoButton: View {
     let user: User?
     
@@ -185,7 +175,6 @@ struct ProfilePhotoButton: View {
     }
 }
 
-// MARK: - Enhanced Album Row with Cover Photo
 struct EnhancedAlbumRow: View {
     let album: Album
     let currentUserId: String?
@@ -195,7 +184,6 @@ struct EnhancedAlbumRow: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            // Album Cover Photo (Updated - artık kapak fotoğrafı gösterir)
             AlbumCoverPhoto(
                 album: album,
                 albumRepo: albumRepo,
@@ -210,7 +198,6 @@ struct EnhancedAlbumRow: View {
                     .foregroundStyle(.primary)
                 
                 HStack(spacing: 6) {
-                    // Always show member count with icon
                     HStack(spacing: 4) {
                         Image(systemName: "person.2")
                             .font(.caption)
@@ -219,7 +206,6 @@ struct EnhancedAlbumRow: View {
                     }
                     .foregroundStyle(.secondary)
                     
-                    // Owner badge with proper spacing
                     if album.isOwner(currentUserId ?? "") {
                         HStack(spacing: 2) {
                             Image(systemName: "crown.fill")
@@ -231,7 +217,6 @@ struct EnhancedAlbumRow: View {
                     
                     Spacer()
                     
-                    // Simple time
                     Text(simpleTimeText(album.updatedAt))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -270,7 +255,6 @@ struct EnhancedAlbumRow: View {
     }
 }
 
-// MARK: - User Profile Photo Component
 struct UserProfilePhoto: View {
     let user: User
     let size: CGFloat
@@ -306,7 +290,6 @@ struct UserProfilePhoto: View {
     }
 }
 
-// MARK: - User Cache Manager
 final class UserCacheManager: ObservableObject {
     private var cache: [String: User] = [:]
     
@@ -323,7 +306,6 @@ final class UserCacheManager: ObservableObject {
     }
 }
 
-// MARK: - Extensions
 extension String {
     var isNilOrEmpty: Bool {
         return self.isEmpty
@@ -353,7 +335,6 @@ extension User {
     }
 }
 
-// MARK: - Create Album Sheet
 struct CreateAlbumSheet: View {
     @ObservedObject var vm: AlbumsViewModel
     @Environment(\.dismiss) var dismiss

@@ -2,7 +2,6 @@
 //  EnhancedMediaGridCard.swift
 //  SnapCollab
 //
-//  Video desteği eklendi - Hatalar düzeltildi
 //
 
 import SwiftUI
@@ -32,9 +31,7 @@ struct EnhancedMediaGridCard: View {
     
     var body: some View {
         ZStack {
-            // Main Media Content
             if item.isVideo {
-                // Video Thumbnail with play indicator
                 AsyncImageView(pathProvider: { await vm.imageURL(for: item) })
                     .aspectRatio(contentMode: .fit)
                     .cornerRadius(12)
@@ -44,12 +41,10 @@ struct EnhancedMediaGridCard: View {
                             .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
                     )
                     .overlay(
-                        // Video play indicator - Sol altta
                         VStack {
                             Spacer()
                             
                             HStack {
-                                // Video play button (sol alt)
                                 Image(systemName: "play.circle.fill")
                                     .font(.title2)
                                     .foregroundStyle(Color.white)
@@ -74,7 +69,6 @@ struct EnhancedMediaGridCard: View {
                         contextMenuItems
                     }
             } else {
-                // Image
                 AsyncImageView(pathProvider: { await vm.imageURL(for: item) })
                     .aspectRatio(contentMode: .fit)
                     .cornerRadius(12)
@@ -93,9 +87,7 @@ struct EnhancedMediaGridCard: View {
                         contextMenuItems
                     }
             }
-            
-            // Heart Button
-            VStack {
+                VStack {
                 HStack {
                     Spacer()
                     
@@ -121,13 +113,11 @@ struct EnhancedMediaGridCard: View {
             }
             .padding(8)
             
-            // Heart Particles
             if showHeartParticles {
                 HeartParticlesView()
                     .allowsHitTesting(false)
             }
             
-            // Double-tap heart overlay
             if isAnimating && isFavorite {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 60, weight: .bold))
@@ -145,9 +135,7 @@ struct EnhancedMediaGridCard: View {
             }
         }
     }
-    
-    // MARK: - Context Menu
-    
+        
     @ViewBuilder
     private var contextMenuItems: some View {
         Button(action: toggleFavorite) {
@@ -172,9 +160,7 @@ struct EnhancedMediaGridCard: View {
             }
         }
     }
-    
-    // MARK: - Methods
-    
+   
     private func toggleFavorite() {
         guard let itemId = item.id else { return }
         vm.toggleFavorite(itemId)

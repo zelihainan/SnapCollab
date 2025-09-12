@@ -2,7 +2,6 @@
 //  MediaRepository.swift
 //  SnapCollab
 //
-//  Video desteği eklendi - Complete version
 //
 
 import FirebaseFirestore
@@ -232,6 +231,73 @@ final class MediaRepository {
         } catch {
             print("MediaRepo: Delete error: \(error)")
             throw MediaError.deleteError
+        }
+    }
+}
+extension MediaRepository {
+    
+    // Güncellenmiş upload metodları - bildirim entegrasyonu ile
+    func uploadWithNotification(image: UIImage, albumId: String, notificationRepo: NotificationRepository) async throws {
+        // Önce fotoğrafı yükle
+        try await upload(image: image, albumId: albumId)
+        
+        // Sonra bildirim gönder
+        await sendPhotoNotification(albumId: albumId, notificationRepo: notificationRepo)
+    }
+    
+    func uploadVideoWithNotification(from videoURL: URL, albumId: String, notificationRepo: NotificationRepository) async throws {
+        // Önce videoyu yükle
+        try await uploadVideo(from: videoURL, albumId: albumId)
+        
+        // Sonra bildirim gönder
+        await sendVideoNotification(albumId: albumId, notificationRepo: notificationRepo)
+    }
+    
+    private func sendPhotoNotification(albumId: String, notificationRepo: NotificationRepository) async {
+        guard let currentUser = auth.currentUser else { return }
+        
+        // AlbumRepository'den albüm bilgisini almak için dependency injection gerekiyor
+        // Şimdilik basit çözüm: Firestore'dan direkt çek
+        do {
+            let db = Firestore.firestore()
+            let doc = try await db.collection("albums").document(albumId).getDocument()
+            guard let album = try? doc.data(as: Album.self) else { return }
+            
+            // Albüm üyelerine bildirim gönder
+            let otherMemberIds = album.members.filter { $0 != currentUser.uid }
+            
+            if !otherMemberIds.isEmpty {
+                await notificationRepo.notifyPhotoAdded(
+                    fromUser: currentUser,
+                    toUserIds: otherMemberIds,
+                    album: album
+                )
+            }
+        } catch {
+            print("Failed to send photo notification: \(error)")
+        }
+    }
+    
+    private func sendVideoNotification(albumId: String, notificationRepo: NotificationRepository) async {
+        guard let currentUser = auth.currentUser else { return }
+        
+        do {
+            let db = Firestore.firestore()
+            let doc = try await db.collection("albums").document(albumId).getDocument()
+            guard let album = try? doc.data(as: Album.self) else { return }
+            
+            // Albüm üyelerine bildirim gönder
+            let otherMemberIds = album.members.filter { $0 != currentUser.uid }
+            
+            if !otherMemberIds.isEmpty {
+                await notificationRepo.notifyVideoAdded(
+                    fromUser: currentUser,
+                    toUserIds: otherMemberIds,
+                    album: album
+                )
+            }
+        } catch {
+            print("Failed to send video notification: \(error)")
         }
     }
 }

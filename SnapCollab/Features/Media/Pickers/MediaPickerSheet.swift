@@ -2,7 +2,6 @@
 //  MediaPickerSheet.swift
 //  SnapCollab
 //
-//  Filter'a göre farklı seçenekler gösterir
 //
 
 import SwiftUI
@@ -25,7 +24,6 @@ struct MediaPickerSheet: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
-                // Header
                 VStack(spacing: 12) {
                     Image(systemName: iconForFilter)
                         .font(.system(size: 60))
@@ -42,7 +40,6 @@ struct MediaPickerSheet: View {
                 }
                 .padding(.top, 20)
                 
-                // Options based on filter
                 VStack(spacing: 16) {
                     switch currentFilter {
                     case .all:
@@ -52,7 +49,6 @@ struct MediaPickerSheet: View {
                     case .videos:
                         videoFilterOptions
                     case .favorites:
-                        // Favorites'ta + butonu gösterilmeyecek zaten
                         EmptyView()
                     }
                 }
@@ -102,9 +98,7 @@ struct MediaPickerSheet: View {
             }
         }
     }
-    
-    // MARK: - Filter Specific Options
-    
+        
     @ViewBuilder
     private var allFilterOptions: some View {
         // Galeriden Seç (Hem fotoğraf hem video)
@@ -120,7 +114,6 @@ struct MediaPickerSheet: View {
             )
         }
         
-        // Çek (Hem fotoğraf hem video)
         Button(action: {
             showCameraPicker = true
         }) {
@@ -136,7 +129,6 @@ struct MediaPickerSheet: View {
     
     @ViewBuilder
     private var photoFilterOptions: some View {
-        // Galeriden Fotoğraf Seç
         PhotosPicker(selection: $pickerItem, matching: .images) {
             MediaOptionButton(
                 icon: "photo",
@@ -145,9 +137,7 @@ struct MediaPickerSheet: View {
                 color: .blue
             )
         }
-        
-        // Fotoğraf Çek
-        Button(action: {
+            Button(action: {
             cameraSourceType = .camera
             showImagePicker = true
         }) {
@@ -163,7 +153,6 @@ struct MediaPickerSheet: View {
     
     @ViewBuilder
     private var videoFilterOptions: some View {
-        // Galeriden Video Seç
         Button(action: {
             showVideoPicker = true
         }) {
@@ -176,7 +165,6 @@ struct MediaPickerSheet: View {
         }
         .buttonStyle(PlainButtonStyle())
         
-        // Video Çek
         Button(action: {
             cameraSourceType = .camera
             showCameraPicker = true
@@ -190,9 +178,7 @@ struct MediaPickerSheet: View {
         }
         .buttonStyle(PlainButtonStyle())
     }
-    
-    // MARK: - Computed Properties
-    
+        
     private var iconForFilter: String {
         switch currentFilter {
         case .all: return "plus.circle.fill"
@@ -233,7 +219,6 @@ struct MediaPickerSheet: View {
         guard let pickerItem = pickerItem else { return }
         
         Task {
-            // Önce video olup olmadığını kontrol et
             if let videoTransfer = try? await pickerItem.loadTransferable(type: VideoTransferable.self) {
                 await MainActor.run {
                     selectedVideoURL = videoTransfer.url
@@ -250,7 +235,6 @@ struct MediaPickerSheet: View {
     }
 }
 
-// MARK: - Video Camera Picker (Sadece video kayıt için)
 struct VideoCameraPicker: UIViewControllerRepresentable {
     @Binding var selectedVideoURL: URL?
     @Environment(\.dismiss) var dismiss
@@ -259,11 +243,11 @@ struct VideoCameraPicker: UIViewControllerRepresentable {
         let picker = UIImagePickerController()
         picker.delegate = context.coordinator
         picker.sourceType = .camera
-        picker.mediaTypes = ["public.movie"] // Sadece video
+        picker.mediaTypes = ["public.movie"]
         picker.allowsEditing = false
         picker.videoQuality = .typeHigh
-        picker.videoMaximumDuration = 300 // 5 dakika
-        picker.cameraCaptureMode = .video // Video modu
+        picker.videoMaximumDuration = 300
+        picker.cameraCaptureMode = .video
         
         return picker
     }
@@ -286,7 +270,7 @@ struct VideoCameraPicker: UIViewControllerRepresentable {
             // Sadece video kontrolü
             if let videoURL = info[.mediaURL] as? URL {
                 parent.selectedVideoURL = videoURL
-                print("📹 Video captured: \(videoURL.absoluteString)")
+                print("Video captured: \(videoURL.absoluteString)")
             }
             
             parent.dismiss()
@@ -298,7 +282,6 @@ struct VideoCameraPicker: UIViewControllerRepresentable {
     }
 }
 
-// MARK: - Camera Picker (Hem fotoğraf hem video için)
 struct CameraPicker: UIViewControllerRepresentable {
     @Binding var selectedImage: UIImage?
     @Binding var selectedVideoURL: URL?
@@ -310,9 +293,9 @@ struct CameraPicker: UIViewControllerRepresentable {
         let picker = UIImagePickerController()
         picker.delegate = context.coordinator
         picker.sourceType = sourceType
-        picker.mediaTypes = ["public.image", "public.movie"] // Hem fotoğraf hem video
+        picker.mediaTypes = ["public.image", "public.movie"]
         picker.allowsEditing = false
-        picker.videoMaximumDuration = 300 // 5 dakika
+        picker.videoMaximumDuration = 300
         
         return picker
     }
@@ -332,11 +315,9 @@ struct CameraPicker: UIViewControllerRepresentable {
         
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
             
-            // Video kontrolü
             if let videoURL = info[.mediaURL] as? URL {
                 parent.selectedVideoURL = videoURL
             }
-            // Fotoğraf kontrolü
             else if let image = info[.originalImage] as? UIImage {
                 parent.selectedImage = image
             }
@@ -350,7 +331,6 @@ struct CameraPicker: UIViewControllerRepresentable {
     }
 }
 
-// MARK: - Video Transferable (PhotosPicker için)
 struct VideoTransferable: Transferable {
     let url: URL
     
@@ -368,7 +348,6 @@ struct VideoTransferable: Transferable {
     }
 }
 
-// MARK: - Media Option Button (Aynı kalacak)
 struct MediaOptionButton: View {
     let icon: String
     let title: String
@@ -377,7 +356,6 @@ struct MediaOptionButton: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // Icon
             ZStack {
                 Circle()
                     .fill(color.opacity(0.1))
@@ -388,7 +366,6 @@ struct MediaOptionButton: View {
                     .foregroundStyle(color)
             }
             
-            // Content
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.body)
@@ -402,7 +379,6 @@ struct MediaOptionButton: View {
             
             Spacer()
             
-            // Arrow
             Image(systemName: "chevron.right")
                 .font(.caption)
                 .foregroundStyle(.gray)

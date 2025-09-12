@@ -2,7 +2,6 @@
 //  AlbumCoverManagementSheet.swift
 //  SnapCollab
 //
-//  Detailed cover photo management sheet
 //
 
 import SwiftUI
@@ -29,7 +28,6 @@ struct AlbumCoverManagementSheet: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 24) {
-                    // Current Cover Preview (Basitleştirilmiş - sadece büyük kapak)
                     VStack(spacing: 16) {
                         ZStack {
                             if let coverURL = coverImageURL {
@@ -52,7 +50,6 @@ struct AlbumCoverManagementSheet: View {
                                 defaultCoverView
                             }
                             
-                            // Loading overlay
                             if isUpdating {
                                 Circle()
                                     .fill(.black.opacity(0.6))
@@ -71,13 +68,11 @@ struct AlbumCoverManagementSheet: View {
                         }
                     }
                     
-                    // Kapak Fotoğrafını Değiştir seçenekleri
                     VStack(spacing: 16) {
                         Text("Kapak Fotoğrafını Değiştir")
                             .font(.headline)
                         
                         VStack(spacing: 12) {
-                            // Gallery Button
                             CoverActionButton(
                                 icon: "photo",
                                 title: "Galeriden Seç",
@@ -87,7 +82,6 @@ struct AlbumCoverManagementSheet: View {
                                 showImagePicker = true
                             }
                             
-                            // Camera Button
                             CoverActionButton(
                                 icon: "camera",
                                 title: "Fotoğraf Çek",
@@ -97,7 +91,6 @@ struct AlbumCoverManagementSheet: View {
                                 showCameraPicker = true
                             }
                             
-                            // Remove Button (only if cover exists)
                             if album.hasCoverImage {
                                 CoverActionButton(
                                     icon: "trash",
@@ -112,7 +105,6 @@ struct AlbumCoverManagementSheet: View {
                     }
                     .disabled(isUpdating)
                     
-                    // Error Message
                     if let error = errorMessage {
                         Text(error)
                             .foregroundStyle(.red)
@@ -121,7 +113,6 @@ struct AlbumCoverManagementSheet: View {
                             .padding(.horizontal)
                     }
                     
-                    // Success Message
                     if showSuccess {
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
@@ -178,9 +169,7 @@ struct AlbumCoverManagementSheet: View {
                     .font(.system(size: 60))
             }
     }
-    
-    // MARK: - Methods
-    
+        
     private func loadCoverImage() {
         guard let albumId = album.id else { return }
         
@@ -247,7 +236,6 @@ struct AlbumCoverManagementSheet: View {
     }
 }
 
-// MARK: - Cover Action Button
 struct CoverActionButton: View {
     let icon: String
     let title: String
@@ -295,17 +283,3 @@ struct CoverActionButton: View {
     }
 }
 
-#Preview {
-    let mockAlbum = Album(title: "Test Album", ownerId: "test-uid")
-    let mockAuthRepo = AuthRepository(
-        service: FirebaseAuthService(),
-        userService: FirestoreUserService()
-    )
-    let mockAlbumRepo = AlbumRepository(
-        service: FirestoreAlbumService(),
-        auth: mockAuthRepo,
-        userService: FirestoreUserService()
-    )
-    
-    AlbumCoverManagementSheet(album: mockAlbum, albumRepo: mockAlbumRepo)
-}

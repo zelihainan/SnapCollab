@@ -2,7 +2,6 @@
 //  Album.swift
 //  SnapCollab
 //
-//  Updated with cover image support
 //
 
 import Foundation
@@ -16,7 +15,7 @@ struct Album: Identifiable, Codable {
     var createdAt: Date
     var updatedAt: Date
     var inviteCode: String?
-    var coverImagePath: String? // Yeni: Kapak fotoğrafı path'i
+    var coverImagePath: String?
     
     init(title: String, ownerId: String) {
         self.title = title
@@ -28,13 +27,11 @@ struct Album: Identifiable, Codable {
         self.coverImagePath = nil
     }
     
-    // Davet kodu oluşturma
     private static func generateInviteCode() -> String {
         let characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         return String((0..<6).map { _ in characters.randomElement()! })
     }
     
-    // Helper functions
     func isOwner(_ userId: String) -> Bool {
         return ownerId == userId
     }
@@ -55,13 +52,11 @@ struct Album: Identifiable, Codable {
         updatedAt = .now
     }
     
-    // Kapak fotoğrafı güncellemesi
     mutating func updateCoverImage(_ imagePath: String?) {
         coverImagePath = imagePath
         updatedAt = .now
     }
     
-    // Kapak fotoğrafı var mı kontrolü
     var hasCoverImage: Bool {
         return coverImagePath != nil && !coverImagePath!.isEmpty
     }

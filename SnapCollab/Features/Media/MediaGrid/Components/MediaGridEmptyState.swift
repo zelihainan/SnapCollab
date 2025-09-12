@@ -2,7 +2,6 @@
 //  MediaGridEmptyState.swift
 //  SnapCollab
 //
-//  Empty state component for MediaGrid
 //
 
 import SwiftUI
@@ -34,11 +33,10 @@ struct MediaGridEmptyState: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    // MARK: - Private Views
     
     private var favoritesTipView: some View {
         VStack(spacing: 12) {
-            Text("💡 İpucu")
+            Text("İpucu")
                 .font(.headline)
                 .foregroundStyle(.blue)
             
@@ -49,9 +47,7 @@ struct MediaGridEmptyState: View {
         }
         .padding(.top, 16)
     }
-    
-    // MARK: - Computed Properties
-    
+        
     private var shouldShowFavoritesTip: Bool {
         currentFilter == .favorites && favoritesCount == 0
     }

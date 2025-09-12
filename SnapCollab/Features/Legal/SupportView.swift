@@ -39,7 +39,6 @@ struct SupportView: View {
                     }
                     .padding(.top, 4)
                     
-                    // Quick Help Options
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Hızlı Yardım")
                             .font(.headline)
@@ -92,7 +91,6 @@ struct SupportView: View {
                     Divider()
                         .padding(.horizontal, 20)
                     
-                    // Custom Message
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Özel Mesaj Gönder")
                             .font(.headline)
@@ -100,7 +98,6 @@ struct SupportView: View {
                         
                         VStack(spacing: 16) {
                             
-                            // Subject
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Konu")
                                     .font(.subheadline)
@@ -110,7 +107,6 @@ struct SupportView: View {
                                     .textFieldStyle(.roundedBorder)
                             }
                             
-                            // Message
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Mesaj")
                                     .font(.subheadline)
@@ -138,7 +134,6 @@ struct SupportView: View {
                     Divider()
                         .padding(.horizontal, 20)
                     
-                    // Contact Info
                     VStack(alignment: .leading, spacing: 16) {
                         Text("İletişim Bilgileri")
                             .font(.headline)
@@ -215,7 +210,6 @@ struct SupportView: View {
 }
 
 
-// MARK: - Support Quick Option
 struct SupportQuickOption: View {
     let icon: String
     let title: String
@@ -262,7 +256,6 @@ struct SupportQuickOption: View {
     }
 }
 
-// MARK: - Contact Info Row
 struct ContactInfoRow: View {
     let icon: String
     let title: String
@@ -292,7 +285,6 @@ struct ContactInfoRow: View {
     }
 }
 
-// MARK: - Mail Compose View
 struct MailComposeView: UIViewControllerRepresentable {
     let subject: String
     let message: String
@@ -337,7 +329,6 @@ struct MailComposeView: UIViewControllerRepresentable {
     }
 }
 
-// MARK: - Mail Not Available View
 struct MailNotAvailableView: View {
     @Environment(\.dismiss) var dismiss
     

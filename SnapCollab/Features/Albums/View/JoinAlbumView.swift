@@ -2,7 +2,6 @@
 //  JoinAlbumView.swift
 //  SnapCollab
 //
-//  Created by Your Name on Date.
 //
 
 import SwiftUI
@@ -36,13 +35,11 @@ struct JoinAlbumView: View {
                     }
                     .padding(.top, 20)
                     
-                    // Input Section - Simplified
                     VStack(spacing: 20) {
                         Text("Davet Kodu")
                             .font(.headline)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         
-                        // Simple Text Field Input
                         TextField("6 haneli davet kodu", text: $vm.inviteCode)
                             .textFieldStyle(.roundedBorder)
                             .keyboardType(.asciiCapable)
@@ -54,7 +51,6 @@ struct JoinAlbumView: View {
                                 vm.validateAndFormatCode(newValue)
                             }
                         
-                        // Visual Code Display
                         if !vm.inviteCode.isEmpty {
                             HStack(spacing: 8) {
                                 ForEach(0..<6, id: \.self) { index in
@@ -72,7 +68,6 @@ struct JoinAlbumView: View {
                             .padding(.horizontal, 20)
                         }
                         
-                        // Paste Button
                         if UIPasteboard.general.hasStrings {
                             Button("Panodan Yapıştır") {
                                 vm.pasteFromClipboard()
@@ -82,12 +77,10 @@ struct JoinAlbumView: View {
                         }
                     }
                     
-                    // Preview Section
                     if let album = vm.foundAlbum {
                         AlbumPreviewCard(album: album)
                     }
                     
-                    // Error Message
                     if let error = vm.errorMessage {
                         Text(error)
                             .foregroundStyle(.red)
@@ -96,7 +89,6 @@ struct JoinAlbumView: View {
                             .padding(.horizontal)
                     }
                     
-                    // Success Message
                     if vm.joinSuccess {
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
@@ -108,7 +100,6 @@ struct JoinAlbumView: View {
                         .padding(.horizontal)
                     }
                     
-                    // Action Button
                     Button(action: {
                         Task { await vm.joinAlbum() }
                     }) {
@@ -163,7 +154,6 @@ struct JoinAlbumView: View {
     }
 }
 
-// MARK: - Album Preview Card
 struct AlbumPreviewCard: View {
     let album: Album
     
@@ -175,7 +165,6 @@ struct AlbumPreviewCard: View {
                 .fontWeight(.medium)
             
             HStack(spacing: 16) {
-                // Album Icon
                 Circle()
                     .fill(.blue.gradient)
                     .frame(width: 50, height: 50)
@@ -185,7 +174,6 @@ struct AlbumPreviewCard: View {
                             .font(.title3)
                     }
                 
-                // Album Info
                 VStack(alignment: .leading, spacing: 4) {
                     Text(album.title)
                         .font(.headline)
@@ -216,17 +204,3 @@ struct AlbumPreviewCard: View {
     }
 }
 
-#Preview {
-    // Mock preview
-    let mockAuthRepo = AuthRepository(
-        service: FirebaseAuthService(),
-        userService: FirestoreUserService()
-    )
-    let mockAlbumRepo = AlbumRepository(
-        service: FirestoreAlbumService(),
-        auth: mockAuthRepo,
-        userService: FirestoreUserService()
-    )
-    
-    JoinAlbumView(albumRepo: mockAlbumRepo)
-}

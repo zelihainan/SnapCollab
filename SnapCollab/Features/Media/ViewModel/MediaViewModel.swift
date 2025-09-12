@@ -372,3 +372,39 @@ final class MediaViewModel: ObservableObject {
         impactFeedback.impactOccurred()
     }
 }
+
+extension MediaViewModel {
+    
+    // Güncellenmiş upload metodları
+    func uploadPickedWithNotification(notificationRepo: NotificationRepository) async {
+        // Önce fotoğraf varsa onu yükle
+        if let image = pickedImage {
+            await uploadPickedImageWithNotification(image, notificationRepo: notificationRepo)
+        }
+        
+        // Sonra video varsa onu yükle
+        if let videoURL = pickedVideoURL {
+            await uploadPickedVideoWithNotification(videoURL, notificationRepo: notificationRepo)
+        }
+    }
+    
+    private func uploadPickedImageWithNotification(_ image: UIImage, notificationRepo: NotificationRepository) async {
+        do {
+            try await repo.uploadWithNotification(image: image, albumId: albumId, notificationRepo: notificationRepo)
+            pickedImage = nil
+            print("Image upload with notification successful")
+        } catch {
+            print("Image upload with notification error:", error)
+        }
+    }
+    
+    private func uploadPickedVideoWithNotification(_ videoURL: URL, notificationRepo: NotificationRepository) async {
+        do {
+            try await repo.uploadVideoWithNotification(from: videoURL, albumId: albumId, notificationRepo: notificationRepo)
+            pickedVideoURL = nil
+            print("Video upload with notification successful")
+        } catch {
+            print("Video upload with notification error:", error)
+        }
+    }
+}

@@ -1,8 +1,6 @@
 //
 //  MediaGridToolbarContent.swift
 //  SnapCollab
-//
-//
 
 import SwiftUI
 import PhotosUI
@@ -23,11 +21,8 @@ struct MediaGridToolbarContent: ToolbarContent {
             }
         }
     }
-    
-    // MARK: - Computed Properties
-    
+        
     private var shouldShowAddButton: Bool {
-        // Favorites filtresi dışında her yerde göster
         vm.currentFilter != .favorites
     }
 }

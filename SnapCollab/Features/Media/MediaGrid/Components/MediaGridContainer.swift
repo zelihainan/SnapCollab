@@ -2,7 +2,6 @@
 //  MediaGridContainer.swift
 //  SnapCollab
 //
-//  Video desteği eklendi - Filter aware picker
 //
 
 import SwiftUI
@@ -57,9 +56,7 @@ struct MediaGridContainer: View {
             }
         }
     }
-    
-    // MARK: - Helper Methods
-    
+        
     private func handleImageSelection(_ image: UIImage?) {
         guard let image = image else { return }
         
@@ -67,9 +64,7 @@ struct MediaGridContainer: View {
         Task {
             await vm.uploadPicked()
         }
-        
-        // Reset selection
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             state.resetMediaSelection()
         }
     }
@@ -82,14 +77,12 @@ struct MediaGridContainer: View {
             await vm.uploadPicked()
         }
         
-        // Reset selection
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             state.resetMediaSelection()
         }
     }
 }
 
-// MARK: - Scroll View Component
 struct MediaGridScrollView: View {
     @ObservedObject var vm: MediaViewModel
     @ObservedObject var state: MediaGridState
@@ -133,7 +126,6 @@ struct MediaGridScrollView: View {
     }
 }
 
-// MARK: - Delete Alert Component
 struct MediaGridDeleteAlert: View {
     @ObservedObject var state: MediaGridState
     @ObservedObject var vm: MediaViewModel

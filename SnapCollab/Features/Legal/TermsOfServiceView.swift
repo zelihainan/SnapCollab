@@ -41,7 +41,6 @@ struct TermsOfServiceView: View {
 
                     Divider()
 
-                    // İçerik
                     VStack(alignment: .leading, spacing: 16) {
                         TermsSection(
                             title: "1. Kabul ve Onay",
@@ -189,8 +188,4 @@ struct TermsSection: View {
                 .lineSpacing(2)
         }
     }
-}
-
-#Preview {
-    TermsOfServiceView()
 }

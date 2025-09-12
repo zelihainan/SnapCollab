@@ -47,7 +47,6 @@ struct AlbumDetailView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            // HEADER - Kapak fotoğrafı ve üye butonu
             VStack(spacing: 16) {
                 // Kapak fotoğrafı
                 AlbumCoverPhoto(
@@ -62,7 +61,6 @@ struct AlbumDetailView: View {
                     }
                 }
                 
-                // ÜYE BUTONU - Bu toolbar'daki butonun yerine geçiyor
                 Button(action: {
                     showMembersSheet = true
                 }) {
@@ -82,7 +80,6 @@ struct AlbumDetailView: View {
             }
             .padding(.top, 10)
             
-            // Category Grid
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 1), spacing: 16) {
                 ForEach(MediaCategory.allCases, id: \.self) { category in
                     CategoryCard(
@@ -102,7 +99,6 @@ struct AlbumDetailView: View {
         .navigationTitle(album.title)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
-            // SADECE 3 NOKTA BUTONU
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
                     // Sahip için özel aksiyonlar
@@ -122,7 +118,6 @@ struct AlbumDetailView: View {
                         Divider()
                     }
                     
-                    // Davet Et
                     if album.isMember(di.authRepo.uid ?? "") {
                         if let inviteCode = album.inviteCode {
                             Button(action: { showInviteSheet = true }) {
@@ -133,7 +128,6 @@ struct AlbumDetailView: View {
                     
                     Divider()
                     
-                    // Üyelik durumu
                     if album.isOwner(di.authRepo.uid ?? "") {
                         Label("Albüm Sahibi", systemImage: "crown.fill")
                     } else if album.isMember(di.authRepo.uid ?? "") {
@@ -148,7 +142,6 @@ struct AlbumDetailView: View {
                 }
             }
         }
-        // SHEET'LER
         .fullScreenCover(isPresented: $showMediaGrid) {
             NavigationView {
                 MediaGridView(vm: vm)
@@ -235,7 +228,6 @@ struct AlbumDetailView: View {
     }
 }
 
-// MARK: - Category Card
 struct CategoryCard: View {
     let category: AlbumDetailView.MediaCategory
     let count: Int
@@ -279,7 +271,6 @@ struct CategoryCard: View {
     }
 }
 
-// MARK: - Album Rename Sheet
 struct AlbumRenameSheet: View {
     let album: Album
     let albumRepo: AlbumRepository
@@ -379,7 +370,6 @@ struct AlbumRenameSheet: View {
     }
 }
 
-// MARK: - Album Members View
 struct AlbumMembersView: View {
     let album: Album
     let albumRepo: AlbumRepository
@@ -562,7 +552,6 @@ struct AlbumMembersView: View {
     }
 }
 
-// MARK: - Member Row View
 struct MemberRowView: View {
     let member: User
     let album: Album

@@ -2,7 +2,6 @@
 //  MediaGridView.swift
 //  SnapCollab
 //
-//  Simplified MediaGrid - clean and simple
 //
 
 import SwiftUI

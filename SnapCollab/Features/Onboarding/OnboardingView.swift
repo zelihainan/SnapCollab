@@ -38,7 +38,6 @@ struct OnboardingView: View {
     
     var body: some View {
         ZStack {
-            // Background gradient
             LinearGradient(
                 colors: [
                     pages[currentPage].color.opacity(0.1),
@@ -51,7 +50,6 @@ struct OnboardingView: View {
             .animation(.easeInOut(duration: 0.5), value: currentPage)
             
             VStack {
-                // Skip butonu
                 HStack {
                     Spacer()
                     Button("Atla") {
@@ -66,7 +64,6 @@ struct OnboardingView: View {
                 
                 Spacer()
                 
-                // Page content
                 TabView(selection: $currentPage) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
                         OnboardingPageView(page: page)
@@ -76,7 +73,6 @@ struct OnboardingView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .frame(height: 500)
                 
-                // Page indicators
                 HStack(spacing: 8) {
                     ForEach(0..<pages.count, id: \.self) { index in
                         Circle()
@@ -90,7 +86,6 @@ struct OnboardingView: View {
                 
                 Spacer()
                 
-                // Action buttons
                 VStack(spacing: 16) {
                     if currentPage < pages.count - 1 {
                         // Devam et butonu
@@ -102,7 +97,6 @@ struct OnboardingView: View {
                         .buttonStyle(OnboardingButtonStyle(color: pages[currentPage].color))
                         
                     } else {
-                        // Başlangıç butonu
                         Button("Başlayalım!") {
                             onComplete()
                         }
@@ -118,12 +112,10 @@ struct OnboardingView: View {
                 .onEnded { gesture in
                     let threshold: CGFloat = 50
                     if gesture.translation.width > threshold && currentPage > 0 {
-                        // Sağa kaydırma - önceki sayfa
                         withAnimation(.easeInOut(duration: 0.3)) {
                             currentPage -= 1
                         }
                     } else if gesture.translation.width < -threshold && currentPage < pages.count - 1 {
-                        // Sola kaydırma - sonraki sayfa
                         withAnimation(.easeInOut(duration: 0.3)) {
                             currentPage += 1
                         }
@@ -138,7 +130,6 @@ struct OnboardingPageView: View {
     
     var body: some View {
         VStack(spacing: 32) {
-            // Icon
             ZStack {
                 Circle()
                     .fill(page.color.opacity(0.1))
@@ -149,7 +140,6 @@ struct OnboardingPageView: View {
                     .foregroundStyle(page.color)
             }
             
-            // Text content
             VStack(spacing: 16) {
                 Text(page.title)
                     .font(.title)
@@ -202,10 +192,9 @@ class OnboardingManager: ObservableObject {
     }
     
     init() {
-        // TEST İÇİN: Zorla false yap
         hasCompletedOnboarding = false
         
-        // Normal kodunuz bu olacak (test ettikten sonra):
+        // Normal kod bu olacak (test ettikten sonra):
         // hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
     }
     

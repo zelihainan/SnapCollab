@@ -204,13 +204,6 @@ struct ProfileView: View {
             .navigationTitle("Profil")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Kapat") {
-                        vm.cancelEditing()
-                        dismiss()
-                    }
-                    .foregroundStyle(.blue)
-                }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if vm.isEditing {

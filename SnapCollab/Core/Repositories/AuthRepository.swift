@@ -18,7 +18,6 @@ final class AuthRepository: ObservableObject {
         self.service = service
         self.userService = userService
         
-        // Auth state listener ekle
         Auth.auth().addStateDidChangeListener { [weak self] _, _ in
             Task {
                 await self?.syncCurrentUser()
@@ -36,7 +35,6 @@ final class AuthRepository: ObservableObject {
             if let uid = service.currentUID {
                 print("AuthRepo: Syncing user for UID: \(uid)")
                 
-                // Önce Firestore'dan kullanıcı bilgilerini çek
                 do {
                     currentUser = try await userService.getUser(uid: uid)
                     print("AuthRepo: Got user from Firestore: \(currentUser?.displayName ?? "nil")")
@@ -45,9 +43,7 @@ final class AuthRepository: ObservableObject {
                     currentUser = nil
                 }
                 
-                // Eğer Firestore'da yok ama Firebase Auth'da varsa oluştur
                 if currentUser == nil {
-                    // Firebase Auth'dan bilgileri al
                     let firebaseUser = Auth.auth().currentUser
                     let email = firebaseUser?.email ?? ""
                     let displayName = firebaseUser?.displayName ?? "İsimsiz Kullanıcı"
@@ -55,7 +51,6 @@ final class AuthRepository: ObservableObject {
                     
                     print("AuthRepo: Creating user - email: \(email), displayName: \(displayName)")
                     
-                    // Yeni kullanıcı oluştur
                     let newUser = User(uid: uid, email: email, displayName: displayName, photoURL: photoURL)
                     try await userService.createUser(newUser)
                     currentUser = newUser
@@ -72,7 +67,6 @@ final class AuthRepository: ObservableObject {
     }
     
     
-    // Auth methods
     func signInAnon() async throws {
         try await service.signInAnonymously()
     }
@@ -84,7 +78,6 @@ final class AuthRepository: ObservableObject {
     func signUp(email: String, password: String, displayName: String? = nil) async throws {
         try await service.signUpWithEmail(email: email, password: password)
         
-        // Kullanıcı bilgilerini Firestore'a kaydet
         if let uid = service.currentUID {
             let user = User(uid: uid, email: email, displayName: displayName)
             try await userService.createUser(user)
@@ -94,7 +87,6 @@ final class AuthRepository: ObservableObject {
     func signInWithGoogle() async throws {
         try await service.signInWithGoogle()
         
-        // Google'dan gelen bilgileri Firestore'a kaydet
         if let authUser = await service.currentUser {
             let existingUser = try? await userService.getUser(uid: authUser.uid)
             if existingUser == nil {
@@ -119,7 +111,6 @@ extension AuthRepository {
         try await userService.updateUser(user)
         print("AuthRepo: Firestore update completed")
         
-        // Firebase Auth'ta display name güncelle
         if let displayName = user.displayName {
             let changeRequest = Auth.auth().currentUser?.createProfileChangeRequest()
             changeRequest?.displayName = displayName
@@ -127,7 +118,6 @@ extension AuthRepository {
             print("AuthRepo: Firebase Auth display name updated")
         }
         
-        // BUNU DEĞİŞTİR: syncCurrentUser() yerine direct assignment
         await MainActor.run {
             self.currentUser = user
         }

@@ -12,7 +12,6 @@ final class FirestoreAlbumService: AlbumProviding {
     private let db = Firestore.firestore()
 
     func myAlbumsQuery(uid: String) -> Query {
-        // Artık index var, tam özellikli query kullanabiliriz
         return db.collection("albums")
             .whereField("members", arrayContains: uid)
             .order(by: "updatedAt", descending: true)

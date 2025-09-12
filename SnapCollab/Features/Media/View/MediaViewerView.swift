@@ -8,7 +8,6 @@ struct MediaViewerView: View {
     let initialItem: MediaItem
     let onClose: () -> Void
 
-    // State
     @State private var currentIndex = 0
     @State private var loadedImages: [String: UIImage] = [:]
     @State private var showUI = true
@@ -16,13 +15,10 @@ struct MediaViewerView: View {
     @State private var isDeleting = false
     @State private var toastMessage: String?
     @State private var showToast = false
-
-    // Inline video
     @State private var players: [String: AVPlayer] = [:]
     @State private var currentPlayingId: String?
     @State private var muteStates: [String: Bool] = [:]
 
-    // Layout
     private let thumbnailBarHeight: CGFloat = 86
     private let controlsGapAboveThumbs: CGFloat = 22
     private let soundIconExtraTop: CGFloat = 18
@@ -45,7 +41,6 @@ struct MediaViewerView: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            // Pager
             TabView(selection: $currentIndex) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                     ZStack {
@@ -85,8 +80,6 @@ struct MediaViewerView: View {
         }
     }
 
-    // MARK: - Pages
-
     private func imagePage(for item: MediaItem) -> some View {
         let id = item.id ?? ""
         return Group {
@@ -106,7 +99,6 @@ struct MediaViewerView: View {
 
         return ZStack {
             if let player {
-                // Poster üstünde büyük play yok. Kontrol yalnız alttaki Play/Pause.
                 InlineVideoView(
                     player: player,
                     itemId: id,
@@ -119,14 +111,11 @@ struct MediaViewerView: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                // Player hazır değilken sadece poster
                 AsyncImageView(pathProvider: { await vm.imageURL(for: item) })
                     .scaledToFit()
             }
         }
     }
-
-    // MARK: - Top / Bottom UI
 
     private var topBar: some View {
         VStack {
@@ -237,8 +226,6 @@ struct MediaViewerView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Video prepare / stop
-
     private func ensurePlayer(for item: MediaItem) async {
         guard let id = item.id, players[id] == nil else { return }
         guard let url = await vm.videoURL(for: item) else { return }
@@ -265,8 +252,6 @@ struct MediaViewerView: View {
         currentPlayingId = nil
         NotificationCenter.default.removeObserver(self)
     }
-
-    // MARK: - Data / Actions
 
     private func loadIfNeeded(_ item: MediaItem) {
         if !item.isVideo { Task { await loadImage(item) } }
@@ -388,7 +373,6 @@ struct MediaViewerView: View {
     }
 }
 
-// MARK: - InlineVideoView
 private struct InlineVideoView: View {
     let player: AVPlayer
     let itemId: String
@@ -405,7 +389,7 @@ private struct InlineVideoView: View {
 
     var body: some View {
         ZStack {
-            PlayerViewRepresentable(player: player)     // sağlam görüntü
+            PlayerViewRepresentable(player: player)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .onTapGesture { showControlsTemporarily() }
 
@@ -508,7 +492,6 @@ private struct InlineVideoView: View {
     }
 }
 
-// MARK: - AVPlayerLayer tabanlı sağlam container
 private struct PlayerViewRepresentable: UIViewRepresentable {
     let player: AVPlayer
 
@@ -529,7 +512,6 @@ private struct PlayerViewRepresentable: UIViewRepresentable {
         var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
         override func layoutSubviews() {
             super.layoutSubviews()
-            // AVPlayerLayer kendi bounds'unu zaten view.bounds'a uyar.
         }
     }
 }

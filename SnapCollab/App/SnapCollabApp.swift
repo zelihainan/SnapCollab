@@ -2,7 +2,6 @@
 //  SnapCollabApp.swift
 //  SnapCollab
 //
-//  Onboarding sistemi eklendi
 //
 
 import SwiftUI

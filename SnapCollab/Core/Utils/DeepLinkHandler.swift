@@ -8,7 +8,6 @@ class DeepLinkHandler: ObservableObject {
     func handleURL(_ url: URL) {
         print("DeepLink: Handling URL: \(url.absoluteString)")
         
-        // snapcollab://invite/ABC123 format
         guard url.scheme == "snapcollab" else {
             print("DeepLink: Invalid scheme: \(url.scheme ?? "nil")")
             return
@@ -17,7 +16,6 @@ class DeepLinkHandler: ObservableObject {
         let pathComponents = url.pathComponents
         print("DeepLink: Path components: \(pathComponents)")
         
-        // "/invite/CODE" formatını kontrol et
         if pathComponents.count >= 3 && pathComponents[1] == "invite" {
             let inviteCode = pathComponents[2].uppercased()
             print("DeepLink: Found invite code: \(inviteCode)")
@@ -34,7 +32,6 @@ class DeepLinkHandler: ObservableObject {
             }
         }
         
-        // snapcollab://join?code=ABC123 format (alternatif)
         else if url.host == "join" {
             let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
             if let codeParam = components?.queryItems?.first(where: { $0.name == "code" })?.value {
@@ -56,7 +53,6 @@ class DeepLinkHandler: ObservableObject {
     }
     
     private func isValidInviteCode(_ code: String) -> Bool {
-        // 6 karakter, sadece harf ve rakam
         guard code.count == 6 else { return false }
         return code.allSatisfy { $0.isLetter || $0.isNumber }
     }
