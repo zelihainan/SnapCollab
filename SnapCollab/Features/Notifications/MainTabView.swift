@@ -22,10 +22,8 @@ struct MainTabView: View {
                 Label("Albümler", systemImage: selectedTab == .albums ? "photo.stack.fill" : "photo.stack")
             }
             .tag(TabItem.albums)
-            
-                NavigationStack {
-                NotificationsView(notificationRepo: di.notificationRepo)
-            }
+                            
+            NotificationsView(notificationRepo: di.notificationRepo)
             .tabItem {
                 Label("Bildirimler", systemImage: selectedTab == .notifications ? "bell.fill" : "bell")
             }

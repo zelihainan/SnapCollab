@@ -2,7 +2,7 @@
 //  NotificationsView.swift
 //  SnapCollab
 //
-//  Layout düzeltilmiş - Bildirimler yukarıdan başlıyor
+//  Düzeltilmiş bildirimler sayfası - Swipe to delete + layout fix
 //
 
 import SwiftUI
@@ -26,7 +26,7 @@ struct NotificationsView: View {
                 }
             }
             .navigationTitle("Bildirimler")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
@@ -97,67 +97,25 @@ struct NotificationsView: View {
             }
             
             Spacer()
-            
-            VStack(spacing: 16) {
-                HStack(spacing: 12) {
-                    Image(systemName: "lightbulb")
-                        .font(.title2)
-                        .foregroundStyle(.orange)
-                    
-                    Text("İpucu")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                    
-                    Spacer()
-                }
-                
-                VStack(alignment: .leading, spacing: 12) {
-                    tipRow(icon: "photo.badge.plus", text: "Albümlere fotoğraf ekleyin", color: .blue)
-                    tipRow(icon: "person.badge.plus", text: "Arkadaşlarınızı davet edin", color: .green)
-                    tipRow(icon: "heart", text: "Fotoğrafları favorilerinize ekleyin", color: .red)
-                }
-            }
-            .padding(20)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.secondarySystemBackground))
-            )
-            .padding(.horizontal, 24)
-            .padding(.bottom, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    private func tipRow(icon: String, text: String, color: Color) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 16))
-                .foregroundStyle(color)
-                .frame(width: 20)
-            
-            Text(text)
-                .font(.body)
-                .foregroundStyle(.secondary)
-            
-            Spacer()
-        }
-    }
-    
-    // MARK: - Notifications List (Fixed - starts from top)
+    // MARK: - Notifications List
     private var notificationsList: some View {
         List {
-            // Unread count header - en üstte
+            // Unread count header
             if notificationRepo.unreadCount > 0 {
                 Section {
                     EmptyView()
                 } header: {
                     unreadCountHeader
                         .listRowInsets(EdgeInsets())
-                        .padding(.top, -20) // Üst boşluğu azalt
+                        .textCase(nil)
                 }
             }
             
-            // Notifications list
+            // Grouped notifications
             ForEach(groupedNotifications.keys.sorted(by: >), id: \.self) { date in
                 Section {
                     ForEach(groupedNotifications[date] ?? []) { notification in
@@ -173,7 +131,7 @@ struct NotificationsView: View {
                             }
                         )
                         .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
                                 Task {
@@ -185,18 +143,12 @@ struct NotificationsView: View {
                         }
                     }
                 } header: {
-                    // Section header - "Bugün" vs
-                    HStack {
-                        Text(relativeDateString(from: date))
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.primary)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, notificationRepo.unreadCount > 0 ? 8 : -10) // Unread varsa az, yoksa daha az spacing
-                    .padding(.bottom, 4)
-                    .textCase(nil)
+                    Text(relativeDateString(from: date))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.secondary)
+                        .textCase(nil)
+                        .padding(.top, 8)
                 }
             }
         }
@@ -291,7 +243,7 @@ struct NotificationsView: View {
     }
 }
 
-// MARK: - Enhanced Notification Row View (Unchanged)
+// MARK: - Enhanced Notification Row View
 struct NotificationRowView: View {
     let notification: AppNotification
     let onTap: () -> Void
@@ -299,6 +251,7 @@ struct NotificationRowView: View {
     
     var body: some View {
         HStack(spacing: 16) {
+            // Icon with animated background
             ZStack {
                 Circle()
                     .fill(iconBackgroundColor.opacity(notification.isRead ? 0.1 : 0.15))
@@ -313,6 +266,7 @@ struct NotificationRowView: View {
                     .foregroundStyle(iconBackgroundColor)
             }
             
+            // Content
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(notification.title)
@@ -343,7 +297,6 @@ struct NotificationRowView: View {
             }
         }
         .padding(.vertical, 12)
-        .padding(.horizontal, 16)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(notification.isRead ? Color.clear : Color(.systemBlue).opacity(0.05))
