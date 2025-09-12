@@ -185,6 +185,7 @@ final class NotificationRepository: ObservableObject {
     }
 }
 
+/*
 #if DEBUG
 extension NotificationRepository {
     func createTestNotifications() async {
@@ -285,3 +286,4 @@ extension NotificationRepository {
     }
 }
 #endif
+*/

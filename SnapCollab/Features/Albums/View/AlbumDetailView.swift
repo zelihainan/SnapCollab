@@ -42,7 +42,11 @@ struct AlbumDetailView: View {
 
     init(album: Album, di: DIContainer) {
         self.album = album
-        _vm = StateObject(wrappedValue: MediaViewModel(repo: di.mediaRepo, albumId: album.id!))
+        _vm = StateObject(wrappedValue: MediaViewModel(
+            repo: di.mediaRepo,
+            albumId: album.id!,
+            notificationRepo: di.notificationRepo 
+        ))
     }
 
     var body: some View {

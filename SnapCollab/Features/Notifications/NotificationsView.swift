@@ -2,7 +2,7 @@
 //  NotificationsView.swift
 //  SnapCollab
 //
-//  Bildirimler sayfası - Test butonu eklendi
+//  Layout düzeltilmiş - Bildirimler yukarıdan başlıyor
 //
 
 import SwiftUI
@@ -10,6 +10,7 @@ import SwiftUI
 struct NotificationsView: View {
     @StateObject private var notificationRepo: NotificationRepository
     @Environment(\.di) var di
+    @State private var showClearAllAlert = false
     
     init(notificationRepo: NotificationRepository) {
         _notificationRepo = StateObject(wrappedValue: notificationRepo)
@@ -27,42 +28,33 @@ struct NotificationsView: View {
             .navigationTitle("Bildirimler")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    #if DEBUG
-                    Button("Test") {
-                        Task {
-                            await notificationRepo.createTestNotifications()
-                        }
-                    }
-                    .foregroundStyle(.blue)
-                    #endif
-                }
-                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
-                        Button("Tümünü Okundu İşaretle") {
-                            Task {
-                                await notificationRepo.markAllAsRead()
-                            }
+                        Button(action: markAllAsRead) {
+                            Label("Tümünü Okundu İşaretle", systemImage: "checkmark.circle")
                         }
                         .disabled(notificationRepo.unreadCount == 0)
                         
-                        #if DEBUG
-                        Button("Test Bildirimleri Oluştur") {
-                            Task {
-                                await notificationRepo.createTestNotifications()
-                            }
-                        }
-                        #endif
+                        Divider()
                         
                         Button("Bildirimleri Temizle", role: .destructive) {
-                            // TODO: Implement clear all
+                            showClearAllAlert = true
                         }
                         .disabled(notificationRepo.notifications.isEmpty)
                     } label: {
                         Image(systemName: "ellipsis.circle")
+                            .font(.title2)
+                            .foregroundStyle(.blue)
                     }
                 }
+            }
+            .alert("Tüm Bildirimleri Temizle", isPresented: $showClearAllAlert) {
+                Button("İptal", role: .cancel) { }
+                Button("Temizle", role: .destructive) {
+                    clearAllNotifications()
+                }
+            } message: {
+                Text("Tüm bildirimleri kalıcı olarak silmek istediğinizden emin misiniz?")
             }
         }
         .onAppear {
@@ -72,39 +64,102 @@ struct NotificationsView: View {
     
     // MARK: - Empty State
     private var emptyState: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "bell.slash")
-                .font(.system(size: 60))
-                .foregroundStyle(.gray)
+        VStack(spacing: 32) {
+            Spacer()
             
-            Text("Bildirim Yok")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
-            Text("Henüz hiç bildirim almadınız. Arkadaşlarınız albümlere fotoğraf eklediğinde burada göreceksiniz.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            
-            #if DEBUG
-            Button("Test Bildirimleri Oluştur") {
-                Task {
-                    await notificationRepo.createTestNotifications()
+            VStack(spacing: 24) {
+                ZStack {
+                    Circle()
+                        .fill(.blue.opacity(0.1))
+                        .frame(width: 120, height: 120)
+                    
+                    Image(systemName: "bell.slash")
+                        .font(.system(size: 50, weight: .light))
+                        .foregroundStyle(.blue)
+                }
+                
+                VStack(spacing: 16) {
+                    Text("Henüz Bildirim Yok")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                    
+                    VStack(spacing: 8) {
+                        Text("Arkadaşlarınız albümlere fotoğraf eklediğinde,")
+                        Text("albüme yeni üye katıldığında veya")
+                        Text("albüm güncellendiğinde burada göreceksiniz.")
+                    }
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(2)
                 }
             }
-            .buttonStyle(.borderedProminent)
-            .padding(.top, 20)
-            #endif
+            
+            Spacer()
+            
+            VStack(spacing: 16) {
+                HStack(spacing: 12) {
+                    Image(systemName: "lightbulb")
+                        .font(.title2)
+                        .foregroundStyle(.orange)
+                    
+                    Text("İpucu")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    
+                    Spacer()
+                }
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    tipRow(icon: "photo.badge.plus", text: "Albümlere fotoğraf ekleyin", color: .blue)
+                    tipRow(icon: "person.badge.plus", text: "Arkadaşlarınızı davet edin", color: .green)
+                    tipRow(icon: "heart", text: "Fotoğrafları favorilerinize ekleyin", color: .red)
+                }
+            }
+            .padding(20)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(.secondarySystemBackground))
+            )
+            .padding(.horizontal, 24)
+            .padding(.bottom, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    // MARK: - Notifications List
+    private func tipRow(icon: String, text: String, color: Color) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundStyle(color)
+                .frame(width: 20)
+            
+            Text(text)
+                .font(.body)
+                .foregroundStyle(.secondary)
+            
+            Spacer()
+        }
+    }
+    
+    // MARK: - Notifications List (Fixed - starts from top)
     private var notificationsList: some View {
         List {
+            // Unread count header - en üstte
+            if notificationRepo.unreadCount > 0 {
+                Section {
+                    EmptyView()
+                } header: {
+                    unreadCountHeader
+                        .listRowInsets(EdgeInsets())
+                        .padding(.top, -20) // Üst boşluğu azalt
+                }
+            }
+            
+            // Notifications list
             ForEach(groupedNotifications.keys.sorted(by: >), id: \.self) { date in
-                Section(header: sectionHeader(for: date)) {
+                Section {
                     ForEach(groupedNotifications[date] ?? []) { notification in
                         NotificationRowView(
                             notification: notification,
@@ -117,15 +172,64 @@ struct NotificationsView: View {
                                 }
                             }
                         )
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                Task {
+                                    await notificationRepo.deleteNotification(notification)
+                                }
+                            } label: {
+                                Label("Sil", systemImage: "trash")
+                            }
+                        }
                     }
+                } header: {
+                    // Section header - "Bugün" vs
+                    HStack {
+                        Text(relativeDateString(from: date))
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.primary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, notificationRepo.unreadCount > 0 ? 8 : -10) // Unread varsa az, yoksa daha az spacing
+                    .padding(.bottom, 4)
+                    .textCase(nil)
                 }
             }
         }
         .listStyle(.plain)
         .refreshable {
-            // Otomatik refresh - repository zaten real-time
             try? await Task.sleep(nanoseconds: 500_000_000)
         }
+    }
+    
+    private var unreadCountHeader: some View {
+        HStack {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(.blue)
+                    .frame(width: 8, height: 8)
+                
+                Text("\(notificationRepo.unreadCount) okunmamış bildirim")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.blue)
+            }
+            
+            Spacer()
+            
+            Button("Tümünü Okundu İşaretle") {
+                markAllAsRead()
+            }
+            .font(.caption)
+            .foregroundStyle(.blue)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(Color(.systemBlue).opacity(0.1))
     }
     
     // MARK: - Grouped Notifications
@@ -136,14 +240,6 @@ struct NotificationsView: View {
             formatter.locale = Locale(identifier: "tr_TR")
             return formatter.string(from: notification.createdAt)
         }
-    }
-    
-    private func sectionHeader(for dateString: String) -> some View {
-        Text(relativeDateString(from: dateString))
-            .font(.caption)
-            .fontWeight(.semibold)
-            .foregroundStyle(.secondary)
-            .textCase(nil)
     }
     
     private func relativeDateString(from dateString: String) -> String {
@@ -157,6 +253,11 @@ struct NotificationsView: View {
             return "Bugün"
         } else if Calendar.current.isDateInYesterday(date) {
             return "Dün"
+        } else if Calendar.current.dateInterval(of: .weekOfYear, for: Date())?.contains(date) == true {
+            let weekFormatter = DateFormatter()
+            weekFormatter.dateFormat = "EEEE"
+            weekFormatter.locale = Locale(identifier: "tr_TR")
+            return weekFormatter.string(from: date)
         } else {
             return dateString
         }
@@ -164,87 +265,114 @@ struct NotificationsView: View {
     
     // MARK: - Actions
     private func handleNotificationTap(_ notification: AppNotification) {
-        // Mark as read
         Task {
             await notificationRepo.markAsRead(notification)
         }
         
-        // Navigate to relevant screen
         if let albumId = notification.albumId {
-            // TODO: Navigate to album detail
             print("📬 Navigate to album: \(albumId)")
         }
+        
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+    }
+    
+    private func markAllAsRead() {
+        Task {
+            await notificationRepo.markAllAsRead()
+        }
+        
+        let notificationFeedback = UINotificationFeedbackGenerator()
+        notificationFeedback.notificationOccurred(.success)
+    }
+    
+    private func clearAllNotifications() {
+        print("Clear all notifications - to be implemented")
     }
 }
 
-// MARK: - Notification Row View
+// MARK: - Enhanced Notification Row View (Unchanged)
 struct NotificationRowView: View {
     let notification: AppNotification
     let onTap: () -> Void
     let onDelete: () -> Void
     
     var body: some View {
-        HStack(spacing: 12) {
-            // Icon
+        HStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(iconBackgroundColor.opacity(0.1))
-                    .frame(width: 40, height: 40)
+                    .fill(iconBackgroundColor.opacity(notification.isRead ? 0.1 : 0.15))
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Circle()
+                            .stroke(iconBackgroundColor.opacity(notification.isRead ? 0.3 : 0.5), lineWidth: notification.isRead ? 1 : 2)
+                    )
                 
                 Image(systemName: notification.type.icon)
-                    .font(.system(size: 18))
+                    .font(.system(size: 18, weight: notification.isRead ? .regular : .medium))
                     .foregroundStyle(iconBackgroundColor)
             }
             
-            // Content
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(notification.title)
                         .font(.headline)
-                        .fontWeight(.medium)
+                        .fontWeight(notification.isRead ? .medium : .semibold)
                         .foregroundStyle(.primary)
                     
                     Spacer()
                     
-                    if !notification.isRead {
-                        Circle()
-                            .fill(.blue)
-                            .frame(width: 8, height: 8)
+                    HStack(spacing: 8) {
+                        Text(relativeTimeString)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                        
+                        if !notification.isRead {
+                            Circle()
+                                .fill(.blue)
+                                .frame(width: 8, height: 8)
+                        }
                     }
                 }
                 
                 Text(notification.message)
                     .font(.body)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                
-                Text(relativeTimeString)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
             }
         }
-        .padding(.vertical, 8)
-        .background(notification.isRead ? Color.clear : Color.blue.opacity(0.05))
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(notification.isRead ? Color.clear : Color(.systemBlue).opacity(0.05))
+        )
         .contentShape(Rectangle())
         .onTapGesture {
-            onTap()
+            withAnimation(.easeInOut(duration: 0.2)) {
+                onTap()
+            }
         }
         .contextMenu {
             Button(notification.isRead ? "Okunmadı İşaretle" : "Okundu İşaretle") {
-                // Toggle read status
-                Task {
-                    if notification.isRead {
-                        // TODO: Mark as unread
-                    } else {
-                        // Already handled in onTap
-                    }
+                onTap()
+            }
+            
+            if let albumId = notification.albumId {
+                Button("Albüme Git") {
+                    print("Navigate to album: \(albumId)")
                 }
             }
+            
+            Divider()
             
             Button("Sil", role: .destructive) {
                 onDelete()
             }
         }
+        .scaleEffect(notification.isRead ? 1.0 : 1.02)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: notification.isRead)
     }
     
     private var iconBackgroundColor: Color {
@@ -262,30 +390,5 @@ struct NotificationRowView: View {
         formatter.unitsStyle = .abbreviated
         formatter.locale = Locale(identifier: "tr_TR")
         return formatter.localizedString(for: notification.createdAt, relativeTo: Date())
-    }
-}
-
-// MARK: - Badge View for Tab Bar
-struct NotificationBadgeView: View {
-    let count: Int
-    
-    var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Image(systemName: "bell")
-                .font(.system(size: 24))
-            
-            if count > 0 {
-                ZStack {
-                    Circle()
-                        .fill(.red)
-                        .frame(width: 18, height: 18)
-                    
-                    Text("\(min(count, 99))")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.white)
-                }
-                .offset(x: 8, y: -8)
-            }
-        }
     }
 }

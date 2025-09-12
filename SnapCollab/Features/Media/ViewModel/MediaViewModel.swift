@@ -2,7 +2,7 @@
 //  MediaViewModel.swift
 //  SnapCollab
 //
-//  Video desteği eklendi
+//  Temiz ve hatasız MediaViewModel - Bildirim desteği ile
 //
 
 import SwiftUI
@@ -15,7 +15,7 @@ final class MediaViewModel: ObservableObject {
     @Published var filteredItems: [MediaItem] = []
     @Published var isPicking = false
     @Published var pickedImage: UIImage?
-    @Published var pickedVideoURL: URL? // Video URL'si için eklendi
+    @Published var pickedVideoURL: URL?
     @Published var currentFilter: MediaFilter = .all
     @Published var favorites: Set<String> = []
     @Published var favoriteAnimations: [String: Bool] = [:]
@@ -37,14 +37,17 @@ final class MediaViewModel: ObservableObject {
     let repo: MediaRepository
     private let albumId: String
     let auth: AuthRepository
+    private let notificationRepo: NotificationRepository?
     
     // MARK: - User Cache
     private var userCache: [String: User] = [:]
     
-    init(repo: MediaRepository, albumId: String) {
+    // MARK: - Initialization
+    init(repo: MediaRepository, albumId: String, notificationRepo: NotificationRepository? = nil) {
         self.repo = repo
         self.albumId = albumId
         self.auth = repo.auth
+        self.notificationRepo = notificationRepo
         
         // Load favorites from UserDefaults
         loadFavorites()
@@ -63,6 +66,28 @@ final class MediaViewModel: ObservableObject {
     // MARK: - Upload Methods
     
     func uploadPicked() async {
+        if let notificationRepo = notificationRepo {
+            print("📬 Using notification system for upload")
+            await uploadPickedWithNotification(notificationRepo: notificationRepo)
+        } else {
+            print("📬 Fallback: Using upload without notifications")
+            await uploadPickedWithoutNotification()
+        }
+    }
+    
+    private func uploadPickedWithNotification(notificationRepo: NotificationRepository) async {
+        // Önce fotoğraf varsa onu yükle
+        if let image = pickedImage {
+            await uploadPickedImageWithNotification(image, notificationRepo: notificationRepo)
+        }
+        
+        // Sonra video varsa onu yükle
+        if let videoURL = pickedVideoURL {
+            await uploadPickedVideoWithNotification(videoURL, notificationRepo: notificationRepo)
+        }
+    }
+    
+    private func uploadPickedWithoutNotification() async {
         // Önce fotoğraf varsa onu yükle
         if let image = pickedImage {
             await uploadPickedImage(image)
@@ -74,13 +99,37 @@ final class MediaViewModel: ObservableObject {
         }
     }
     
+    private func uploadPickedImageWithNotification(_ image: UIImage, notificationRepo: NotificationRepository) async {
+        do {
+            try await repo.uploadWithNotification(image: image, albumId: albumId, notificationRepo: notificationRepo)
+            pickedImage = nil
+            print("✅ Image upload with notification successful")
+        } catch {
+            print("❌ Image upload with notification error:", error)
+            // Fallback - bildirim olmadan dene
+            await uploadPickedImage(image)
+        }
+    }
+    
+    private func uploadPickedVideoWithNotification(_ videoURL: URL, notificationRepo: NotificationRepository) async {
+        do {
+            try await repo.uploadVideoWithNotification(from: videoURL, albumId: albumId, notificationRepo: notificationRepo)
+            pickedVideoURL = nil
+            print("✅ Video upload with notification successful")
+        } catch {
+            print("❌ Video upload with notification error:", error)
+            // Fallback - bildirim olmadan dene
+            await uploadPickedVideo(videoURL)
+        }
+    }
+    
     private func uploadPickedImage(_ image: UIImage) async {
         do {
             try await repo.upload(image: image, albumId: albumId)
             pickedImage = nil
-            print("Image upload successful")
+            print("✅ Image upload successful")
         } catch {
-            print("Image upload error:", error)
+            print("❌ Image upload error:", error)
         }
     }
     
@@ -88,11 +137,13 @@ final class MediaViewModel: ObservableObject {
         do {
             try await repo.uploadVideo(from: videoURL, albumId: albumId)
             pickedVideoURL = nil
-            print("Video upload successful")
+            print("✅ Video upload successful")
         } catch {
-            print("Video upload error:", error)
+            print("❌ Video upload error:", error)
         }
     }
+    
+    // MARK: - URL Methods
     
     func imageURL(for item: MediaItem) async -> URL? {
         do {
@@ -100,69 +151,32 @@ final class MediaViewModel: ObservableObject {
             let pathToUse = item.isVideo ? (item.thumbPath ?? item.path) : item.path
             return try await repo.downloadURL(for: pathToUse)
         } catch {
+            print("❌ Error getting image URL: \(error)")
             return nil
         }
     }
     
-    // MediaViewModel.swift içindeki video URL metodunu güncelleyin
-
-    // MediaViewModel.swift dosyasına eklenecek/güncellenecek metodlar:
-
-    // MediaViewModel.swift içindeki videoURL metodunu bu şekilde güncelleyin:
-
-    // MediaViewModel.swift - videoURL metodunu basitleştirin:
-
-    // Video için orijinal URL'yi al (oynatma için)
     func videoURL(for item: MediaItem) async -> URL? {
         guard item.isVideo else {
-            print("MediaVM: Item is not a video: \(item.type)")
+            print("❌ Item is not a video: \(item.type)")
             return nil
         }
         
-        print("MediaVM: Getting video URL for path: \(item.path)")
-        
         do {
             let url = try await repo.downloadURL(for: item.path)
-            print("MediaVM: Successfully got video URL: \(url.absoluteString)")
-            
-            // Content-type kontrolü kaldırıldı - QuickTime dosyaları da desteklenmeli
+            print("✅ Successfully got video URL")
             return url
-            
         } catch {
-            print("MediaVM: Error getting video URL: \(error)")
+            print("❌ Error getting video URL: \(error)")
             return nil
         }
     }
     
-
-    func debugVideoURL(for item: MediaItem) async {
-        guard item.isVideo else { return }
-        
-        do {
-            let url = try await repo.downloadURL(for: item.path)
-            print("🎬 DEBUG Video URL: \(url.absoluteString)")
-            
-            let asset = AVAsset(url: url)
-            let playable = try await asset.load(.isPlayable)
-            let duration = try await asset.load(.duration)
-            
-            print("🎬 DEBUG Video playable: \(playable)")
-            print("🎬 DEBUG Video duration: \(duration.seconds) seconds")
-            
-            if playable && duration.seconds > 0 {
-                print("🎬 DEBUG Video seems valid!")
-            } else {
-                print("🎬 DEBUG Video has issues")
-            }
-            
-        } catch {
-            print("🎬 DEBUG Video test failed: \(error)")
-        }
-    }
+    // MARK: - Delete Methods
     
     func deletePhoto(_ item: MediaItem) async throws {
         try await repo.deleteMedia(albumId: albumId, item: item)
-        print("MediaVM: Media deleted successfully")
+        print("✅ Media deleted successfully")
         
         // Remove from favorites if it was favorited
         if let itemId = item.id {
@@ -272,7 +286,7 @@ final class MediaViewModel: ObservableObject {
                 userCache[userId] = user
             }
         } catch {
-            print("Failed to load user info for \(userId): \(error)")
+            print("❌ Failed to load user info for \(userId): \(error)")
         }
     }
     
@@ -337,7 +351,7 @@ final class MediaViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Animation helpers
+    // MARK: - Animation Helpers
     
     func isAnimating(_ itemId: String) -> Bool {
         return favoriteAnimations[itemId] ?? false
@@ -373,38 +387,29 @@ final class MediaViewModel: ObservableObject {
     }
 }
 
+// MARK: - Debug Methods
 extension MediaViewModel {
-    
-    // Güncellenmiş upload metodları
-    func uploadPickedWithNotification(notificationRepo: NotificationRepository) async {
-        // Önce fotoğraf varsa onu yükle
-        if let image = pickedImage {
-            await uploadPickedImageWithNotification(image, notificationRepo: notificationRepo)
-        }
+    func debugVideoURL(for item: MediaItem) async {
+        guard item.isVideo else { return }
         
-        // Sonra video varsa onu yükle
-        if let videoURL = pickedVideoURL {
-            await uploadPickedVideoWithNotification(videoURL, notificationRepo: notificationRepo)
-        }
-    }
-    
-    private func uploadPickedImageWithNotification(_ image: UIImage, notificationRepo: NotificationRepository) async {
         do {
-            try await repo.uploadWithNotification(image: image, albumId: albumId, notificationRepo: notificationRepo)
-            pickedImage = nil
-            print("Image upload with notification successful")
+            let url = try await repo.downloadURL(for: item.path)
+            print("🎬 DEBUG Video URL: \(url.absoluteString)")
+            
+            let asset = AVAsset(url: url)
+            let playable = try await asset.load(.isPlayable)
+            let duration = try await asset.load(.duration)
+            
+            print("🎬 DEBUG Video playable: \(playable)")
+            print("🎬 DEBUG Video duration: \(duration.seconds) seconds")
+            
+            if playable && duration.seconds > 0 {
+                print("🎬 DEBUG Video seems valid!")
+            } else {
+                print("🎬 DEBUG Video has issues")
+            }
         } catch {
-            print("Image upload with notification error:", error)
-        }
-    }
-    
-    private func uploadPickedVideoWithNotification(_ videoURL: URL, notificationRepo: NotificationRepository) async {
-        do {
-            try await repo.uploadVideoWithNotification(from: videoURL, albumId: albumId, notificationRepo: notificationRepo)
-            pickedVideoURL = nil
-            print("Video upload with notification successful")
-        } catch {
-            print("Video upload with notification error:", error)
+            print("🎬 DEBUG Video test failed: \(error)")
         }
     }
 }

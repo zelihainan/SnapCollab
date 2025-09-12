@@ -2,7 +2,7 @@
 //  MainTabView.swift
 //  SnapCollab
 //
-//  Ana tab bar navigasyonu
+//  Ana tab bar navigasyonu - Bildirim badge'i eklendi
 //
 
 import SwiftUI
@@ -23,16 +23,14 @@ struct MainTabView: View {
             }
             .tag(TabItem.albums)
             
-            // Notifications Tab
-            NavigationStack {
+                NavigationStack {
                 NotificationsView(notificationRepo: di.notificationRepo)
             }
             .tabItem {
                 Label("Bildirimler", systemImage: selectedTab == .notifications ? "bell.fill" : "bell")
             }
             .tag(TabItem.notifications)
-            
-            // Profile Tab
+
             NavigationStack {
                 ProfileContainerView()
             }
@@ -53,8 +51,22 @@ struct MainTabView: View {
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = UIColor.systemBackground
         
-        // Shadow
+        // Shadow for modern look
         appearance.shadowColor = UIColor.black.withAlphaComponent(0.1)
+        
+        // Selected item styling
+        appearance.stackedLayoutAppearance.selected.iconColor = UIColor.systemBlue
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
+            .foregroundColor: UIColor.systemBlue,
+            .font: UIFont.systemFont(ofSize: 10, weight: .medium)
+        ]
+        
+        // Normal item styling
+        appearance.stackedLayoutAppearance.normal.iconColor = UIColor.systemGray
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
+            .foregroundColor: UIColor.systemGray,
+            .font: UIFont.systemFont(ofSize: 10, weight: .regular)
+        ]
         
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
