@@ -1,409 +1,364 @@
 //
-//  LoginView.swift
+//  CleanLoginView.swift
 //  SnapCollab
 //
-//  Enhanced beautiful login screen
+//  Sade ve şık login ekranı
 //
 
 import SwiftUI
 
-struct LoginView: View {
+struct CleanLoginView: View {
     @StateObject var vm: SessionViewModel
     @State private var showSignUp = false
     @State private var email = ""
     @State private var password = ""
     @State private var displayName = ""
-    @State private var isEmailFocused = false
-    @State private var isPasswordFocused = false
-    @State private var animateGradient = false
-
+    @State private var showTermsSheet = false
+    @State private var termsAccepted = false
+    
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Animated Background Gradient
-                AnimatedGradientBackground(animate: $animateGradient)
+                // Simple gradient background
+                LinearGradient(
+                    colors: [
+                        Color(.systemBackground),
+                        Color(.secondarySystemBackground)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
                 
                 ScrollView {
                     VStack(spacing: 0) {
-                        // Top Section with Logo
+                        // Logo ve başlık alanı
                         VStack(spacing: 24) {
-                            Spacer(minLength: 60)
+                            Spacer(minLength: max(60, geometry.size.height * 0.1))
                             
-                            // Logo and Title
+                            // Sade logo
                             VStack(spacing: 16) {
-                                WordmarkLogo()
-                            
-                            }
-                            
-                            Spacer(minLength: 10)
-                        }
-                        .frame(height: geometry.size.height * 0.35)
-                        
-                        // Bottom Section with Form
-                        VStack(spacing: 0) {
-                            // Form Container
-                            VStack(spacing: 24) {
-                                // Form Header
-                                VStack(spacing: 8) {
-                                    Text(showSignUp ? "Hesap Oluştur" : "Giriş Yap")
-                                        .font(.system(size: 28, weight: .bold))
-                                        .foregroundColor(.primary)
-                                    
-                                    Text(showSignUp ? "SnapCollab'a hoş geldiniz" : "Tekrar hoş geldiniz")
-                                        .font(.body)
-                                        .foregroundColor(.secondary)
-                                }
-                                .padding(.top, 20)
-                                
-                                // Form Fields
-                                VStack(spacing: 16) {
-                                    // Email Field
-                                    ModernTextField(
-                                        text: $email,
-                                        placeholder: "E-posta veya Telefon",
-                                        icon: "envelope",
-                                        keyboardType: .default,
-                                        isFocused: $isEmailFocused
-                                    )
-                                    
-                                    // Password Field
-                                    ModernSecureField(
-                                        text: $password,
-                                        placeholder: "Şifre",
-                                        icon: "lock",
-                                        isFocused: $isPasswordFocused
-                                    )
-
-                                    // Şifremi Unuttum (sağ alta, küçük)
-                                    HStack {
-                                        Spacer()
-                                        Button("Şifremi Unuttum") {
-                                            vm.showForgotPassword = true
-                                        }
-                                        .font(.caption2)                // küçük yazı
-                                        .foregroundColor(.blue)
-                                    }
-                                    .padding(.trailing, 4)
-
-                                    
-                                    // Display Name Field (Sign Up only)
-                                    if showSignUp {
-                                        ModernTextField(
-                                            text: $displayName,
-                                            placeholder: "Ad Soyad (isteğe bağlı)",
-                                            icon: "person",
-                                            keyboardType: .default,
-                                            isFocused: .constant(false)
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [.blue, .purple],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
                                         )
-                                        .transition(.asymmetric(
-                                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                                            removal: .move(edge: .leading).combined(with: .opacity)
-                                        ))
-                                    }
-                                }
-                                
-                                // Error Message
-                                if let error = vm.errorMessage {
-                                    ErrorMessageView(message: error)
-                                }
-                                
-                                // Main Action Button
-                                PrimaryActionButton(
-                                    title: showSignUp ? "Hesap Oluştur" : "Giriş Yap",
-                                    isLoading: vm.isLoading,
-                                    isDisabled: email.isEmpty || password.isEmpty
-                                ) {
-                                    Task {
-                                        if showSignUp {
-                                            await vm.signUp(email: email, password: password, displayName: displayName)
-                                        } else {
-                                            await vm.signIn(email: email, password: password)
-                                        }
-                                    }
-                                }
-                                
-                                // Toggle Sign Up/In
-                                Button(action: {
-                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                        showSignUp.toggle()
-                                        vm.errorMessage = nil
-                                    }
-                                }) {
-                                    HStack(spacing: 4) {
-                                        Text(showSignUp ? "Zaten hesabım var" : "Hesabım yok")
-                                            .font(.body)
-                                        Image(systemName: "arrow.right")
-                                            .font(.caption)
-                                            .rotationEffect(.degrees(showSignUp ? 180 : 0))
-                                            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showSignUp)
-                                    }
-                                    .foregroundColor(.blue)
-                                    .fontWeight(.medium)
-                                }
-                                
-                                Divider()
-                                    .padding(.vertical, 10)
-
-                                VStack(spacing: 12) {
-                                    Text("Diğer yollarla devam et")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-
-                                    // Google giriş
-                                    Button {
-                                        Task { await vm.signInWithGoogle() }
-                                    } label: {
-                                        HStack {
-                                            Image("google")
-                                                .resizable()
-                                                .scaledToFit()
-                                                .frame(width: 20, height: 20)
-                                            Text("Google ile Giriş Yap")
-                                                .font(.footnote)
-                                        }
-                                        .frame(maxWidth: .infinity, minHeight: 48)
-                                    }
-                                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.white))
-                                    .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 2)
-
-                                    // Misafir giriş
-                                    Button {
-                                        Task { await vm.signInAnon() }
-                                    } label: {
-                                        HStack {
-                                            Image(systemName: "person.fill")
-                                                .foregroundColor(.orange)
-                                            Text("Misafir Olarak Devam Et")
-                                                .font(.footnote)
-                                                .foregroundColor(.orange)
-                                        }
-                                        .frame(maxWidth: .infinity, minHeight: 48)
-                                    }
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.orange.opacity(0.5), lineWidth: 1)
                                     )
-                                }
-                                .padding(.top, 8)
-
-
+                                    .frame(width: 80, height: 80)
+                                    .overlay {
+                                        Image(systemName: "photo.stack")
+                                            .font(.system(size: 36, weight: .medium))
+                                            .foregroundStyle(.white)
+                                    }
+                                    .shadow(color: .blue.opacity(0.3), radius: 20, x: 0, y: 10)
                                 
-                                Spacer(minLength: 15)
+                                VStack(spacing: 8) {
+                                    Text("SnapCollab")
+                                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                                        .foregroundStyle(.primary)
+                                    
+                                    Text("Anıları birlikte paylaşalım")
+                                        .font(.body)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
-                            .padding(.horizontal, 24)
-                            .background(
-                                RoundedRectangle(cornerRadius: 32)
-                                    .fill(.ultraThinMaterial)
-                                    .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: -5)
-                            )
-                            .padding(.horizontal, 16)
+                            
+                            Spacer(minLength: 40)
                         }
-                        .frame(minHeight: geometry.size.height * 0.4)
-                        .padding(.top, -16)
+                        .frame(minHeight: geometry.size.height * 0.45)
+                        
+                        // Form alanı
+                        VStack(spacing: 32) {
+                            // Form başlığı
+                            VStack(spacing: 8) {
+                                Text(showSignUp ? "Hesap Oluştur" : "Hoş Geldiniz")
+                                    .font(.title2)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.primary)
+                                
+                                Text(showSignUp ? "Yeni hesabınızı oluşturun" : "Hesabınıza giriş yapın")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .animation(.easeInOut(duration: 0.3), value: showSignUp)
+                            
+                            // Form alanları
+                            VStack(spacing: 20) {
+                                // Email
+                                CleanTextField(
+                                    text: $email,
+                                    placeholder: "E-posta",
+                                    icon: "envelope",
+                                    keyboardType: .emailAddress
+                                )
+                                
+                                // Şifre
+                                CleanSecureField(
+                                    text: $password,
+                                    placeholder: "Şifre",
+                                    icon: "lock"
+                                )
+                                
+                                // Kayıt olurken isim alanı
+                                if showSignUp {
+                                    CleanTextField(
+                                        text: $displayName,
+                                        placeholder: "Ad Soyad (isteğe bağlı)",
+                                        icon: "person",
+                                        keyboardType: .default
+                                    )
+                                    .transition(.asymmetric(
+                                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                                        removal: .move(edge: .top).combined(with: .opacity)
+                                    ))
+                                    
+                                    // Terms checkbox
+                                    HStack(spacing: 12) {
+                                        Button(action: { termsAccepted.toggle() }) {
+                                            Image(systemName: termsAccepted ? "checkmark.square.fill" : "square")
+                                                .font(.title2)
+                                                .foregroundStyle(termsAccepted ? .blue : .gray)
+                                        }
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            HStack(spacing: 4) {
+                                                Text("Kabul ediyorum:")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            
+                                            HStack(spacing: 8) {
+                                                Button("Kullanım Koşulları") {
+                                                    showTermsSheet = true
+                                                }
+                                                .font(.caption)
+                                                .foregroundStyle(.blue)
+                                                
+                                                Text("ve")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                                
+                                                Button("Gizlilik Politikası") {
+                                                    showTermsSheet = true
+                                                }
+                                                .font(.caption)
+                                                .foregroundStyle(.blue)
+                                            }
+                                        }
+                                        
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 4)
+                                }
+                            }
+                            
+                            // Hata mesajı
+                            if let error = vm.errorMessage {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundStyle(.orange)
+                                        .font(.caption)
+                                    Text(error)
+                                        .font(.caption)
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(.orange.opacity(0.1))
+                                )
+                            }
+                            
+                            // Ana buton
+                            CleanButton(
+                                title: showSignUp ? "Hesap Oluştur" : "Giriş Yap",
+                                isLoading: vm.isLoading,
+                                isDisabled: !isFormValid
+                            ) {
+                                Task {
+                                    if showSignUp {
+                                        await vm.signUp(email: email, password: password, displayName: displayName)
+                                    } else {
+                                        await vm.signIn(email: email, password: password)
+                                    }
+                                }
+                            }
+                            
+                            // Şifremi unuttum (sadece giriş ekranında)
+                            if !showSignUp {
+                                Button("Şifremi Unuttum") {
+                                    vm.resetEmail = email
+                                    vm.showForgotPassword = true
+                                }
+                                .font(.subheadline)
+                                .foregroundStyle(.blue)
+                            }
+                            
+                            // Hesap değiştirme
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    showSignUp.toggle()
+                                    vm.errorMessage = nil
+                                    // Terms'i sıfırla
+                                    termsAccepted = false
+                                }
+                            }) {
+                                HStack(spacing: 4) {
+                                    Text(showSignUp ? "Zaten hesabım var" : "Hesap oluştur")
+                                    Image(systemName: "arrow.right")
+                                        .font(.caption)
+                                }
+                                .font(.subheadline)
+                                .foregroundStyle(.blue)
+                            }
+                            
+                            // Divider
+                            HStack {
+                                Rectangle()
+                                    .frame(height: 1)
+                                    .foregroundStyle(.secondary.opacity(0.3))
+                                Text("veya")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 16)
+                                Rectangle()
+                                    .frame(height: 1)
+                                    .foregroundStyle(.secondary.opacity(0.3))
+                            }
+                            .padding(.top, 8)
+                            
+                            // Sosyal giriş butonları
+                            VStack(spacing: 12) {
+                                CleanSocialButton(
+                                    title: "Google ile Devam Et",
+                                    icon: "globe",
+                                    isLoading: vm.isLoading
+                                ) {
+                                    Task { await vm.signInWithGoogle() }
+                                }
+                                
+                                CleanSocialButton(
+                                    title: "Misafir Olarak Devam Et",
+                                    icon: "person.crop.circle",
+                                    isLoading: vm.isLoading,
+                                    color: .orange
+                                ) {
+                                    Task { await vm.signInAnon() }
+                                }
+                            }
+                            
+                            Spacer(minLength: 40)
+                        }
+                        .padding(.horizontal, 32)
                     }
                 }
                 .scrollIndicators(.hidden)
             }
         }
-        .ignoresSafeArea(.container, edges: .top)
-        .onAppear {
-            animateGradient = true
-        }
         .sheet(isPresented: $vm.showForgotPassword) {
             ForgotPasswordView(vm: vm)
         }
-    }
-}
-
-// MARK: - Animated Background (tek eksen drift, koyu pastel)
-struct AnimatedGradientBackground: View {
-    @Binding var animate: Bool
-    @State private var drift = false
-
-    // Biraz koyu pastel palet
-    private let colors: [Color] = [
-        Color(red: 0.88, green: 0.64, blue: 0.80), // deeper rose
-        Color(red: 0.62, green: 0.78, blue: 1.00), // deeper baby blue
-        Color(red: 0.98, green: 0.78, blue: 0.56), // deeper peach
-        Color(red: 0.70, green: 0.68, blue: 1.00)  // deeper lavender
-    ]
-
-    var body: some View {
-        GeometryReader { geo in
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: colors,
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .saturation(1.2)     // hafif canlılık
-                .contrast(1.10)       // biraz daha kontrast
-                .scaleEffect(1.25)    // banding riskini azaltır
-                .offset(
-                    x: drift ? -geo.size.width * 0.08 : geo.size.width * 0.08,
-                    y: 0
-                )                     // sadece yatay drift
-                .ignoresSafeArea()
-                .animation(
-                    .easeInOut(duration: 15).repeatForever(autoreverses: true),
-                    value: drift
-                )
-                .onAppear {
-                    // Kullanıcı animate geçirmese bile drift’i başlat
-                    drift = true
-                }
-                .onChange(of: animate) { on in
-                    // İstersen animate=false ile durdurabilirsin
-                    drift = on
-                }
+        .sheet(isPresented: $showTermsSheet) {
+            TermsAcceptanceSheet(termsAccepted: $termsAccepted)
         }
     }
-}
-
-// MARK: - Wordmark Logo (ikon yok, yazı + hafif glow)
-struct WordmarkLogo: View {
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(Color.white.opacity(0.18))
-                .frame(width: 140, height: 140)
-                .blur(radius: 32)
-
-            Text("SnapCollab")
-                .font(.custom("AlbertSans-Bold", size: 40, relativeTo: .largeTitle)) 
-                .kerning(0.5)
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.55, green: 0.47, blue: 1.00),
-                            Color(red: 0.80, green: 0.50, blue: 1.00)
-                        ],
-                        startPoint: .leading, endPoint: .trailing
-                    )
-                )
-                .shadow(color: .black.opacity(0.25), radius: 4, x: 0, y: 2)
-                .overlay {
-                    Text("SnapCollab")
-                        .font(.custom("AlbertSans-Bold", size: 40, relativeTo: .largeTitle))
-                        .foregroundColor(.white.opacity(0.25))
-                        .offset(y: -1)
-                        .mask(LinearGradient(colors: [.white, .clear],
-                                             startPoint: .top, endPoint: .bottom))
-                }
+    
+    // Form validasyon
+    private var isFormValid: Bool {
+        let baseValid = !email.isEmpty && !password.isEmpty
+        if showSignUp {
+            return baseValid && termsAccepted
         }
+        return baseValid
     }
 }
 
-
-
-
-// MARK: - Modern Text Field
-struct ModernTextField: View {
+// MARK: - Clean Text Field
+struct CleanTextField: View {
     @Binding var text: String
     let placeholder: String
     let icon: String
     let keyboardType: UIKeyboardType
-    @Binding var isFocused: Bool
+    @FocusState private var isFocused: Bool
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 16) {
             Image(systemName: icon)
-                .foregroundColor(isFocused ? .blue : .gray)
-                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(isFocused ? .blue : .secondary)
+                .font(.system(size: 18))
                 .frame(width: 20)
                 .animation(.easeInOut(duration: 0.2), value: isFocused)
             
             TextField(placeholder, text: $text)
+                .focused($isFocused)
                 .keyboardType(keyboardType)
                 .autocapitalization(keyboardType == .emailAddress ? .none : .words)
-                .font(.body)
-                .onTapGesture { isFocused = true }
-                .onSubmit { isFocused = false }
+                .autocorrectionDisabled(keyboardType == .emailAddress)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(.white)
-                .shadow(
-                    color: isFocused ? .blue.opacity(0.3) : .black.opacity(0.05),
-                    radius: isFocused ? 8 : 4,
-                    x: 0,
-                    y: 2
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(
-                    isFocused ? .blue : .clear,
-                    lineWidth: 2
+                .fill(Color(.systemGray6))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(isFocused ? .blue : .clear, lineWidth: 2)
                 )
         )
         .animation(.easeInOut(duration: 0.2), value: isFocused)
     }
 }
 
-// MARK: - Modern Secure Field
-struct ModernSecureField: View {
+// MARK: - Clean Secure Field
+struct CleanSecureField: View {
     @Binding var text: String
     let placeholder: String
     let icon: String
-    @Binding var isFocused: Bool
+    @FocusState private var isFocused: Bool
     @State private var isSecured = true
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 16) {
             Image(systemName: icon)
-                .foregroundColor(isFocused ? .blue : .gray)
-                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(isFocused ? .blue : .secondary)
+                .font(.system(size: 18))
                 .frame(width: 20)
                 .animation(.easeInOut(duration: 0.2), value: isFocused)
             
             if isSecured {
                 SecureField(placeholder, text: $text)
-                    .font(.body)
-                    .onTapGesture { isFocused = true }
-                    .onSubmit { isFocused = false }
+                    .focused($isFocused)
             } else {
                 TextField(placeholder, text: $text)
-                    .font(.body)
-                    .onTapGesture { isFocused = true }
-                    .onSubmit { isFocused = false }
+                    .focused($isFocused)
             }
             
             Button(action: { isSecured.toggle() }) {
                 Image(systemName: isSecured ? "eye.slash" : "eye")
-                    .foregroundColor(.gray)
-                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .font(.system(size: 16))
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(.white)
-                .shadow(
-                    color: isFocused ? .blue.opacity(0.3) : .black.opacity(0.05),
-                    radius: isFocused ? 8 : 4,
-                    x: 0,
-                    y: 2
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(
-                    isFocused ? .blue : .clear,
-                    lineWidth: 2
+                .fill(Color(.systemGray6))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(isFocused ? .blue : .clear, lineWidth: 2)
                 )
         )
         .animation(.easeInOut(duration: 0.2), value: isFocused)
     }
 }
 
-// MARK: - Primary Action Button
-struct PrimaryActionButton: View {
+// MARK: - Clean Button
+struct CleanButton: View {
     let title: String
     let isLoading: Bool
     let isDisabled: Bool
@@ -415,133 +370,162 @@ struct PrimaryActionButton: View {
                 if isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(0.8)
+                        .scaleEffect(0.9)
                 } else {
                     Text(title)
-                        .font(.system(size: 18, weight: .semibold))
+                        .fontWeight(.semibold)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 56)
-            .foregroundColor(.white)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .foregroundStyle(.white)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(
-                        LinearGradient(
-                            colors: isDisabled ? [.gray, .gray] : [.blue, .purple],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .shadow(
-                        color: isDisabled ? .clear : .blue.opacity(0.3),
-                        radius: 8,
-                        x: 0,
-                        y: 4
-                    )
+                    .fill(isDisabled ? .gray : .blue)
             )
         }
         .disabled(isDisabled || isLoading)
-        .scaleEffect(isLoading ? 0.95 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isLoading)
     }
 }
 
-
-// MARK: - Social Login Button
-struct SocialLoginButton: View {
-    let icon: String
+// MARK: - Clean Social Button
+struct CleanSocialButton: View {
     let title: String
-    let color: Color
+    let icon: String
     let isLoading: Bool
+    let color: Color
     let action: () -> Void
+    
+    init(title: String, icon: String, isLoading: Bool, color: Color = .primary, action: @escaping () -> Void) {
+        self.title = title
+        self.icon = icon
+        self.isLoading = isLoading
+        self.color = color
+        self.action = action
+    }
     
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(color)
+                    .font(.system(size: 18))
+                    .foregroundStyle(color)
                 
                 Text(title)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.primary)
+                    .fontWeight(.medium)
+                    .foregroundStyle(color)
             }
             .frame(maxWidth: .infinity, minHeight: 52)
             .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(.white)
-                    .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
+                RoundedRectangle(cornerRadius: 16)
                     .stroke(color.opacity(0.3), lineWidth: 1)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(.systemBackground))
+                    )
             )
         }
         .disabled(isLoading)
-        .opacity(isLoading ? 0.6 : 1.0)
+        .opacity(isLoading ? 0.7 : 1.0)
     }
 }
 
-// MARK: - Error Message View
-struct ErrorMessageView: View {
-    let message: String
+// MARK: - Terms Acceptance Sheet
+struct TermsAcceptanceSheet: View {
+    @Binding var termsAccepted: Bool
+    @Environment(\.dismiss) var dismiss
+    @State private var showTerms = false
+    @State private var showPrivacy = false
     
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(.red)
-                .font(.caption)
-            
-            Text(message)
-                .font(.caption)
-                .foregroundColor(.red)
-                .multilineTextAlignment(.leading)
-            
-            Spacer()
+        NavigationView {
+            VStack(spacing: 24) {
+                VStack(spacing: 16) {
+                    Image(systemName: "doc.text.fill")
+                        .font(.system(size: 50))
+                        .foregroundStyle(.blue)
+                    
+                    Text("Kullanım Koşulları")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    
+                    Text("SnapCollab'ı kullanmak için aşağıdaki koşulları kabul etmeniz gerekir")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+                .padding(.top, 20)
+                
+                VStack(spacing: 16) {
+                    Button(action: { showTerms = true }) {
+                        HStack {
+                            Image(systemName: "doc.text")
+                                .foregroundStyle(.blue)
+                            Text("Kullanım Koşullarını Oku")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.secondary)
+                                .font(.caption)
+                        }
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(.systemGray6))
+                        )
+                    }
+                    
+                    Button(action: { showPrivacy = true }) {
+                        HStack {
+                            Image(systemName: "hand.raised")
+                                .foregroundStyle(.green)
+                            Text("Gizlilik Politikasını Oku")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.secondary)
+                                .font(.caption)
+                        }
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(.systemGray6))
+                        )
+                    }
+                }
+                .padding(.horizontal)
+                
+                VStack(spacing: 16) {
+                    Button("Kabul Ediyorum") {
+                        termsAccepted = true
+                        dismiss()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity)
+                    
+                    Button("İptal") {
+                        termsAccepted = false
+                        dismiss()
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal)
+                
+                Spacer()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Kapat") { dismiss() }
+                }
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.red.opacity(0.1))
-        )
-        .transition(.asymmetric(
-            insertion: .move(edge: .top).combined(with: .opacity),
-            removal: .move(edge: .top).combined(with: .opacity)
-        ))
-    }
-}
-
-// MARK: - Divider with Text
-struct DividerWithText: View {
-    let text: String
-    
-    var body: some View {
-        HStack(spacing: 16) {
-            Rectangle()
-                .frame(height: 1)
-                .foregroundColor(.gray.opacity(0.3))
-            
-            Text(text)
-                .font(.caption)
-                .foregroundColor(.gray)
-                .fontWeight(.medium)
-                .padding(.horizontal, 8)
-                .background(.regularMaterial)
-            
-            Rectangle()
-                .frame(height: 1)
-                .foregroundColor(.gray.opacity(0.3))
+        .fullScreenCover(isPresented: $showTerms) {
+            TermsOfServiceView()
+        }
+        .fullScreenCover(isPresented: $showPrivacy) {
+            PrivacyPolicyView()
         }
     }
-}
-
-#Preview {
-    let mockAuthRepo = AuthRepository(
-        service: FirebaseAuthService(),
-        userService: FirestoreUserService()
-    )
-    let mockAppState = AppState()
-    
-    LoginView(vm: SessionViewModel(auth: mockAuthRepo, state: mockAppState))
 }

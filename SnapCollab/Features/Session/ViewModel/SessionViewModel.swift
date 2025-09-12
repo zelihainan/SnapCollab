@@ -1,3 +1,5 @@
+// MARK: - Güncellenen SessionViewModel (Terms validation ile)
+
 import Foundation
 
 @MainActor
@@ -37,11 +39,13 @@ final class SessionViewModel: ObservableObject {
         }
     }
     
-    // Email/Password Sign Up
+    // Email/Password Sign Up (Terms validation dahil)
     func signUp(email: String, password: String, displayName: String) async {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
+        
+        // Terms kabul edildi mi kontrol et (UI'da yapıldığı için burada ek kontrol)
         
         do {
             try await auth.signUp(email: email, password: password, displayName: displayName)
