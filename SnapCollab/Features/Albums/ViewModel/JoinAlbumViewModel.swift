@@ -2,7 +2,7 @@
 //  JoinAlbumViewModel.swift
 //  SnapCollab
 //
-//  Created by Your Name on Date.
+//  Bildirim sistemi ile güncellendi
 //
 
 import Foundation
@@ -21,15 +21,21 @@ final class JoinAlbumViewModel: ObservableObject {
     @Published var activeIndex = 0
     
     private let repo: AlbumRepository
+    private let notificationRepo: NotificationRepository?
     private var searchTask: Task<Void, Never>?
     
-    init(repo: AlbumRepository, initialCode: String? = nil) {
+    init(repo: AlbumRepository, notificationRepo: NotificationRepository? = nil) {
         self.repo = repo
-        
-        // Eğer initial code varsa (deep link'ten geliyorsa) otomatik set et
-        if let code = initialCode?.uppercased() {
-            self.inviteCode = String(code.prefix(6))
-            self.activeIndex = min(code.count, 6)
+        self.notificationRepo = notificationRepo
+    }
+    
+    // Initial code set etmek için ayrı method
+    func setInitialCode(_ code: String?) {
+        guard let code = code?.uppercased() else { return }
+        let cleanCode = String(code.prefix(6))
+        if cleanCode.count == 6 {
+            inviteCode = cleanCode
+            activeIndex = min(cleanCode.count, 6)
             
             // Otomatik olarak albüm ara
             Task { await searchAlbum() }
@@ -137,7 +143,7 @@ final class JoinAlbumViewModel: ObservableObject {
     }
     
     func joinAlbum() async {
-        guard var album = foundAlbum else {
+        guard foundAlbum != nil else {
             await searchAlbum()
             return
         }
@@ -148,7 +154,7 @@ final class JoinAlbumViewModel: ObservableObject {
         }
         
         // Zaten üye kontrolü
-        if album.isMember(currentUID) {
+        if foundAlbum!.isMember(currentUID) {
             errorMessage = "Bu albümün zaten üyesisiniz"
             return
         }
@@ -157,20 +163,27 @@ final class JoinAlbumViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            print("JoinAlbumVM: Joining album: \(album.title)")
+            print("JoinAlbumVM: Joining album with notifications: \(foundAlbum!.title)")
             
-            // Albüme üye ekle
-            album.addMember(currentUID)
+            // Bildirim sistemini kullanarak katıl
+            if let notificationRepo = notificationRepo {
+                let updatedAlbum = try await repo.joinAlbumWithNotification(
+                    inviteCode: inviteCode,
+                    notificationRepo: notificationRepo
+                )
+                foundAlbum = updatedAlbum
+                print("✅ JoinAlbumVM: Successfully joined album with notifications")
+            } else {
+                // Fallback: Normal join without notifications
+                let updatedAlbum = try await repo.joinAlbum(inviteCode: inviteCode)
+                foundAlbum = updatedAlbum
+                print("⚠️ JoinAlbumVM: Joined album without notifications (fallback)")
+            }
             
-            // Firestore'da güncelle
-            try await repo.updateAlbum(album)
-            
-            print("JoinAlbumVM: Successfully joined album")
             joinSuccess = true
-            foundAlbum = album // Güncellenmiş albüm bilgisini göster
             
         } catch {
-            print("JoinAlbumVM: Join error: \(error)")
+            print("❌ JoinAlbumVM: Join error: \(error)")
             errorMessage = "Albüme katılma hatası: \(error.localizedDescription)"
         }
         

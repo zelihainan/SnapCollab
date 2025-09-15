@@ -2,6 +2,7 @@
 //  JoinAlbumView.swift
 //  SnapCollab
 //
+//  Bildirim sistemi ile güncellendi
 //
 
 import SwiftUI
@@ -9,9 +10,14 @@ import SwiftUI
 struct JoinAlbumView: View {
     @StateObject private var vm: JoinAlbumViewModel
     @Environment(\.dismiss) var dismiss
+    @Environment(\.di) var di
     
+    // Bu init sadece backward compatibility için - artık kullanılmayacak
     init(albumRepo: AlbumRepository, initialCode: String? = nil) {
-        _vm = StateObject(wrappedValue: JoinAlbumViewModel(repo: albumRepo, initialCode: initialCode))
+        _vm = StateObject(wrappedValue: JoinAlbumViewModel(
+            repo: albumRepo,
+            notificationRepo: nil
+        ))
     }
     
     var body: some View {
@@ -144,11 +150,22 @@ struct JoinAlbumView: View {
                 }
             }
         }
+        .onAppear {
+            vm.setInitialCode(initialCode)
+        }
         .onChange(of: vm.joinSuccess) { success in
             if success {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                     dismiss()
                 }
+            }
+        }
+        .onAppear {
+            // NotificationRepository'yi VM'e inject et
+            if let notificationRepo = di.notificationRepo {
+                // VM'i yeniden oluştur bildirim desteği ile
+                vm.reset()
+                // Burada yeniden init yapamayız, o yüzden AlbumsView'de düzeltmemiz gerekiyor
             }
         }
     }

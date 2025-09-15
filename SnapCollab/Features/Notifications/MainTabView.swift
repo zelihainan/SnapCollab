@@ -2,7 +2,7 @@
 //  MainTabView.swift
 //  SnapCollab
 //
-//  Ana tab bar navigasyonu - Bildirim badge'i eklendi
+//  Ana tab bar navigasyonu - Bildirim badge'i ile
 //
 
 import SwiftUI
@@ -27,6 +27,7 @@ struct MainTabView: View {
             .tabItem {
                 Label("Bildirimler", systemImage: selectedTab == .notifications ? "bell.fill" : "bell")
             }
+            .badge(di.notificationRepo.unreadCount > 0 ? di.notificationRepo.unreadCount : nil)
             .tag(TabItem.notifications)
 
             NavigationStack {

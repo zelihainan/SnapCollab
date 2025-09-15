@@ -385,3 +385,179 @@ struct CreateAlbumSheet: View {
         }
     }
 }
+
+struct JoinAlbumViewWithNotifications: View {
+    let albumRepo: AlbumRepository
+    let notificationRepo: NotificationRepository
+    let initialCode: String?
+    
+    var body: some View {
+        JoinAlbumViewContent(
+            vm: JoinAlbumViewModel(
+                repo: albumRepo,
+                notificationRepo: notificationRepo
+            ),
+            initialCode: initialCode
+        )
+    }
+}
+
+struct JoinAlbumViewContent: View {
+    @StateObject var vm: JoinAlbumViewModel
+    let initialCode: String?
+    @Environment(\.dismiss) var dismiss
+    
+    init(vm: JoinAlbumViewModel, initialCode: String?) {
+        _vm = StateObject(wrappedValue: vm)
+        self.initialCode = initialCode
+    }
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Header aynı kalacak
+                    VStack(spacing: 16) {
+                        Image(systemName: "person.badge.plus")
+                            .font(.system(size: 60))
+                            .foregroundStyle(.blue)
+                        
+                        Text("Albüme Katıl")
+                            .font(.title)
+                            .fontWeight(.bold)
+                        
+                        Text("Davet kodunu girerek arkadaşlarınızın albümüne katılabilirsiniz")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.top, 20)
+                    
+                    VStack(spacing: 20) {
+                        Text("Davet Kodu")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        
+                        TextField("6 haneli davet kodu", text: $vm.inviteCode)
+                            .textFieldStyle(.roundedBorder)
+                            .keyboardType(.asciiCapable)
+                            .autocapitalization(.allCharacters)
+                            .autocorrectionDisabled()
+                            .font(.title2)
+                            .multilineTextAlignment(.center)
+                            .onChange(of: vm.inviteCode) { newValue in
+                                vm.validateAndFormatCode(newValue)
+                            }
+                        
+                        if !vm.inviteCode.isEmpty {
+                            HStack(spacing: 8) {
+                                ForEach(0..<6, id: \.self) { index in
+                                    Text(vm.getDigit(at: index))
+                                        .font(.title2)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(vm.getDigit(at: index).isEmpty ? .gray : .blue)
+                                        .frame(width: 40, height: 50)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(.blue.opacity(0.1))
+                                        )
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                        }
+                        
+                        if UIPasteboard.general.hasStrings {
+                            Button("Panodan Yapıştır") {
+                                vm.pasteFromClipboard()
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                        }
+                    }
+                    
+                    if let album = vm.foundAlbum {
+                        AlbumPreviewCard(album: album)
+                    }
+                    
+                    if let error = vm.errorMessage {
+                        Text(error)
+                            .foregroundStyle(.red)
+                            .font(.caption)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                    
+                    if vm.joinSuccess {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                            Text("Albüme başarıyla katıldınız!")
+                                .foregroundStyle(.green)
+                                .font(.caption)
+                        }
+                        .padding(.horizontal)
+                    }
+                    
+                    Button(action: {
+                        Task { await vm.joinAlbum() }
+                    }) {
+                        Group {
+                            if vm.isLoading {
+                                HStack(spacing: 8) {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        .scaleEffect(0.8)
+                                    Text("Katılıyor...")
+                                }
+                            } else if vm.foundAlbum != nil {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "person.badge.plus")
+                                    Text("Albüme Katıl")
+                                }
+                            } else {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "magnifyingglass")
+                                    Text("Albüm Ara")
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 50)
+                        .foregroundStyle(.white)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(vm.isFormValid ? .blue : .gray)
+                        )
+                    }
+                    .disabled(!vm.isFormValid || vm.isLoading)
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
+            }
+            .navigationTitle("Albüme Katıl")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("İptal") { dismiss() }
+                }
+            }
+        }
+        .onAppear {
+            if let code = initialCode?.uppercased() {
+                vm.inviteCode = String(code.prefix(6))
+                vm.activeIndex = min(code.count, 6)
+            }
+        }
+        .onDisappear {
+            // Deep link kodunu temizle
+            vm.reset()
+        }
+        .onChange(of: vm.joinSuccess) { success in
+            if success {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    dismiss()
+                }
+            }
+        }
+    }
+}
