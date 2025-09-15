@@ -1,5 +1,3 @@
-
-
 import Foundation
 import UIKit
 import FirebaseAuth
@@ -16,6 +14,7 @@ final class ProfileViewModel: ObservableObject {
     @Published var selectedImage: UIImage?
     @Published var isUploadingPhoto = false
     @Published var showPasswordChange = false
+    @Published var showEmailChange = false  
     @Published var currentPassword = ""
     @Published var newPassword = ""
     @Published var confirmPassword = ""

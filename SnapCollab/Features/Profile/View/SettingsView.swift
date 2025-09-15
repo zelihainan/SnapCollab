@@ -3,7 +3,6 @@
 //  SnapCollab
 //
 
-
 import SwiftUI
 import UIKit
 
@@ -12,6 +11,10 @@ struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) var colorScheme
     @AppStorage("preferredColorScheme") private var preferredColorScheme: ColorSchemePreference = .system
+    
+    // 🆕 Yeni sheet state'leri
+    @State private var showFontSizeSettings = false
+    @State private var showNotificationSettings = false
     
     var body: some View {
         NavigationView {
@@ -37,14 +40,14 @@ struct SettingsView: View {
                             vm.showPasswordChange = true
                         }
                         
+                        // 🆕 E-posta değiştirme - güncellenmiş action
                         SettingsRow(
                             icon: "envelope.fill",
                             title: "E-posta Değiştir",
                             subtitle: vm.user?.email ?? "",
                             iconColor: .blue
                         ) {
-                            // TODO: Email değiştirme
-                            print("Email change tapped")
+                            vm.showEmailChange = true
                         }
                     } header: {
                         Text("Hesap Güvenliği")
@@ -102,14 +105,14 @@ struct SettingsView: View {
                     }
                     .padding(.vertical, 8)
                     
+                    // 🆕 Font Size - güncellenmiş action
                     SettingsRow(
                         icon: "textformat.size",
                         title: "Yazı Boyutu",
                         subtitle: "Uygulama yazı boyutunu ayarlayın",
                         iconColor: .green
                     ) {
-                        // TODO: Font size ayarları
-                        print("Font size tapped")
+                        showFontSizeSettings = true
                     }
                     
                 } header: {
@@ -118,41 +121,25 @@ struct SettingsView: View {
                 
                 // Bildirim Ayarları Bölümü
                 Section {
+                    // 🆕 Notifications - güncellenmiş action
                     SettingsRow(
                         icon: "bell.fill",
                         title: "Bildirimler",
                         subtitle: "Bildirim tercihlerinizi yönetin",
                         iconColor: .red
                     ) {
-                        // TODO: Bildirim ayarları
-                        print("Notifications tapped")
+                        showNotificationSettings = true
                     }
                     
                 } header: {
                     Text("Bildirimler")
                 }
                 
-                // Veri ve Depolama Bölümü
+                // Veri ve Depolama Bölümü - 🆕 Güncellenmiş bölüm
                 Section {
-                    SettingsRow(
-                        icon: "icloud.fill",
-                        title: "Depolama Kullanımı",
-                        subtitle: "Kullanılan alan: Hesaplanıyor...",
-                        iconColor: .cyan
-                    ) {
-                        // TODO: Storage usage
-                        print("Storage tapped")
-                    }
+                    StorageUsageRow()
                     
-                    SettingsRow(
-                        icon: "arrow.down.circle.fill",
-                        title: "Önbellek Temizle",
-                        subtitle: "Geçici dosyaları temizle",
-                        iconColor: .orange
-                    ) {
-                        // TODO: Clear cache
-                        print("Clear cache tapped")
-                    }
+                    ClearCacheRow()
                     
                 } header: {
                     Text("Veri ve Depolama")
@@ -233,6 +220,16 @@ struct SettingsView: View {
                     }
                 }
             }
+        }
+        // 🆕 Yeni sheet'ler eklendi
+        .sheet(isPresented: $vm.showEmailChange) {
+            EmailChangeSheet(vm: vm)
+        }
+        .sheet(isPresented: $showFontSizeSettings) {
+            FontSizeSettingsSheet()
+        }
+        .sheet(isPresented: $showNotificationSettings) {
+            NotificationSettingsSheet()
         }
         .sheet(isPresented: $vm.showPasswordChange) {
             PasswordChangeSheet(vm: vm)
@@ -679,3 +676,60 @@ struct PasswordChangeSheet: View {
     }
 }
 
+// MARK: - Storage Usage and Clear Cache Rows
+struct StorageUsageRow: View {
+    @StateObject private var storageManager = StorageManager.shared
+    
+    var body: some View {
+        SettingsRow(
+            icon: "icloud.fill",
+            title: "Depolama Kullanımı",
+            subtitle: storageManager.isCalculating ? "Hesaplanıyor..." : "Kullanılan alan: \(storageManager.formatStorageSize(storageManager.totalStorageUsed))",
+            iconColor: .cyan
+        ) {
+            // Detaylı depolama view'ına git
+            print("Storage usage tapped")
+        }
+        .onAppear {
+            if storageManager.totalStorageUsed == 0 {
+                Task {
+                    await storageManager.calculateStorageUsage()
+                }
+            }
+        }
+    }
+}
+
+struct ClearCacheRow: View {
+    @StateObject private var storageManager = StorageManager.shared
+    @State private var showClearAlert = false
+    @State private var isClearing = false
+    
+    var body: some View {
+        SettingsRow(
+            icon: "arrow.down.circle.fill",
+            title: "Önbellek Temizle",
+            subtitle: isClearing ? "Temizleniyor..." : "Geçici dosyaları temizle",
+            iconColor: .orange
+        ) {
+            showClearAlert = true
+        }
+        .disabled(isClearing)
+        .alert("Önbellek Temizle", isPresented: $showClearAlert) {
+            Button("İptal", role: .cancel) { }
+            Button("Temizle", role: .destructive) {
+                Task {
+                    isClearing = true
+                    do {
+                        try await storageManager.clearCache()
+                    } catch {
+                        print("Cache clear error: \(error)")
+                    }
+                    isClearing = false
+                }
+            }
+        } message: {
+            Text("Önbellek dosyaları temizlenecek. Bu işlem geri alınamaz.")
+        }
+    }
+}
