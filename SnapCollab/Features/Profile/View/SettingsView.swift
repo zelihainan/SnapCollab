@@ -2,10 +2,10 @@
 //  SettingsView.swift
 //  SnapCollab
 //
-//  Created by Zeliha İnan on 15.09.2025.
-//
+
 
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     @StateObject var vm: ProfileViewModel
@@ -238,7 +238,7 @@ struct SettingsView: View {
             PasswordChangeSheet(vm: vm)
         }
         .sheet(isPresented: $vm.showImagePicker) {
-            ImagePicker(selectedImage: $vm.selectedImage)
+            ImagePicker(selectedImage: $vm.selectedImage, sourceType: .photoLibrary)
         }
         .onChange(of: vm.selectedImage) { newImage in
             if newImage != nil {
@@ -275,81 +275,153 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Profile Edit Row
+// MARK: - Profile Edit Row - Basit ve çalışan versiyon
 struct ProfileEditRow: View {
     @ObservedObject var vm: ProfileViewModel
     @State private var showNameEditor = false
+    @State private var showPhotoOptions = false
+    @State private var useCamera = false
     
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             // Profile Photo Section
-            HStack {
-                // Current Photo
-                Group {
-                    if let selectedImage = vm.selectedImage {
-                        Image(uiImage: selectedImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } else if let photoURL = vm.user?.photoURL, !photoURL.isEmpty {
-                        AsyncImage(url: URL(string: photoURL)) { image in
-                            image
+            VStack(spacing: 16) {
+                ZStack {
+                    // Current Photo
+                    Group {
+                        if let selectedImage = vm.selectedImage {
+                            Image(uiImage: selectedImage)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            ProgressView()
-                                .scaleEffect(0.8)
+                        } else if let photoURL = vm.user?.photoURL, !photoURL.isEmpty {
+                            AsyncImage(url: URL(string: photoURL)) { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                ProgressView()
+                                    .scaleEffect(1.2)
+                            }
+                        } else {
+                            Circle()
+                                .fill(.blue.gradient)
+                                .overlay {
+                                    if let user = vm.user {
+                                        Text(user.initials)
+                                            .font(.system(size: 32, weight: .medium))
+                                            .foregroundStyle(.white)
+                                    } else {
+                                        Image(systemName: "person.fill")
+                                            .font(.system(size: 32))
+                                            .foregroundStyle(.white)
+                                    }
+                                }
                         }
-                    } else {
-                        Image(systemName: "person.circle.fill")
-                            .foregroundStyle(.gray)
-                            .font(.system(size: 60))
+                    }
+                    .frame(width: 80, height: 80)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(.gray.opacity(0.2), lineWidth: 2))
+                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                    
+                    // Loading Overlay
+                    if vm.isLoading {
+                        Circle()
+                            .fill(.black.opacity(0.6))
+                            .frame(width: 80, height: 80)
+                            .overlay {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .scaleEffect(0.8)
+                            }
                     }
                 }
-                .frame(width: 60, height: 60)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(.gray.opacity(0.3), lineWidth: 1))
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(vm.user?.displayName ?? "İsimsiz Kullanıcı")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                    
-                    Text("Profil fotoğrafını değiştir")
-                        .font(.caption)
-                        .foregroundStyle(.blue)
+                .onTapGesture {
+                    if !vm.isLoading {
+                        showPhotoOptions = true
+                    }
                 }
                 
-                Spacer()
-                
-                Button("Değiştir") {
-                    vm.showImagePicker = true
+                // Photo Change Button
+                Button(action: { showPhotoOptions = true }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "camera")
+                            .font(.subheadline)
+                        Text("Fotoğrafı Değiştir")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundStyle(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(.blue.opacity(0.1))
+                    )
                 }
-                .font(.subheadline)
-                .foregroundStyle(.blue)
+                .buttonStyle(PlainButtonStyle())
+                .disabled(vm.isLoading)
             }
             
+            Divider()
+            
             // Display Name Section
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Görünen Ad")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+            VStack(spacing: 8) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Görünen Ad")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        
+                        Text(vm.user?.displayName ?? "İsimsiz Kullanıcı")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                    }
                     
-                    Text(vm.user?.displayName ?? "İsimsiz Kullanıcı")
-                        .font(.body)
-                        .foregroundStyle(.primary)
+                    Spacer()
+                    
+                    // Düzenle butonu - sadece bu kısım tıklanabilir
+                    Button("Düzenle") {
+                        showNameEditor = true
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.blue)
+                    .buttonStyle(PlainButtonStyle())
+                    .disabled(vm.isLoading)
                 }
-                
-                Spacer()
-                
-                Button("Düzenle") {
-                    showNameEditor = true
-                }
-                .font(.subheadline)
-                .foregroundStyle(.blue)
+                .contentShape(Rectangle()) // Tüm HStack'in shape'ini belirle
+                .onTapGesture { } // Boş tap gesture - list row tap'ını engelle
             }
         }
         .padding(.vertical, 8)
+        .confirmationDialog("Profil Fotoğrafı", isPresented: $showPhotoOptions) {
+            Button("Galeriden Seç") {
+                useCamera = false
+                vm.showImagePicker = true
+            }
+            
+            Button("Fotoğraf Çek") {
+                useCamera = true
+                vm.showImagePicker = true
+            }
+            
+            if vm.user?.photoURL != nil {
+                Button("Fotoğrafı Kaldır", role: .destructive) {
+                    Task {
+                        await vm.removeProfilePhoto()
+                    }
+                }
+            }
+            
+            Button("İptal", role: .cancel) { }
+        } message: {
+            Text("Profil fotoğrafınızı nasıl değiştirmek istiyorsunuz?")
+        }
+        .sheet(isPresented: $vm.showImagePicker) {
+            ImagePicker(
+                selectedImage: $vm.selectedImage,
+                sourceType: useCamera ? .camera : .photoLibrary
+            )
+        }
         .sheet(isPresented: $showNameEditor) {
             DisplayNameEditorSheet(vm: vm)
         }
@@ -510,7 +582,7 @@ enum ColorSchemePreference: String, CaseIterable {
     }
 }
 
-// MARK: - Password Change Sheet (aynı kalıyor)
+// MARK: - Password Change Sheet
 struct PasswordChangeSheet: View {
     @ObservedObject var vm: ProfileViewModel
     @Environment(\.dismiss) var dismiss
@@ -606,3 +678,4 @@ struct PasswordChangeSheet: View {
         }
     }
 }
+

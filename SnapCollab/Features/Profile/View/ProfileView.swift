@@ -2,8 +2,6 @@
 //  ProfileView.swift
 //  SnapCollab
 //
-//  Sadeleştirilmiş profil sayfası - Ayarlar butonlu
-//
 
 import SwiftUI
 import UIKit
@@ -56,7 +54,7 @@ struct ProfileView: View {
                     }
                     .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
                     
-                    // User Info
+                    // User Info - Hiç badge yok, sadece isim ve email
                     VStack(spacing: 8) {
                         Text(vm.user?.displayName ?? "İsimsiz Kullanıcı")
                             .font(.title)
@@ -68,23 +66,6 @@ struct ProfileView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
-                        
-                        // Account Type Badge
-                        HStack(spacing: 8) {
-                            Image(systemName: vm.isAnonymous ? "person.crop.circle.dashed" : "person.crop.circle.fill")
-                                .font(.caption)
-                            
-                            Text(vm.isAnonymous ? "Misafir Hesap" : "Kayıtlı Hesap")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule()
-                                .fill(vm.isAnonymous ? .orange.opacity(0.1) : .green.opacity(0.1))
-                        )
-                        .foregroundStyle(vm.isAnonymous ? .orange : .green)
                     }
                 }
                 .padding(.top, 20)
@@ -128,27 +109,23 @@ struct ProfileView: View {
                             showSettings = true
                         }
                         
-                        // Support Actions
-                        HStack(spacing: 12) {
-                            QuickActionButton(
-                                icon: "hand.raised",
-                                title: "Gizlilik",
-                                subtitle: "Politika",
-                                color: .purple,
-                                isCompact: true
-                            ) {
-                                showPrivacy = true
-                            }
-                            
-                            QuickActionButton(
-                                icon: "doc.text",
-                                title: "Koşullar",
-                                subtitle: "Kullanım",
-                                color: .green,
-                                isCompact: true
-                            ) {
-                                showTerms = true
-                            }
+                        // Support Actions - her biri ayrı satırda
+                        QuickActionButton(
+                            icon: "hand.raised",
+                            title: "Gizlilik Politikası",
+                            subtitle: "Gizlilik ve veri koruma",
+                            color: .purple
+                        ) {
+                            showPrivacy = true
+                        }
+                        
+                        QuickActionButton(
+                            icon: "doc.text",
+                            title: "Kullanım Koşulları",
+                            subtitle: "Uygulama kullanım kuralları",
+                            color: .green
+                        ) {
+                            showTerms = true
                         }
                         
                         QuickActionButton(
@@ -312,4 +289,3 @@ struct QuickActionButton: View {
         .buttonStyle(PlainButtonStyle())
     }
 }
-
