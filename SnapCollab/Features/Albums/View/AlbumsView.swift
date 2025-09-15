@@ -114,11 +114,22 @@ struct AlbumsView: View {
         .sheet(isPresented: $vm.showCreate) {
             CreateAlbumSheet(vm: vm)
         }
+        // AlbumsView.swift içinde sheet kullanımı - doğru ViewModel ile
+
         .sheet(isPresented: $showJoinAlbum) {
-            JoinAlbumView(albumRepo: di.albumRepo, initialCode: deepLinkHandler.pendingInviteCode)
-                .onDisappear {
-                    deepLinkHandler.clearPendingInvite()
-                }
+            // Bildirim desteği olan ViewModel ile
+            let joinVM = JoinAlbumViewModel(
+                repo: di.albumRepo,
+                notificationRepo: di.notificationRepo
+            )
+            
+            JoinAlbumViewContent(
+                vm: joinVM,
+                initialCode: deepLinkHandler.pendingInviteCode
+            )
+            .onDisappear {
+                deepLinkHandler.clearPendingInvite()
+            }
         }
         .fullScreenCover(isPresented: $showProfile) {
             let profileVM = ProfileViewModel(authRepo: di.authRepo, mediaRepo: di.mediaRepo)

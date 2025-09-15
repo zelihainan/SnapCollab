@@ -2,7 +2,7 @@
 //  JoinAlbumView.swift
 //  SnapCollab
 //
-//  Bildirim sistemi ile güncellendi
+//  Bildirim sistemi ile güncellendi - Temizlenmiş versiyon
 //
 
 import SwiftUI
@@ -10,14 +10,22 @@ import SwiftUI
 struct JoinAlbumView: View {
     @StateObject private var vm: JoinAlbumViewModel
     @Environment(\.dismiss) var dismiss
-    @Environment(\.di) var di
     
-    // Bu init sadece backward compatibility için - artık kullanılmayacak
+    let initialCode: String?
+    
+    // Backward compatibility için eski init
     init(albumRepo: AlbumRepository, initialCode: String? = nil) {
+        self.initialCode = initialCode
         _vm = StateObject(wrappedValue: JoinAlbumViewModel(
             repo: albumRepo,
-            notificationRepo: nil
+            notificationRepo: nil // Fallback - bildirim olmadan
         ))
+    }
+    
+    // Yeni init - bildirim desteği ile
+    init(viewModel: JoinAlbumViewModel, initialCode: String? = nil) {
+        self.initialCode = initialCode
+        _vm = StateObject(wrappedValue: viewModel)
     }
     
     var body: some View {
@@ -160,14 +168,6 @@ struct JoinAlbumView: View {
                 }
             }
         }
-        .onAppear {
-            // NotificationRepository'yi VM'e inject et
-            if let notificationRepo = di.notificationRepo {
-                // VM'i yeniden oluştur bildirim desteği ile
-                vm.reset()
-                // Burada yeniden init yapamayız, o yüzden AlbumsView'de düzeltmemiz gerekiyor
-            }
-        }
     }
 }
 
@@ -220,4 +220,3 @@ struct AlbumPreviewCard: View {
         }
     }
 }
-

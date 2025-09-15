@@ -27,7 +27,7 @@ struct MainTabView: View {
             .tabItem {
                 Label("Bildirimler", systemImage: selectedTab == .notifications ? "bell.fill" : "bell")
             }
-            .badge(di.notificationRepo.unreadCount > 0 ? di.notificationRepo.unreadCount : nil)
+            .badge(di.notificationRepo.unreadCount > 0 ? di.notificationRepo.unreadCount : 0)
             .tag(TabItem.notifications)
 
             NavigationStack {

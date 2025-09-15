@@ -2,8 +2,6 @@
 //  JoinAlbumViewModel.swift
 //  SnapCollab
 //
-//  Bildirim sistemi ile güncellendi
-//
 
 import Foundation
 import SwiftUI
