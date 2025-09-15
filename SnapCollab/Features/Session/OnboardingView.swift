@@ -88,7 +88,6 @@ struct OnboardingView: View {
                 
                 VStack(spacing: 16) {
                     if currentPage < pages.count - 1 {
-                        // Devam et butonu
                         Button("Devam Et") {
                             withAnimation(.easeInOut(duration: 0.3)) {
                                 currentPage += 1

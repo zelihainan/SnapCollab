@@ -8,7 +8,7 @@ import SwiftUI
 
 struct NotificationsView: View {
     @StateObject private var notificationRepo: NotificationRepository
-    let navigationCoordinator: NavigationCoordinator? // Navigation coordinator eklendi
+    let navigationCoordinator: NavigationCoordinator?
     @Environment(\.di) var di
     @State private var showClearAllAlert = false
     
@@ -108,7 +108,6 @@ struct NotificationsView: View {
     
     private var notificationsList: some View {
         List {
-            // Unread count header
             if notificationRepo.unreadCount > 0 {
                 Section {
                     EmptyView()
@@ -119,7 +118,6 @@ struct NotificationsView: View {
                 }
             }
             
-            // Grouped notifications
             ForEach(groupedNotifications.keys.sorted(by: >), id: \.self) { date in
                 Section {
                     ForEach(groupedNotifications[date] ?? []) { notification in
@@ -188,7 +186,6 @@ struct NotificationsView: View {
         .background(Color(.systemBlue).opacity(0.1))
     }
     
-    // MARK: - Grouped Notifications
     private var groupedNotifications: [String: [AppNotification]] {
         Dictionary(grouping: notificationRepo.notifications) { notification in
             let formatter = DateFormatter()
@@ -219,22 +216,18 @@ struct NotificationsView: View {
         }
     }
     
-    // MARK: - Actions - UPDATED with Navigation
     private func handleNotificationTap(_ notification: AppNotification) {
         Task {
             await notificationRepo.markAsRead(notification)
         }
         
-        // Navigate to album if albumId exists
         if let albumId = notification.albumId {
-            print("📬 Notification tap: Navigating to album: \(albumId)")
+            print("Notification tap: Navigating to album: \(albumId)")
             navigationCoordinator?.navigateToAlbum(albumId)
             
-            // Haptic feedback
             let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
             impactFeedback.impactOccurred()
         } else {
-            // Just haptic for notifications without album
             let impactFeedback = UIImpactFeedbackGenerator(style: .light)
             impactFeedback.impactOccurred()
         }
@@ -251,11 +244,9 @@ struct NotificationsView: View {
     
     private func clearAllNotifications() {
         print("Clear all notifications - to be implemented")
-        // TODO: Implement clear all functionality
     }
 }
 
-// MARK: - Enhanced Notification Row View (aynı kalıyor)
 struct NotificationRowView: View {
     let notification: AppNotification
     let onTap: () -> Void
@@ -263,7 +254,6 @@ struct NotificationRowView: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // Icon with animated background
             ZStack {
                 Circle()
                     .fill(iconBackgroundColor.opacity(notification.isRead ? 0.1 : 0.15))
@@ -278,7 +268,6 @@ struct NotificationRowView: View {
                     .foregroundStyle(iconBackgroundColor)
             }
             
-            // Content
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(notification.title)

@@ -33,7 +33,7 @@ final class FirebaseStorageService: ImageCaching {
         metadata.cacheControl = "public, max-age=300"
         
         _ = try await ref.putDataAsync(data, metadata: metadata)
-        print("🔥 Firebase Storage: Uploaded with content-type: \(metadata.contentType ?? "none")")
+        print("Firebase Storage: Uploaded with content-type: \(metadata.contentType ?? "none")")
     }
     
     func delete(path: String) async throws {

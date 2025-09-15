@@ -20,7 +20,6 @@ class DeepLinkHandler: ObservableObject {
             let inviteCode = pathComponents[2].uppercased()
             print("DeepLink: Found invite code: \(inviteCode)")
             
-            // Kod formatını validate et (6 karakter, alfanumerik)
             if isValidInviteCode(inviteCode) {
                 DispatchQueue.main.async {
                     self.pendingInviteCode = inviteCode

@@ -2,7 +2,6 @@
 //  JoinAlbumView.swift
 //  SnapCollab
 //
-//  Bildirim sistemi ile güncellendi - Temizlenmiş versiyon
 //
 
 import SwiftUI
@@ -13,7 +12,6 @@ struct JoinAlbumView: View {
     
     let initialCode: String?
     
-    // Backward compatibility için eski init
     init(albumRepo: AlbumRepository, initialCode: String? = nil) {
         self.initialCode = initialCode
         _vm = StateObject(wrappedValue: JoinAlbumViewModel(
@@ -22,7 +20,6 @@ struct JoinAlbumView: View {
         ))
     }
     
-    // Yeni init - bildirim desteği ile
     init(viewModel: JoinAlbumViewModel, initialCode: String? = nil) {
         self.initialCode = initialCode
         _vm = StateObject(wrappedValue: viewModel)
@@ -32,7 +29,6 @@ struct JoinAlbumView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 24) {
-                    // Header
                     VStack(spacing: 16) {
                         Image(systemName: "person.badge.plus")
                             .font(.system(size: 60))

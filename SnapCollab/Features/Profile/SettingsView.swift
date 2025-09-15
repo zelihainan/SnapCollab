@@ -12,14 +12,12 @@ struct SettingsView: View {
     @Environment(\.colorScheme) var colorScheme
     @AppStorage("preferredColorScheme") private var preferredColorScheme: ColorSchemePreference = .system
     
-    // 🆕 Yeni sheet state'leri
     @State private var showFontSizeSettings = false
     @State private var showNotificationSettings = false
     
     var body: some View {
         NavigationView {
             List {
-                // Profil Bilgileri Bölümü
                 Section {
                     ProfileEditRow(vm: vm)
                 } header: {
@@ -28,7 +26,6 @@ struct SettingsView: View {
                     Text("Profil fotoğrafınızı ve görünen adınızı değiştirin")
                 }
                 
-                // Hesap Güvenliği Bölümü
                 if !vm.isAnonymous {
                     Section {
                         SettingsRow(
@@ -40,7 +37,6 @@ struct SettingsView: View {
                             vm.showPasswordChange = true
                         }
                         
-                        // 🆕 E-posta değiştirme - güncellenmiş action
                         SettingsRow(
                             icon: "envelope.fill",
                             title: "E-posta Değiştir",
@@ -54,9 +50,7 @@ struct SettingsView: View {
                     }
                 }
                 
-                // Görünüm Ayarları Bölümü
                 Section {
-                    // Dark Mode Toggle
                     HStack(spacing: 16) {
                         ZStack {
                             Circle()
@@ -105,7 +99,6 @@ struct SettingsView: View {
                     }
                     .padding(.vertical, 8)
                     
-                    // 🆕 Font Size - güncellenmiş action
                     SettingsRow(
                         icon: "textformat.size",
                         title: "Yazı Boyutu",
@@ -119,9 +112,7 @@ struct SettingsView: View {
                     Text("Görünüm")
                 }
                 
-                // Bildirim Ayarları Bölümü
                 Section {
-                    // 🆕 Notifications - güncellenmiş action
                     SettingsRow(
                         icon: "bell.fill",
                         title: "Bildirimler",
@@ -135,7 +126,6 @@ struct SettingsView: View {
                     Text("Bildirimler")
                 }
                 
-                // Veri ve Depolama Bölümü - 🆕 Güncellenmiş bölüm
                 Section {
                     StorageUsageRow()
                     
@@ -145,7 +135,6 @@ struct SettingsView: View {
                     Text("Veri ve Depolama")
                 }
                 
-                // Hesap Yönetimi Bölümü
                 Section {
                     if vm.isAnonymous {
                         SettingsRow(
@@ -154,7 +143,6 @@ struct SettingsView: View {
                             subtitle: "Verilerinizi güvence altına alın",
                             iconColor: .blue
                         ) {
-                            // TODO: Upgrade account
                             print("Upgrade account tapped")
                         }
                     }
@@ -165,7 +153,6 @@ struct SettingsView: View {
                         subtitle: "Tüm verilerinizi indirin",
                         iconColor: .purple
                     ) {
-                        // TODO: Data export
                         print("Export data tapped")
                     }
                     
@@ -175,7 +162,6 @@ struct SettingsView: View {
                         subtitle: "Hesabınızı kalıcı olarak silin",
                         iconColor: .red
                     ) {
-                        // TODO: Delete account
                         print("Delete account tapped")
                     }
                     
@@ -185,7 +171,6 @@ struct SettingsView: View {
                     Text("Hesap silme işlemi geri alınamaz")
                 }
                 
-                // App Info Bölümü
                 Section {
                     SettingsRow(
                         icon: "info.circle.fill",
@@ -193,7 +178,6 @@ struct SettingsView: View {
                         subtitle: "Versiyon 1.0.0",
                         iconColor: .gray
                     ) {
-                        // TODO: About app
                         print("About tapped")
                     }
                     
@@ -203,7 +187,6 @@ struct SettingsView: View {
                         subtitle: "App Store'da değerlendirin",
                         iconColor: .yellow
                     ) {
-                        // TODO: Rate app
                         print("Rate app tapped")
                     }
                     
@@ -221,7 +204,6 @@ struct SettingsView: View {
                 }
             }
         }
-        // 🆕 Yeni sheet'ler eklendi
         .sheet(isPresented: $vm.showEmailChange) {
             EmailChangeSheet(vm: vm)
         }
@@ -272,7 +254,6 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Profile Edit Row - Basit ve çalışan versiyon
 struct ProfileEditRow: View {
     @ObservedObject var vm: ProfileViewModel
     @State private var showNameEditor = false
@@ -281,10 +262,8 @@ struct ProfileEditRow: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            // Profile Photo Section
             VStack(spacing: 16) {
                 ZStack {
-                    // Current Photo
                     Group {
                         if let selectedImage = vm.selectedImage {
                             Image(uiImage: selectedImage)
@@ -320,7 +299,6 @@ struct ProfileEditRow: View {
                     .overlay(Circle().stroke(.gray.opacity(0.2), lineWidth: 2))
                     .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
                     
-                    // Loading Overlay
                     if vm.isLoading {
                         Circle()
                             .fill(.black.opacity(0.6))
@@ -338,7 +316,6 @@ struct ProfileEditRow: View {
                     }
                 }
                 
-                // Photo Change Button
                 Button(action: { showPhotoOptions = true }) {
                     HStack(spacing: 8) {
                         Image(systemName: "camera")
@@ -361,7 +338,6 @@ struct ProfileEditRow: View {
             
             Divider()
             
-            // Display Name Section
             VStack(spacing: 8) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
@@ -376,7 +352,6 @@ struct ProfileEditRow: View {
                     
                     Spacer()
                     
-                    // Düzenle butonu - sadece bu kısım tıklanabilir
                     Button("Düzenle") {
                         showNameEditor = true
                     }
@@ -385,8 +360,8 @@ struct ProfileEditRow: View {
                     .buttonStyle(PlainButtonStyle())
                     .disabled(vm.isLoading)
                 }
-                .contentShape(Rectangle()) // Tüm HStack'in shape'ini belirle
-                .onTapGesture { } // Boş tap gesture - list row tap'ını engelle
+                .contentShape(Rectangle())
+                .onTapGesture { }
             }
         }
         .padding(.vertical, 8)
@@ -425,7 +400,6 @@ struct ProfileEditRow: View {
     }
 }
 
-// MARK: - Display Name Editor Sheet
 struct DisplayNameEditorSheet: View {
     @ObservedObject var vm: ProfileViewModel
     @Environment(\.dismiss) var dismiss
@@ -511,7 +485,6 @@ struct DisplayNameEditorSheet: View {
     }
 }
 
-// MARK: - Settings Row Component
 struct SettingsRow: View {
     let icon: String
     let title: String
@@ -556,7 +529,6 @@ struct SettingsRow: View {
     }
 }
 
-// MARK: - Color Scheme Preference
 enum ColorSchemePreference: String, CaseIterable {
     case system = "system"
     case light = "light"
@@ -579,7 +551,6 @@ enum ColorSchemePreference: String, CaseIterable {
     }
 }
 
-// MARK: - Password Change Sheet
 struct PasswordChangeSheet: View {
     @ObservedObject var vm: ProfileViewModel
     @Environment(\.dismiss) var dismiss
@@ -676,7 +647,6 @@ struct PasswordChangeSheet: View {
     }
 }
 
-// MARK: - Storage Usage and Clear Cache Rows
 struct StorageUsageRow: View {
     @StateObject private var storageManager = StorageManager.shared
     

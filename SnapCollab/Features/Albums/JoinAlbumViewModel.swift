@@ -15,7 +15,6 @@ final class JoinAlbumViewModel: ObservableObject {
     @Published var joinSuccess = false
     @Published var isInputFocused = false
     
-    // UI State
     @Published var activeIndex = 0
     
     private let repo: AlbumRepository
@@ -27,7 +26,6 @@ final class JoinAlbumViewModel: ObservableObject {
         self.notificationRepo = notificationRepo
     }
     
-    // Initial code set etmek için ayrı method
     func setInitialCode(_ code: String?) {
         guard let code = code?.uppercased() else { return }
         let cleanCode = String(code.prefix(6))
@@ -43,9 +41,7 @@ final class JoinAlbumViewModel: ObservableObject {
     var isFormValid: Bool {
         inviteCode.count == 6
     }
-    
-    // MARK: - Input Management
-    
+        
     func getDigit(at index: Int) -> String {
         guard index < inviteCode.count else { return "" }
         let char = inviteCode[inviteCode.index(inviteCode.startIndex, offsetBy: index)]
@@ -54,11 +50,9 @@ final class JoinAlbumViewModel: ObservableObject {
     
     func focusOnDigit(_ index: Int) {
         activeIndex = index
-        // Focus state View'de yönetilecek
     }
     
     func validateAndFormatCode(_ newValue: String) {
-        // Sadece harf ve rakam kabul et, 6 karakter sınırı
         let filtered = newValue.uppercased()
             .filter { $0.isLetter || $0.isNumber }
             .prefix(6)
@@ -66,15 +60,13 @@ final class JoinAlbumViewModel: ObservableObject {
         inviteCode = String(filtered)
         activeIndex = min(inviteCode.count, 5)
         
-        // Otomatik olarak albüm ara (debounced)
         searchTask?.cancel()
         if inviteCode.count == 6 {
             searchTask = Task {
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 saniye bekle
+                try? await Task.sleep(nanoseconds: 500_000_000)
                 await searchAlbum()
             }
         } else {
-            // Kod tam değilse albüm bilgisini temizle
             foundAlbum = nil
             errorMessage = nil
         }
@@ -96,9 +88,7 @@ final class JoinAlbumViewModel: ObservableObject {
             }
         }
     }
-    
-    // MARK: - Album Operations
-    
+        
     private func searchAlbum() async {
         guard inviteCode.count == 6 else { return }
         
@@ -112,7 +102,6 @@ final class JoinAlbumViewModel: ObservableObject {
             if let album = try await repo.getAlbumByInviteCode(inviteCode) {
                 print("JoinAlbumVM: Found album: \(album.title)")
                 
-                // Kullanıcı zaten üye mi kontrol et
                 guard let currentUID = repo.auth.uid else {
                     errorMessage = "Giriş yapmanız gerekiyor"
                     return
@@ -151,7 +140,6 @@ final class JoinAlbumViewModel: ObservableObject {
             return
         }
         
-        // Zaten üye kontrolü
         if foundAlbum!.isMember(currentUID) {
             errorMessage = "Bu albümün zaten üyesisiniz"
             return
@@ -163,33 +151,29 @@ final class JoinAlbumViewModel: ObservableObject {
         do {
             print("JoinAlbumVM: Joining album with notifications: \(foundAlbum!.title)")
             
-            // Bildirim sistemini kullanarak katıl
             if let notificationRepo = notificationRepo {
                 let updatedAlbum = try await repo.joinAlbumWithNotification(
                     inviteCode: inviteCode,
                     notificationRepo: notificationRepo
                 )
                 foundAlbum = updatedAlbum
-                print("✅ JoinAlbumVM: Successfully joined album with notifications")
+                print("JoinAlbumVM: Successfully joined album with notifications")
             } else {
-                // Fallback: Normal join without notifications
                 let updatedAlbum = try await repo.joinAlbum(inviteCode: inviteCode)
                 foundAlbum = updatedAlbum
-                print("⚠️ JoinAlbumVM: Joined album without notifications (fallback)")
+                print("JoinAlbumVM: Joined album without notifications (fallback)")
             }
             
             joinSuccess = true
             
         } catch {
-            print("❌ JoinAlbumVM: Join error: \(error)")
+            print("JoinAlbumVM: Join error: \(error)")
             errorMessage = "Albüme katılma hatası: \(error.localizedDescription)"
         }
         
         isLoading = false
     }
-    
-    // MARK: - Helper Methods
-    
+        
     func reset() {
         inviteCode = ""
         foundAlbum = nil

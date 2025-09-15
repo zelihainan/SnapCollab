@@ -60,16 +60,16 @@ struct AlbumDetailViewWrapper: View {
         
         Task {
             do {
-                print("🧭 AlbumDetailWrapper: Loading album: \(albumId)")
+                print("AlbumDetailWrapper: Loading album: \(albumId)")
                 let loadedAlbum = try await di.albumRepo.getAlbum(by: albumId)
                 
                 await MainActor.run {
                     if let loadedAlbum = loadedAlbum {
                         album = loadedAlbum
-                        print("🧭 AlbumDetailWrapper: Album loaded successfully: \(loadedAlbum.title)")
+                        print("AlbumDetailWrapper: Album loaded successfully: \(loadedAlbum.title)")
                     } else {
                         errorMessage = "Albüm bulunamadı"
-                        print("🧭 AlbumDetailWrapper: Album not found")
+                        print("AlbumDetailWrapper: Album not found")
                     }
                     isLoading = false
                 }
@@ -77,7 +77,7 @@ struct AlbumDetailViewWrapper: View {
                 await MainActor.run {
                     errorMessage = "Albüm yüklenirken hata: \(error.localizedDescription)"
                     isLoading = false
-                    print("🧭 AlbumDetailWrapper: Error loading album: \(error)")
+                    print("AlbumDetailWrapper: Error loading album: \(error)")
                 }
             }
         }

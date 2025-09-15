@@ -1,7 +1,6 @@
 //
 //  FontSizeSettingsSheet.swift
 //  SnapCollab
-//
 
 import SwiftUI
 
@@ -107,7 +106,6 @@ struct FontSizeSettingsSheet: View {
                                         selectedSize = size
                                     }
                                     
-                                    // Haptic feedback
                                     let impactFeedback = UIImpactFeedbackGenerator(style: .light)
                                     impactFeedback.impactOccurred()
                                 }
@@ -123,7 +121,6 @@ struct FontSizeSettingsSheet: View {
                     Button("Uygula") {
                         fontSizePreference = selectedSize
                         
-                        // Success feedback
                         let notificationFeedback = UINotificationFeedbackGenerator()
                         notificationFeedback.notificationOccurred(.success)
                         
@@ -222,7 +219,6 @@ struct FontSizeOptionCard: View {
     }
 }
 
-// UserDefaults extension for FontSizePreference
 extension UserDefaults {
     var fontSizePreference: FontSizePreference {
         get {

@@ -2,8 +2,6 @@
 //  VideoPlayerView.swift
 //  SnapCollab
 //
-//  Optimize edilmiş versiyon - Gereksiz download yok
-//
 
 import SwiftUI
 import AVKit
@@ -18,7 +16,6 @@ struct VideoPlayerView: View {
     }
 }
 
-// MARK: - Optimized Video Player (Direct streaming)
 struct OptimizedVideoPlayer: View {
     let videoURL: URL
     let onClose: () -> Void
@@ -33,20 +30,17 @@ struct OptimizedVideoPlayer: View {
         ZStack {
             Color.black.ignoresSafeArea()
             
-            // Native VideoPlayer - En performanslı
             if let player = player {
                 VideoPlayer(player: player)
                     .onAppear {
-                        print("🎬 OptimizedVideoPlayer: VideoPlayer appeared")
-                        // Otomatik oynatma - biraz gecikme ile
+                        print("OptimizedVideoPlayer: VideoPlayer appeared")
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             player.play()
                             isPlaying = true
-                            print("🎬 OptimizedVideoPlayer: Auto-play started")
+                            print("OptimizedVideoPlayer: Auto-play started")
                         }
                     }
                     .onTapGesture {
-                        // Manuel play/pause toggle
                         if player.rate > 0 {
                             player.pause()
                             isPlaying = false
@@ -56,7 +50,6 @@ struct OptimizedVideoPlayer: View {
                         }
                     }
             } else {
-                // Loading state
                 VStack(spacing: 16) {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -66,10 +59,8 @@ struct OptimizedVideoPlayer: View {
                 }
             }
             
-            // Custom controls overlay
             if showControls {
                 VStack {
-                    // Top bar
                     HStack {
                         Button(action: onClose) {
                             HStack(spacing: 8) {
@@ -101,7 +92,6 @@ struct OptimizedVideoPlayer: View {
                     
                     Spacer()
                     
-                    // Bottom status
                     if let player = player {
                         HStack {
                             Image(systemName: isPlaying ? "pause.circle" : "play.circle")
@@ -131,7 +121,6 @@ struct OptimizedVideoPlayer: View {
             cleanup()
         }
         .onTapGesture {
-            // UI toggle
             withAnimation(.easeInOut(duration: 0.3)) {
                 showControls.toggle()
             }
@@ -141,69 +130,60 @@ struct OptimizedVideoPlayer: View {
     }
     
     private func setupPlayer() {
-        print("🎬 OptimizedVideoPlayer: Setting up player with direct URL")
+        print("OptimizedVideoPlayer: Setting up player with direct URL")
         
-        // Direct URL kullan - Download yok
         let asset = AVAsset(url: videoURL)
         playerItem = AVPlayerItem(asset: asset)
         player = AVPlayer(playerItem: playerItem)
         
-        // Player observers
         setupPlayerObservers()
         
         isReady = true
-        print("🎬 OptimizedVideoPlayer: Player ready (no download needed)")
+        print("OptimizedVideoPlayer: Player ready (no download needed)")
     }
     
     private func setupPlayerObservers() {
         guard let player = player, let playerItem = playerItem else { return }
         
-        // Player status observer
         let statusObserver = playerItem.observe(\.status, options: [.new]) { item, _ in
             DispatchQueue.main.async {
                 switch item.status {
                 case .readyToPlay:
-                    print("🎬 OptimizedVideoPlayer: Ready to play")
+                    print("OptimizedVideoPlayer: Ready to play")
                 case .failed:
-                    print("🎬 OptimizedVideoPlayer: Failed: \(item.error?.localizedDescription ?? "Unknown error")")
+                    print("OptimizedVideoPlayer: Failed: \(item.error?.localizedDescription ?? "Unknown error")")
                 case .unknown:
-                    print("🎬 OptimizedVideoPlayer: Status unknown")
+                    print("OptimizedVideoPlayer: Status unknown")
                 @unknown default:
                     break
                 }
             }
         }
         
-        // Playback time observer
         player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 1, preferredTimescale: 1), queue: .main) { time in
             isPlaying = player.rate > 0
             if time.seconds > 0 && time.seconds.truncatingRemainder(dividingBy: 5) < 1 {
-                print("🎬 OptimizedVideoPlayer: Playing at \(Int(time.seconds))s")
+                print("OptimizedVideoPlayer: Playing at \(Int(time.seconds))s")
             }
         }
         
-        // End time observer
         NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: playerItem,
             queue: .main
         ) { _ in
-            print("🎬 OptimizedVideoPlayer: Video ended")
+            print("OptimizedVideoPlayer: Video ended")
             player.seek(to: .zero)
         }
-        
-        // Keep references to prevent deallocation
-        // (In production, you'd want to properly manage these observers)
     }
     
     private func cleanup() {
-        print("🎬 OptimizedVideoPlayer: Cleanup")
+        print("OptimizedVideoPlayer: Cleanup")
         player?.pause()
         NotificationCenter.default.removeObserver(self)
     }
 }
 
-// MARK: - WebView Alternative (Instantaneous loading)
 struct WebVideoPlayer: View {
     let videoURL: URL
     let onClose: () -> Void
@@ -245,7 +225,6 @@ struct WebVideoView: UIViewRepresentable {
     }
     
     func updateUIView(_ webView: WKWebView, context: Context) {
-        // Minimal HTML5 video player
         let htmlContent = """
         <!DOCTYPE html>
         <html>

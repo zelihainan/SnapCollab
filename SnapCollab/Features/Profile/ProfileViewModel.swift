@@ -24,19 +24,16 @@ final class ProfileViewModel: ObservableObject {
     private let authRepo: AuthRepository
     private let mediaRepo: MediaRepository
     
-    // SessionViewModel referansı ekliyoruz
     private var sessionVM: SessionViewModel?
     
     init(authRepo: AuthRepository, mediaRepo: MediaRepository) {
         self.authRepo = authRepo
         self.mediaRepo = mediaRepo
         
-        // İlk yükleme
         self.user = authRepo.currentUser
         self.displayName = authRepo.currentUser?.displayName ?? ""
     }
     
-    // SessionViewModel'i inject etmek için
     func setSessionViewModel(_ sessionVM: SessionViewModel) {
         self.sessionVM = sessionVM
     }
@@ -65,7 +62,6 @@ final class ProfileViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            // Display name güncelleme
             let trimmedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
             print("ProfileVM: Trimmed name: '\(trimmedName)' vs current: '\(user?.displayName ?? "nil")'")
             
@@ -74,7 +70,6 @@ final class ProfileViewModel: ObservableObject {
                 updatedUser.displayName = trimmedName
             }
             
-            // Profil fotoğrafı yükleme
             if let newImage = selectedImage {
                 print("ProfileVM: Uploading new profile photo")
                 isUploadingPhoto = true
@@ -84,18 +79,15 @@ final class ProfileViewModel: ObservableObject {
                 print("ProfileVM: Profile photo uploaded successfully")
             }
             
-            // Kullanıcı bilgilerini güncelle
             print("ProfileVM: Calling authRepo.updateUser...")
             try await authRepo.updateUser(updatedUser)
             print("ProfileVM: Update successful!")
             
-            // Local state güncelle
             user = updatedUser
             isEditing = false
             selectedImage = nil
             showSuccessMessage = true
             
-            // Success message'ı otomatik gizle
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                 self.showSuccessMessage = false
             }
@@ -119,10 +111,8 @@ final class ProfileViewModel: ObservableObject {
         do {
             updatedUser.photoURL = nil
             
-            // Kullanıcı bilgilerini güncelle
             try await authRepo.updateUser(updatedUser)
             
-            // Local state güncelle
             user = updatedUser
             showSuccessMessage = true
             
@@ -139,7 +129,6 @@ final class ProfileViewModel: ObservableObject {
             throw NSError(domain: "ProfilePhoto", code: -1, userInfo: [NSLocalizedDescriptionKey: "Fotoğraf işlenemedi"])
         }
         
-        // Resmi boyutlandır
         let resizedImage = await resizeImage(image, to: 300)
         guard let resizedData = resizedImage.jpegData(compressionQuality: 0.8) else {
             throw NSError(domain: "ProfilePhoto", code: -1, userInfo: [NSLocalizedDescriptionKey: "Fotoğraf boyutlandırılamadı"])
@@ -148,10 +137,8 @@ final class ProfileViewModel: ObservableObject {
         let fileName = "profile_\(uid)_\(Date().timeIntervalSince1970).jpg"
         let storagePath = "users/\(uid)/profile/\(fileName)"
         
-        // Storage'a yükle
         try await mediaRepo.storage.put(data: resizedData, to: storagePath)
         
-        // Download URL'i al
         let downloadURL = try await mediaRepo.storage.url(for: storagePath)
         return downloadURL.absoluteString
     }
@@ -164,10 +151,8 @@ final class ProfileViewModel: ObservableObject {
                 
                 var newSize: CGSize
                 if aspectRatio > 1 {
-                    // Landscape
                     newSize = CGSize(width: maxSize, height: maxSize / aspectRatio)
                 } else {
-                    // Portrait or square
                     newSize = CGSize(width: maxSize * aspectRatio, height: maxSize)
                 }
                 
@@ -181,7 +166,6 @@ final class ProfileViewModel: ObservableObject {
         }
     }
     
-    // Real-time validasyon
     var passwordValidationError: String? {
         if currentPassword.isEmpty && newPassword.isEmpty && confirmPassword.isEmpty {
             return nil
@@ -248,9 +232,7 @@ final class ProfileViewModel: ObservableObject {
         
         isChangingPassword = false
     }
-    
-    // Sadece sheet kapatıldığında error mesajını temizliyor
-    // Şifre alanları korunuyor - kullanıcı tekrar açtığında yazdıkları kalacak
+
     func cancelPasswordChange() {
         showPasswordChange = false
         passwordErrorMessage = nil
@@ -259,12 +241,10 @@ final class ProfileViewModel: ObservableObject {
     func signOut() {
         print("ProfileVM: signOut called")
         
-        // SessionViewModel varsa onu kullan
         if let sessionVM = sessionVM {
             print("ProfileVM: Using SessionViewModel for signOut")
             sessionVM.signOut()
         } else {
-            // Fallback: Direct auth repo kullan
             print("ProfileVM: Using AuthRepository directly for signOut")
             do {
                 try authRepo.signOut()

@@ -52,7 +52,6 @@ struct AlbumDetailView: View {
     var body: some View {
         VStack(spacing: 20) {
             VStack(spacing: 16) {
-                // Kapak fotoğrafı
                 AlbumCoverPhoto(
                     album: album,
                     albumRepo: di.albumRepo,
@@ -105,7 +104,6 @@ struct AlbumDetailView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
-                    // Sahip için özel aksiyonlar
                     if album.isOwner(di.authRepo.uid ?? "") {
                         Button(action: { showCoverManagement = true }) {
                             Label("Kapak Fotoğrafı", systemImage: "photo.circle")
@@ -179,7 +177,6 @@ struct AlbumDetailView: View {
             AlbumMembersView(album: album, albumRepo: di.albumRepo)
         }
         .sheet(isPresented: $showCoverManagement) {
-            // Tüm üyeler kapak fotoğrafını değiştirebilir
             AlbumCoverManagementSheet(album: album, albumRepo: di.albumRepo)
         }
         .alert("Albümden Ayrıl", isPresented: $showLeaveAlert) {

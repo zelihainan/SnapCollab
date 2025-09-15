@@ -18,9 +18,7 @@ struct ProfileView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 32) {
-                // Profile Header - Büyük ve merkezi
                 VStack(spacing: 20) {
-                    // Profile Photo - Büyük
                     Group {
                         if let photoURL = vm.user?.photoURL, !photoURL.isEmpty {
                             AsyncImage(url: URL(string: photoURL)) { image in
@@ -54,7 +52,6 @@ struct ProfileView: View {
                     }
                     .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
                     
-                    // User Info - Hiç badge yok, sadece isim ve email
                     VStack(spacing: 8) {
                         Text(vm.user?.displayName ?? "İsimsiz Kullanıcı")
                             .font(.title)
@@ -70,7 +67,6 @@ struct ProfileView: View {
                 }
                 .padding(.top, 20)
                 
-                // Stats Section
                 HStack(spacing: 30) {
                     StatItem(
                         title: "Katılma Tarihi",
@@ -90,7 +86,6 @@ struct ProfileView: View {
                 }
                 .padding(.horizontal, 40)
                 
-                // Quick Actions
                 VStack(spacing: 16) {
                     Text("Hızlı İşlemler")
                         .font(.headline)
@@ -98,7 +93,6 @@ struct ProfileView: View {
                         .padding(.horizontal, 20)
                     
                     VStack(spacing: 12) {
-                        // Settings Button - En önemli
                         QuickActionButton(
                             icon: "gear",
                             title: "Ayarlar",
@@ -109,7 +103,6 @@ struct ProfileView: View {
                             showSettings = true
                         }
                         
-                        // Support Actions - her biri ayrı satırda
                         QuickActionButton(
                             icon: "hand.raised",
                             title: "Gizlilik Politikası",
@@ -137,7 +130,6 @@ struct ProfileView: View {
                             showSupport = true
                         }
                         
-                        // Upgrade Account (sadece misafir hesaplar için)
                         if vm.isAnonymous {
                             QuickActionButton(
                                 icon: "arrow.up.circle.fill",
@@ -149,7 +141,6 @@ struct ProfileView: View {
                             }
                         }
                         
-                        // Sign Out
                         QuickActionButton(
                             icon: "rectangle.portrait.and.arrow.right",
                             title: "Çıkış Yap",
@@ -203,7 +194,6 @@ struct ProfileView: View {
     }
 }
 
-// MARK: - Stat Item Component
 struct StatItem: View {
     let title: String
     let value: String
@@ -228,7 +218,6 @@ struct StatItem: View {
     }
 }
 
-// MARK: - Quick Action Button Component
 struct QuickActionButton: View {
     let icon: String
     let title: String

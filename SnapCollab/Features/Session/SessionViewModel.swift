@@ -1,4 +1,3 @@
-// MARK: - Güncellenen SessionViewModel (Terms validation ile)
 
 import Foundation
 
@@ -24,7 +23,6 @@ final class SessionViewModel: ObservableObject {
         state.currentUser = auth.currentUser
     }
 
-    // Email/Password Sign In
     func signIn(email: String, password: String) async {
         isLoading = true
         errorMessage = nil
@@ -39,14 +37,11 @@ final class SessionViewModel: ObservableObject {
         }
     }
     
-    // Email/Password Sign Up (Terms validation dahil)
     func signUp(email: String, password: String, displayName: String) async {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
-        
-        // Terms kabul edildi mi kontrol et (UI'da yapıldığı için burada ek kontrol)
-        
+                
         do {
             try await auth.signUp(email: email, password: password, displayName: displayName)
             state.isSignedIn = true
@@ -56,7 +51,6 @@ final class SessionViewModel: ObservableObject {
         }
     }
     
-    // Google Sign In
     func signInWithGoogle() async {
         isLoading = true
         errorMessage = nil
@@ -71,7 +65,6 @@ final class SessionViewModel: ObservableObject {
         }
     }
     
-    // Anonymous Sign In
     func signInAnon() async {
         isLoading = true
         errorMessage = nil
@@ -86,7 +79,6 @@ final class SessionViewModel: ObservableObject {
         }
     }
     
-    // Password Reset
     func resetPassword() async {
         guard !resetEmail.isEmpty else {
             errorMessage = "E-posta adresini giriniz"
@@ -111,7 +103,6 @@ final class SessionViewModel: ObservableObject {
             try auth.signOut()
             print("SessionVM: auth.signOut() successful")
             
-            // AppState'i güncelle
             state.isSignedIn = false
             state.currentUser = nil
             print("SessionVM: AppState updated - isSignedIn: \(state.isSignedIn)")
@@ -126,17 +117,17 @@ final class SessionViewModel: ObservableObject {
         let nsError = error as NSError
         
         switch nsError.code {
-        case 17007: // Email already in use
+        case 17007:
             errorMessage = "Bu e-posta adresi zaten kullanımda"
-        case 17008: // Invalid email
+        case 17008:
             errorMessage = "Geçersiz e-posta adresi"
-        case 17026: // Weak password
+        case 17026:
             errorMessage = "Şifre en az 6 karakter olmalı"
-        case 17009: // Wrong password
+        case 17009:
             errorMessage = "Yanlış şifre"
-        case 17011: // User not found
+        case 17011:
             errorMessage = "Kullanıcı bulunamadı"
-        case 17020: // Network error
+        case 17020:
             errorMessage = "İnternet bağlantınızı kontrol ediniz"
         default:
             errorMessage = nsError.localizedDescription

@@ -2,8 +2,7 @@
 //  CleanLoginView.swift
 //  SnapCollab
 //
-//  Completely rewritten with all requested changes
-//
+
 
 import SwiftUI
 
@@ -19,7 +18,6 @@ struct CleanLoginView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Simple gradient background
                 LinearGradient(
                     colors: [
                         Color(.systemBackground),
@@ -32,13 +30,10 @@ struct CleanLoginView: View {
                 
                 ScrollView {
                     VStack(spacing: 0) {
-                        // Logo alanı - daha yukarıda
                         VStack(spacing: 20) {
                             Spacer(minLength: max(80, geometry.size.height * 0.15))
                             
-                            // SnapCollab Logo - dengeli font weight'ler
                             HStack(spacing: 2) {
-                                // "Snap" - Orta kalın
                                 Text("Snap")
                                     .font(.system(size: 44, weight: .bold, design: .default))
                                     .foregroundStyle(
@@ -49,7 +44,6 @@ struct CleanLoginView: View {
                                         )
                                     )
                                 
-                                // "Collab" - Light (dengeli ince)
                                 Text("Collab")
                                     .font(.system(size: 44, weight: .light, design: .default))
                                     .foregroundStyle(
@@ -64,9 +58,7 @@ struct CleanLoginView: View {
                         }
                         .frame(minHeight: geometry.size.height * 0.32)
                         
-                        // Form alanı - daha aşağıda güzel şekilde
                         VStack(spacing: 36) {
-                            // Form başlığı - büyük ve güzel
                             VStack(spacing: 12) {
                                 Text(showSignUp ? "Hesap Oluştur" : "Hoş Geldiniz")
                                     .font(.system(size: 28, weight: .semibold, design: .default))
@@ -80,12 +72,9 @@ struct CleanLoginView: View {
                             .animation(.easeInOut(duration: 0.3), value: showSignUp)
                             .padding(.top, 25)
                             
-                            // Form alanları
                             VStack(spacing: 20) {
-                                // Email/Telefon - çift ikon
                                 VStack(spacing: 16) {
                                     HStack(spacing: 16) {
-                                        // Çift ikon - email ve telefon
                                         HStack(spacing: 6) {
                                             Image(systemName: "envelope")
                                                 .font(.system(size: 16))
@@ -108,7 +97,6 @@ struct CleanLoginView: View {
                                     )
                                 }
                                 
-                                // Şifre alanı + şifremi unuttum
                                 VStack(alignment: .trailing, spacing: 8) {
                                     CleanSecureField(
                                         text: $password,
@@ -116,7 +104,6 @@ struct CleanLoginView: View {
                                         icon: "lock"
                                     )
                                     
-                                    // Şifremi unuttum - sağ altta küçük
                                     if !showSignUp {
                                         HStack {
                                             Spacer()
@@ -131,7 +118,6 @@ struct CleanLoginView: View {
                                     }
                                 }
                                 
-                                // Kayıt olurken isim alanı
                                 if showSignUp {
                                     CleanTextField(
                                         text: $displayName,
@@ -144,7 +130,6 @@ struct CleanLoginView: View {
                                         removal: .move(edge: .top).combined(with: .opacity)
                                     ))
                                     
-                                    // Terms checkbox
                                     HStack(spacing: 12) {
                                         Button(action: { termsAccepted.toggle() }) {
                                             Image(systemName: termsAccepted ? "checkmark.square.fill" : "square")
@@ -184,7 +169,6 @@ struct CleanLoginView: View {
                                 }
                             }
                             
-                            // Hata mesajı
                             if let error = vm.errorMessage {
                                 HStack(spacing: 8) {
                                     Image(systemName: "exclamationmark.triangle.fill")
@@ -203,7 +187,6 @@ struct CleanLoginView: View {
                                 )
                             }
                             
-                            // Ana buton
                             CleanButton(
                                 title: showSignUp ? "Hesap Oluştur" : "Giriş Yap",
                                 isLoading: vm.isLoading,
@@ -218,7 +201,6 @@ struct CleanLoginView: View {
                                 }
                             }
                             
-                            // Hesap değiştirme
                             Button(action: {
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     showSignUp.toggle()
@@ -235,7 +217,6 @@ struct CleanLoginView: View {
                                 .foregroundStyle(.blue)
                             }
                             
-                            // Divider
                             HStack {
                                 Rectangle()
                                     .frame(height: 1)
@@ -250,9 +231,7 @@ struct CleanLoginView: View {
                             }
                             .padding(.top, 8)
                             
-                            // Güzelleştirilmiş sosyal giriş butonları
                             VStack(spacing: 12) {
-                                // Google Button - assets'teki google.png ile
                                 Button(action: {
                                     Task { await vm.signInWithGoogle() }
                                 }) {
@@ -281,7 +260,6 @@ struct CleanLoginView: View {
                                 .scaleEffect(vm.isLoading ? 0.98 : 1.0)
                                 .animation(.easeInOut(duration: 0.1), value: vm.isLoading)
                                 
-                                // Misafir Button - sade gri tonlarda (turuncu değil)
                                 Button(action: {
                                     Task { await vm.signInAnon() }
                                 }) {
@@ -326,7 +304,6 @@ struct CleanLoginView: View {
         }
     }
     
-    // Form validasyon
     private var isFormValid: Bool {
         let baseValid = !email.isEmpty && !password.isEmpty
         if showSignUp {
@@ -336,7 +313,6 @@ struct CleanLoginView: View {
     }
 }
 
-// MARK: - Clean Text Field
 struct CleanTextField: View {
     @Binding var text: String
     let placeholder: String
@@ -372,7 +348,6 @@ struct CleanTextField: View {
     }
 }
 
-// MARK: - Clean Secure Field
 struct CleanSecureField: View {
     @Binding var text: String
     let placeholder: String
@@ -416,7 +391,6 @@ struct CleanSecureField: View {
     }
 }
 
-// MARK: - Clean Button
 struct CleanButton: View {
     let title: String
     let isLoading: Bool
@@ -447,7 +421,6 @@ struct CleanButton: View {
     }
 }
 
-// MARK: - Terms Acceptance Sheet
 struct TermsAcceptanceSheet: View {
     @Binding var termsAccepted: Bool
     @Environment(\.dismiss) var dismiss

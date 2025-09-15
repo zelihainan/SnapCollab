@@ -1,8 +1,6 @@
 //
 //  DIContainer.swift - Updated with Notifications
 //  SnapCollab
-//
-//
 
 import Foundation
 

@@ -175,11 +175,9 @@ struct EmailChangeSheet: View {
         successMessage = nil
         
         do {
-            // Önce kullanıcıyı doğrula
             let credential = EmailAuthProvider.credential(withEmail: currentEmail, password: password)
             try await currentUser.reauthenticate(with: credential)
             
-            // E-posta adresini güncelle (doğrulama e-postası gönderir)
             try await currentUser.sendEmailVerification(beforeUpdatingEmail: newEmail)
             
             await MainActor.run {
@@ -201,7 +199,6 @@ struct EmailChangeSheet: View {
                 }
             }
         }
-        
         isChangingEmail = false
     }
 }

@@ -8,7 +8,6 @@
 import Foundation
 import FirebaseFirestore
 
-// MARK: - Protocol
 protocol NotificationProviding {
     func createNotification(_ notification: AppNotification) async throws
     func getNotifications(for userId: String) -> AsyncStream<[AppNotification]>
@@ -17,7 +16,6 @@ protocol NotificationProviding {
     func deleteNotification(_ notificationId: String) async throws
 }
 
-// MARK: - Implementation
 final class FirestoreNotificationService: NotificationProviding {
     private let db = Firestore.firestore()
     
@@ -27,7 +25,7 @@ final class FirestoreNotificationService: NotificationProviding {
         notificationWithId.id = ref.documentID
         
         try ref.setData(from: notificationWithId)
-        print("📬 Notification created: \(notification.type.rawValue)")
+        print("Notification created: \(notification.type.rawValue)")
     }
     
     func getNotifications(for userId: String) -> AsyncStream<[AppNotification]> {
@@ -38,7 +36,7 @@ final class FirestoreNotificationService: NotificationProviding {
                 .limit(to: 100)
                 .addSnapshotListener { snapshot, error in
                     if let error = error {
-                        print("📬 Notification fetch error: \(error)")
+                        print("Notification fetch error: \(error)")
                         continuation.yield([])
                         return
                     }

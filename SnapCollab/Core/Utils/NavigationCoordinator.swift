@@ -2,7 +2,6 @@
 //  NavigationCoordinator.swift
 //  SnapCollab
 //
-//
 
 import SwiftUI
 import Foundation
@@ -13,17 +12,11 @@ final class NavigationCoordinator: ObservableObject {
     @Published var albumsPath = NavigationPath()
     @Published var shouldNavigateToAlbum: String?
     
-    // Ana navigation action
     func navigateToAlbum(_ albumId: String) {
-        print("🧭 NavigationCoordinator: Navigating to album: \(albumId)")
+        print("NavigationCoordinator: Navigating to album: \(albumId)")
         
-        // Önce Albums tab'ına geç
         selectedTab = .albums
-        
-        // Path'i temizle
         albumsPath = NavigationPath()
-        
-        // Albumı set et - bu AlbumsView'da dinlenecek
         shouldNavigateToAlbum = albumId
     }
     
@@ -31,12 +24,10 @@ final class NavigationCoordinator: ObservableObject {
         shouldNavigateToAlbum = nil
     }
     
-    // Tab switching
     func switchToTab(_ tab: TabItem) {
         selectedTab = tab
     }
     
-    // Albums navigation helpers - ID tabanlı
     func pushToAlbumDetail(albumId: String) {
         albumsPath.append(albumId)
     }
@@ -46,7 +37,6 @@ final class NavigationCoordinator: ObservableObject {
     }
 }
 
-// Tab enum - tek tanım
 enum TabItem: String, CaseIterable {
     case albums = "albums"
     case notifications = "notifications"

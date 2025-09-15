@@ -508,7 +508,6 @@ struct AlbumStats {
 
 extension AlbumRepository {
     
-    // Güncellenmiş joinAlbum metodu - bildirim ile
     func joinAlbumWithNotification(inviteCode: String, notificationRepo: NotificationRepository) async throws -> Album {
         guard let uid = auth.uid,
               let currentUser = auth.currentUser else {
@@ -517,21 +516,15 @@ extension AlbumRepository {
         
         print("AlbumRepo: User \(uid) joining album with code: \(inviteCode)")
         
-        // Albümü bul
         guard var album = try await getAlbumByInviteCode(inviteCode) else {
             throw AlbumError.albumNotFound
         }
-        
-        // Zaten üye mi kontrol et
         if album.isMember(uid) {
             throw AlbumError.alreadyMember
         }
-        
-        // Üye ekle ve güncelle
         album.addMember(uid)
         try await updateAlbum(album)
         
-        // Diğer üyelere bildirim gönder
         let otherMemberIds = album.members.filter { $0 != uid }
         if !otherMemberIds.isEmpty {
             await notificationRepo.notifyMemberJoined(
@@ -545,26 +538,22 @@ extension AlbumRepository {
         return album
     }
     
-    // Güncellenmiş updateAlbumTitle metodu - bildirim ile
     func updateAlbumTitleWithNotification(_ albumId: String, newTitle: String, notificationRepo: NotificationRepository) async throws {
         guard let uid = auth.uid,
               let currentUser = auth.currentUser else {
             throw AlbumError.notAuthenticated
         }
         
-        // Albümü al ve yetki kontrol et
         guard var album = try await getAlbum(by: albumId) else {
             throw AlbumError.albumNotFound
         }
         
-        // Sadece sahip değiştirebilir
         if !album.isOwner(uid) {
             throw AlbumError.onlyOwnerCanEdit
         }
         
         let oldTitle = album.title
         
-        // Başlığı güncelle
         let trimmedTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else {
             throw AlbumError.invalidTitle
@@ -573,10 +562,8 @@ extension AlbumRepository {
         album.title = trimmedTitle
         album.updatedAt = .now
         
-        // Güncelle
         try await updateAlbum(album)
         
-        // Diğer üyelere bildirim gönder
         let otherMemberIds = album.members.filter { $0 != uid }
         if !otherMemberIds.isEmpty {
             await notificationRepo.notifyAlbumUpdated(
@@ -590,17 +577,14 @@ extension AlbumRepository {
         print("AlbumRepo: Album title updated with notification to: \(trimmedTitle)")
     }
     
-    // Güncellenmiş updateCoverImage metodu - bildirim ile
     func updateCoverImageWithNotification(_ albumId: String, coverImage: UIImage, notificationRepo: NotificationRepository) async throws {
         guard let uid = auth.uid,
               let currentUser = auth.currentUser else {
             throw AlbumError.notAuthenticated
         }
         
-        // Mevcut updateCoverImage metodunu çağır
         try await updateCoverImage(albumId, coverImage: coverImage)
         
-        // Albüm bilgisini al
         guard let album = try await getAlbum(by: albumId) else { return }
         
         // Diğer üyelere bildirim gönder

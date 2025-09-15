@@ -2,8 +2,6 @@
 //  MainTabView.swift
 //  SnapCollab
 //
-//  Ana tab bar navigasyonu - Deep Navigation ile güncellenmiş
-//
 
 import SwiftUI
 
@@ -14,11 +12,9 @@ struct MainTabView: View {
     
     var body: some View {
         TabView(selection: $navigationCoordinator.selectedTab) {
-            // Albums Tab - NavigationStack ile (ID tabanlı)
             NavigationStack(path: $navigationCoordinator.albumsPath) {
                 AlbumsView(vm: AlbumsViewModel(repo: di.albumRepo))
                     .navigationDestination(for: String.self) { albumId in
-                        // Album ID'sinden Album objesini bul ve detay sayfasını göster
                         AlbumDetailViewWrapper(albumId: albumId, di: di)
                     }
             }
@@ -27,7 +23,6 @@ struct MainTabView: View {
             }
             .tag(TabItem.albums)
             
-            // Notifications Tab - Navigation Coordinator ile
             NotificationsView(
                 notificationRepo: di.notificationRepo,
                 navigationCoordinator: navigationCoordinator
@@ -38,7 +33,6 @@ struct MainTabView: View {
             .badge(di.notificationRepo.unreadCount > 0 ? di.notificationRepo.unreadCount : 0)
             .tag(TabItem.notifications)
 
-            // Profile Tab - NavigationStack ile
             NavigationStack {
                 ProfileContainerView()
             }
@@ -48,7 +42,7 @@ struct MainTabView: View {
             .tag(TabItem.profile)
         }
         .tint(.blue)
-        .environmentObject(navigationCoordinator) // Environment'a inject et
+        .environmentObject(navigationCoordinator)
         .onAppear {
             setupTabBarAppearance()
             di.notificationRepo.start()
@@ -60,17 +54,14 @@ struct MainTabView: View {
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = UIColor.systemBackground
         
-        // Shadow for modern look
         appearance.shadowColor = UIColor.black.withAlphaComponent(0.1)
         
-        // Selected item styling
         appearance.stackedLayoutAppearance.selected.iconColor = UIColor.systemBlue
         appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
             .foregroundColor: UIColor.systemBlue,
             .font: UIFont.systemFont(ofSize: 10, weight: .medium)
         ]
         
-        // Normal item styling
         appearance.stackedLayoutAppearance.normal.iconColor = UIColor.systemGray
         appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
             .foregroundColor: UIColor.systemGray,
@@ -82,7 +73,6 @@ struct MainTabView: View {
     }
 }
 
-// MARK: - Profile Container View
 struct ProfileContainerView: View {
     @Environment(\.di) var di
     @EnvironmentObject var appState: AppState

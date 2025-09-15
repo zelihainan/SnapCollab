@@ -2,8 +2,6 @@
 //  MediaViewModel.swift
 //  SnapCollab
 //
-//  Temiz ve hatasız MediaViewModel - Bildirim desteği ile
-//
 
 import SwiftUI
 import Foundation
@@ -39,17 +37,14 @@ final class MediaViewModel: ObservableObject {
     let auth: AuthRepository
     private let notificationRepo: NotificationRepository?
     
-    // MARK: - User Cache
     private var userCache: [String: User] = [:]
     
-    // MARK: - Initialization
     init(repo: MediaRepository, albumId: String, notificationRepo: NotificationRepository? = nil) {
         self.repo = repo
         self.albumId = albumId
         self.auth = repo.auth
         self.notificationRepo = notificationRepo
         
-        // Load favorites from UserDefaults
         loadFavorites()
     }
     
@@ -62,38 +57,30 @@ final class MediaViewModel: ObservableObject {
             }
         }
     }
-    
-    // MARK: - Upload Methods
-    
+        
     func uploadPicked() async {
         if let notificationRepo = notificationRepo {
-            print("📬 Using notification system for upload")
+            print("Using notification system for upload")
             await uploadPickedWithNotification(notificationRepo: notificationRepo)
         } else {
-            print("📬 Fallback: Using upload without notifications")
+            print("Fallback: Using upload without notifications")
             await uploadPickedWithoutNotification()
         }
     }
     
     private func uploadPickedWithNotification(notificationRepo: NotificationRepository) async {
-        // Önce fotoğraf varsa onu yükle
         if let image = pickedImage {
             await uploadPickedImageWithNotification(image, notificationRepo: notificationRepo)
         }
-        
-        // Sonra video varsa onu yükle
         if let videoURL = pickedVideoURL {
             await uploadPickedVideoWithNotification(videoURL, notificationRepo: notificationRepo)
         }
     }
     
     private func uploadPickedWithoutNotification() async {
-        // Önce fotoğraf varsa onu yükle
         if let image = pickedImage {
             await uploadPickedImage(image)
         }
-        
-        // Sonra video varsa onu yükle
         if let videoURL = pickedVideoURL {
             await uploadPickedVideo(videoURL)
         }
@@ -103,10 +90,9 @@ final class MediaViewModel: ObservableObject {
         do {
             try await repo.uploadWithNotification(image: image, albumId: albumId, notificationRepo: notificationRepo)
             pickedImage = nil
-            print("✅ Image upload with notification successful")
+            print("Image upload with notification successful")
         } catch {
-            print("❌ Image upload with notification error:", error)
-            // Fallback - bildirim olmadan dene
+            print("Image upload with notification error:", error)
             await uploadPickedImage(image)
         }
     }
@@ -115,10 +101,9 @@ final class MediaViewModel: ObservableObject {
         do {
             try await repo.uploadVideoWithNotification(from: videoURL, albumId: albumId, notificationRepo: notificationRepo)
             pickedVideoURL = nil
-            print("✅ Video upload with notification successful")
+            print("Video upload with notification successful")
         } catch {
-            print("❌ Video upload with notification error:", error)
-            // Fallback - bildirim olmadan dene
+            print("Video upload with notification error:", error)
             await uploadPickedVideo(videoURL)
         }
     }
@@ -127,9 +112,9 @@ final class MediaViewModel: ObservableObject {
         do {
             try await repo.upload(image: image, albumId: albumId)
             pickedImage = nil
-            print("✅ Image upload successful")
+            print("Image upload successful")
         } catch {
-            print("❌ Image upload error:", error)
+            print("Image upload error:", error)
         }
     }
     
@@ -137,55 +122,47 @@ final class MediaViewModel: ObservableObject {
         do {
             try await repo.uploadVideo(from: videoURL, albumId: albumId)
             pickedVideoURL = nil
-            print("✅ Video upload successful")
+            print("Video upload successful")
         } catch {
-            print("❌ Video upload error:", error)
+            print("Video upload error:", error)
         }
     }
-    
-    // MARK: - URL Methods
-    
+        
     func imageURL(for item: MediaItem) async -> URL? {
         do {
-            // Video için thumbnail kullan, fotoğraf için orijinal
             let pathToUse = item.isVideo ? (item.thumbPath ?? item.path) : item.path
             return try await repo.downloadURL(for: pathToUse)
         } catch {
-            print("❌ Error getting image URL: \(error)")
+            print("Error getting image URL: \(error)")
             return nil
         }
     }
     
     func videoURL(for item: MediaItem) async -> URL? {
         guard item.isVideo else {
-            print("❌ Item is not a video: \(item.type)")
+            print("Item is not a video: \(item.type)")
             return nil
         }
         
         do {
             let url = try await repo.downloadURL(for: item.path)
-            print("✅ Successfully got video URL")
+            print("Successfully got video URL")
             return url
         } catch {
-            print("❌ Error getting video URL: \(error)")
+            print("Error getting video URL: \(error)")
             return nil
         }
     }
-    
-    // MARK: - Delete Methods
-    
+        
     func deletePhoto(_ item: MediaItem) async throws {
         try await repo.deleteMedia(albumId: albumId, item: item)
-        print("✅ Media deleted successfully")
+        print("Media deleted successfully")
         
-        // Remove from favorites if it was favorited
         if let itemId = item.id {
             removeFavorite(itemId)
         }
     }
-    
-    // MARK: - Filtering Methods
-    
+        
     func setFilter(_ filter: MediaFilter) {
         currentFilter = filter
         applyFilter()
@@ -206,9 +183,7 @@ final class MediaViewModel: ObservableObject {
             }
         }
     }
-    
-    // MARK: - Favorites Management
-    
+        
     func toggleFavorite(_ itemId: String) {
         if favorites.contains(itemId) {
             removeFavorite(itemId)
@@ -251,9 +226,7 @@ final class MediaViewModel: ObservableObject {
             UserDefaults.standard.set(data, forKey: key)
         }
     }
-    
-    // MARK: - User Cache Methods
-    
+        
     func getUser(for userId: String) -> User? {
         return userCache[userId]
     }
@@ -286,12 +259,10 @@ final class MediaViewModel: ObservableObject {
                 userCache[userId] = user
             }
         } catch {
-            print("❌ Failed to load user info for \(userId): \(error)")
+            print("Failed to load user info for \(userId): \(error)")
         }
     }
-    
-    // MARK: - Media Type Helpers
-    
+        
     var photosCount: Int {
         items.filter { $0.type == "image" }.count
     }
@@ -306,9 +277,7 @@ final class MediaViewModel: ObservableObject {
             return favorites.contains(itemId)
         }.count
     }
-    
-    // MARK: - Search and Sort
-    
+        
     func searchItems(query: String) -> [MediaItem] {
         guard !query.isEmpty else { return filteredItems }
         
@@ -350,9 +319,7 @@ final class MediaViewModel: ObservableObject {
             }
         }
     }
-    
-    // MARK: - Animation Helpers
-    
+        
     func isAnimating(_ itemId: String) -> Bool {
         return favoriteAnimations[itemId] ?? false
     }
@@ -387,29 +354,28 @@ final class MediaViewModel: ObservableObject {
     }
 }
 
-// MARK: - Debug Methods
 extension MediaViewModel {
     func debugVideoURL(for item: MediaItem) async {
         guard item.isVideo else { return }
         
         do {
             let url = try await repo.downloadURL(for: item.path)
-            print("🎬 DEBUG Video URL: \(url.absoluteString)")
+            print("DEBUG Video URL: \(url.absoluteString)")
             
             let asset = AVAsset(url: url)
             let playable = try await asset.load(.isPlayable)
             let duration = try await asset.load(.duration)
             
-            print("🎬 DEBUG Video playable: \(playable)")
-            print("🎬 DEBUG Video duration: \(duration.seconds) seconds")
+            print("DEBUG Video playable: \(playable)")
+            print("DEBUG Video duration: \(duration.seconds) seconds")
             
             if playable && duration.seconds > 0 {
-                print("🎬 DEBUG Video seems valid!")
+                print("DEBUG Video seems valid!")
             } else {
-                print("🎬 DEBUG Video has issues")
+                print("DEBUG Video has issues")
             }
         } catch {
-            print("🎬 DEBUG Video test failed: \(error)")
+            print("DEBUG Video test failed: \(error)")
         }
     }
 }

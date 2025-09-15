@@ -196,11 +196,9 @@ struct EnhancedMediaGridCard: View {
     
     private func shareMedia() {
         print("Share media: \(item.id ?? "")")
-        // TODO: Media paylaşma implementasyonu
     }
     
     private func saveToPhotos() {
         print("Save to photos: \(item.id ?? "")")
-        // TODO: Fotoğraf galeriye kaydetme implementasyonu
     }
 }

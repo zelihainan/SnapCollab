@@ -5,13 +5,6 @@
 //  Created by Zeliha İnan on 15.09.2025.
 //
 
-//
-//  NotificationSettingsSheet.swift
-//  SnapCollab
-//
-//  Bildirim ayarları
-//
-
 import SwiftUI
 import UserNotifications
 
@@ -32,7 +25,6 @@ struct NotificationSettingsSheet: View {
     var body: some View {
         NavigationView {
             List {
-                // Sistem Bildirimleri Bölümü
                 Section {
                     HStack(spacing: 16) {
                         ZStack {
@@ -72,7 +64,6 @@ struct NotificationSettingsSheet: View {
                     Text("Bildirimlerin çalışması için sistem ayarlarından izin vermeniz gerekir")
                 }
                 
-                // Uygulama Bildirimleri
                 Section {
                     NotificationToggleRow(
                         icon: "bell.fill",
@@ -86,7 +77,6 @@ struct NotificationSettingsSheet: View {
                     Text("Genel Ayarlar")
                 }
                 
-                // Bildirim Türleri
                 if notificationsEnabled && systemNotificationsEnabled {
                     Section {
                         NotificationToggleRow(
@@ -124,7 +114,6 @@ struct NotificationSettingsSheet: View {
                         Text("Bildirim Türleri")
                     }
                     
-                    // Görünüm Ayarları
                     Section {
                         NotificationToggleRow(
                             icon: "speaker.wave.2.fill",
@@ -146,7 +135,6 @@ struct NotificationSettingsSheet: View {
                     }
                 }
                 
-                // Test Bildirimi
                 if notificationsEnabled && systemNotificationsEnabled {
                     Section {
                         Button(action: sendTestNotification) {
@@ -228,7 +216,7 @@ struct NotificationSettingsSheet: View {
         
         let content = UNMutableNotificationContent()
         content.title = "Test Bildirimi"
-        content.body = "Bildirim ayarlarınız çalışıyor! 🎉"
+        content.body = "Bildirim ayarlarınız çalışıyor!"
         content.sound = soundEnabled ? .default : nil
         content.badge = badgeEnabled ? 1 : nil
         
@@ -241,7 +229,6 @@ struct NotificationSettingsSheet: View {
             } else {
                 print("Test notification scheduled")
                 
-                // Success feedback
                 DispatchQueue.main.async {
                     let notificationFeedback = UINotificationFeedbackGenerator()
                     notificationFeedback.notificationOccurred(.success)
@@ -290,7 +277,6 @@ struct NotificationToggleRow: View {
     }
 }
 
-// NotificationManager sınıfı
 class NotificationManager: ObservableObject {
     static let shared = NotificationManager()
     

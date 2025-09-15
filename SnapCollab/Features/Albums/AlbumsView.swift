@@ -121,7 +121,6 @@ struct AlbumsView: View {
             CreateAlbumSheet(vm: vm)
         }
         .sheet(isPresented: $showJoinAlbum) {
-            // Bildirim desteği olan ViewModel ile
             let joinVM = JoinAlbumViewModel(
                 repo: di.albumRepo,
                 notificationRepo: di.notificationRepo
@@ -163,22 +162,19 @@ struct AlbumsView: View {
         }
     }
     
-    // MARK: - Deep Navigation Handler - UPDATED
     private func handleDeepNavigation(_ albumId: String?) {
         guard let albumId = albumId else { return }
         
-        print("🧭 AlbumsView: Handling deep navigation to album: \(albumId)")
+        print("AlbumsView: Handling deep navigation to album: \(albumId)")
         
-        // Albüm listesinde ara
         if let album = vm.albums.first(where: { $0.id == albumId }) {
-            print("🧭 AlbumsView: Found album in current list, navigating...")
+            print("AlbumsView: Found album in current list, navigating...")
             if let albumId = album.id {
                 navigationCoordinator.pushToAlbumDetail(albumId: albumId)
             }
             navigationCoordinator.clearNavigationRequest()
         } else {
-            print("🧭 AlbumsView: Album not found in current list, will try when albums load")
-            // Albüm listesi henüz yüklenmemişse, albums değiştiğinde tekrar dene
+            print("AlbumsView: Album not found in current list, will try when albums load")
         }
     }
 }
@@ -227,9 +223,7 @@ struct EnhancedAlbumRow: View {
                 size: 44,
                 showEditButton: false
             )
-            
-            // Album Info
-            VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 2) {
                 Text(album.title)
                     .font(.headline)
                     .foregroundStyle(.primary)

@@ -1,14 +1,13 @@
 //
-//  NotificationModels.swift
+//  Notification.swift
 //  SnapCollab
 //
-//  Created by Zeliha İnan on 12.09.2025.
+//  Created by Zeliha İnan on 15.09.2025.
 //
 
 import Foundation
 import FirebaseFirestore
 
-// MARK: - Notification Model
 struct AppNotification: Identifiable, Codable {
     @DocumentID var id: String?
     var type: NotificationType

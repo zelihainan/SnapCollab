@@ -2,7 +2,6 @@
 //  MediaPickerSheet.swift
 //  SnapCollab
 //
-//
 
 import SwiftUI
 import PhotosUI
@@ -12,7 +11,6 @@ struct MediaPickerSheet: View {
     @Binding var selectedImage: UIImage?
     @Binding var selectedVideoURL: URL?
     
-    // Filter bilgisini alıyoruz
     let currentFilter: MediaViewModel.MediaFilter
     
     @State private var showImagePicker = false

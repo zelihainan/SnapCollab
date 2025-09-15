@@ -23,17 +23,14 @@ class StorageManager: ObservableObject {
         
         var totalSize: Int64 = 0
         
-        // Cache dizinini kontrol et
         if let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
             totalSize += await calculateDirectorySize(url: cacheURL)
         }
         
-        // Documents dizinini kontrol et
         if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
             totalSize += await calculateDirectorySize(url: documentsURL)
         }
         
-        // UserDefaults boyutu (yaklaşık)
         totalSize += await calculateUserDefaultsSize()
         
         await MainActor.run {
@@ -68,7 +65,6 @@ class StorageManager: ObservableObject {
     }
     
     private func calculateUserDefaultsSize() async -> Int64 {
-        // UserDefaults'ı plist olarak kaydet ve boyutunu ölç
         let userDefaults = UserDefaults.standard
         let dict = userDefaults.dictionaryRepresentation()
         
@@ -96,7 +92,6 @@ class StorageManager: ObservableObject {
             try fileManager.removeItem(at: fileURL)
         }
         
-        // Yeniden hesapla
         await calculateStorageUsage()
     }
     

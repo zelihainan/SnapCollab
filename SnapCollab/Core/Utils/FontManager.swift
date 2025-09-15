@@ -53,7 +53,6 @@ class FontManager: ObservableObject {
     }
 }
 
-// SwiftUI Font extension
 extension Font {
     static func scaledSystem(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> Font {
         return .system(size: FontManager.shared.scaledSize(size), weight: weight, design: design)
@@ -64,7 +63,6 @@ extension Font {
     }
 }
 
-// SwiftUI View modifier
 struct ScaledFont: ViewModifier {
     let font: Font
     
@@ -80,7 +78,6 @@ extension View {
     }
 }
 
-// Text extension for easier usage
 extension Text {
     func scaledFont(_ font: Font) -> Text {
         self.font(FontManager.shared.scaledFont(font))
