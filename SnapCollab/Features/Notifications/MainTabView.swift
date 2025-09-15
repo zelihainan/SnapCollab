@@ -2,7 +2,7 @@
 //  MainTabView.swift
 //  SnapCollab
 //
-//  Ana tab bar navigasyonu - Deep Navigation ile
+//  Ana tab bar navigasyonu - Deep Navigation ile güncellenmiş
 //
 
 import SwiftUI
@@ -38,6 +38,7 @@ struct MainTabView: View {
             .badge(di.notificationRepo.unreadCount > 0 ? di.notificationRepo.unreadCount : 0)
             .tag(TabItem.notifications)
 
+            // Profile Tab - NavigationStack ile
             NavigationStack {
                 ProfileContainerView()
             }

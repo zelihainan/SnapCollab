@@ -2,7 +2,7 @@
 //  ProfileView.swift
 //  SnapCollab
 //
-//  Created by Zeliha İnan on 8.09.2025.
+//  Sadeleştirilmiş profil sayfası - Ayarlar butonlu
 //
 
 import SwiftUI
@@ -12,472 +12,304 @@ struct ProfileView: View {
     @State private var showPrivacy = false
     @State private var showTerms = false
     @State private var showSupport = false
+    @State private var showSettings = false
 
     @StateObject var vm: ProfileViewModel
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Profile Photo Section
-                    VStack(spacing: 12) {
-                        ZStack {
-                            if let selectedImage = vm.selectedImage {
-                                // Preview of selected image
-                                Image(uiImage: selectedImage)
+        ScrollView {
+            VStack(spacing: 32) {
+                // Profile Header - Büyük ve merkezi
+                VStack(spacing: 20) {
+                    // Profile Photo - Büyük
+                    Group {
+                        if let photoURL = vm.user?.photoURL, !photoURL.isEmpty {
+                            AsyncImage(url: URL(string: photoURL)) { image in
+                                image
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)
-                                    .frame(width: 100, height: 100)
-                                    .clipShape(Circle())
-                                    .overlay(Circle().stroke(.gray.opacity(0.3), lineWidth: 2))
-                            } else if let photoURL = vm.user?.photoURL, !photoURL.isEmpty {
-                                // Current profile photo
-                                AsyncImage(url: URL(string: photoURL)) { image in
-                                    image
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                } placeholder: {
-                                    ProgressView()
-                                        .scaleEffect(0.8)
-                                }
-                                .frame(width: 100, height: 100)
-                                .clipShape(Circle())
-                                .overlay(Circle().stroke(.gray.opacity(0.3), lineWidth: 2))
-                            } else {
-                                // Default avatar
-                                Image(systemName: "person.circle.fill")
-                                    .foregroundStyle(.gray)
-                                    .font(.system(size: 100))
+                            } placeholder: {
+                                ProgressView()
+                                    .scaleEffect(1.2)
                             }
-                            
-                            // Edit overlay when editing
-                            if vm.isEditing {
-                                Circle()
-                                    .fill(.black.opacity(0.4))
-                                    .frame(width: 100, height: 100)
-                                    .overlay {
-                                        Image(systemName: "camera.fill")
-                                            .foregroundStyle(.white)
-                                            .font(.title2)
-                                    }
-                            }
-                        }
-                        .onTapGesture {
-                            if vm.isEditing {
-                                vm.showImagePicker = true
-                            }
-                        }
-                    }
-                    .padding(.top, 16)
-                    
-                    // Display Name Section
-                    VStack(spacing: 8) {
-                        if vm.isEditing {
-                            TextField("Ad Soyad", text: $vm.displayName)
-                                .textFieldStyle(.roundedBorder)
-                                .multilineTextAlignment(.center)
-                                .font(.title2)
-                                .frame(maxWidth: 250)
+                            .frame(width: 120, height: 120)
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(.gray.opacity(0.2), lineWidth: 2))
                         } else {
-                            Text(vm.user?.displayName ?? "İsimsiz Kullanıcı")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                                .multilineTextAlignment(.center)
+                            Circle()
+                                .fill(.blue.gradient)
+                                .frame(width: 120, height: 120)
+                                .overlay {
+                                    if let user = vm.user {
+                                        Text(user.initials)
+                                            .font(.system(size: 48, weight: .medium))
+                                            .foregroundStyle(.white)
+                                    } else {
+                                        Image(systemName: "person.fill")
+                                            .font(.system(size: 48))
+                                            .foregroundStyle(.white)
+                                    }
+                                }
+                                .overlay(Circle().stroke(.gray.opacity(0.1), lineWidth: 2))
                         }
                     }
+                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
                     
-                    // User Info Section
-                    VStack(spacing: 0) {
-                        InfoRow(
-                            icon: vm.isAnonymous ? "person.crop.circle.dashed" : "person.crop.circle",
-                            title: "Hesap Türü",
-                            value: vm.isAnonymous ? "Misafir Hesap" : "Kayıtlı Hesap",
-                            iconColor: vm.isAnonymous ? .orange : .green
-                        )
+                    // User Info
+                    VStack(spacing: 8) {
+                        Text(vm.user?.displayName ?? "İsimsiz Kullanıcı")
+                            .font(.title)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.primary)
                         
                         if !vm.isAnonymous {
-                            Divider()
-                                .padding(.leading, 44)
+                            Text(vm.user?.email ?? "")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        // Account Type Badge
+                        HStack(spacing: 8) {
+                            Image(systemName: vm.isAnonymous ? "person.crop.circle.dashed" : "person.crop.circle.fill")
+                                .font(.caption)
                             
-                            InfoRow(
-                                icon: "envelope",
-                                title: "E-posta",
-                                value: vm.user?.email ?? "",
-                                iconColor: .blue
-                            )
+                            Text(vm.isAnonymous ? "Misafir Hesap" : "Kayıtlı Hesap")
+                                .font(.caption)
+                                .fontWeight(.medium)
                         }
-                        
-                        Divider()
-                            .padding(.leading, 44)
-                        
-                        InfoRow(
-                            icon: "calendar",
-                            title: "Katılma Tarihi",
-                            value: vm.joinDateText,
-                            iconColor: .purple
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(vm.isAnonymous ? .orange.opacity(0.1) : .green.opacity(0.1))
                         )
+                        .foregroundStyle(vm.isAnonymous ? .orange : .green)
                     }
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.systemBackground))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(.gray.opacity(0.1), lineWidth: 1)
+                }
+                .padding(.top, 20)
+                
+                // Stats Section
+                HStack(spacing: 30) {
+                    StatItem(
+                        title: "Katılma Tarihi",
+                        value: formattedJoinDate,
+                        icon: "calendar"
                     )
                     
-                    // Action Buttons
+                    Rectangle()
+                        .fill(.gray.opacity(0.3))
+                        .frame(width: 1, height: 40)
+                    
+                    StatItem(
+                        title: "Hesap Türü",
+                        value: vm.isAnonymous ? "Misafir" : "Kayıtlı",
+                        icon: vm.isAnonymous ? "person.crop.circle.dashed" : "checkmark.shield"
+                    )
+                }
+                .padding(.horizontal, 40)
+                
+                // Quick Actions
+                VStack(spacing: 16) {
+                    Text("Hızlı İşlemler")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                    
                     VStack(spacing: 12) {
-                        if vm.isAnonymous {
-                            ActionButton(
-                                icon: "arrow.up.circle.fill",
-                                title: "Hesabı Kayıtlı Hesaba Dönüştür",
-                                color: .blue,
-                                action: {
-                                    print("Upgrade account tapped")
-                                }
-                            )
+                        // Settings Button - En önemli
+                        QuickActionButton(
+                            icon: "gear",
+                            title: "Ayarlar",
+                            subtitle: "Profil ve uygulama ayarları",
+                            color: .blue,
+                            isPrimary: true
+                        ) {
+                            showSettings = true
                         }
                         
-                        // Şifre değiştirme butonu - sadece email kullanıcıları için
-                        if !vm.isAnonymous {
-                            ActionButton(
-                                icon: "key.fill",
-                                title: "Şifre Değiştir",
-                                color: .orange,
-                                showChevron: true,
-                                action: {
-                                    print("Password change tapped")
-                                    vm.showPasswordChange = true
-                                }
-                            )
-                        }
-                        
-                        ActionButton(
-                            icon: "hand.raised",
-                            title: "Gizlilik Politikası",
-                            color: .primary,
-                            showChevron: true,
-                            action: {
+                        // Support Actions
+                        HStack(spacing: 12) {
+                            QuickActionButton(
+                                icon: "hand.raised",
+                                title: "Gizlilik",
+                                subtitle: "Politika",
+                                color: .purple,
+                                isCompact: true
+                            ) {
                                 showPrivacy = true
                             }
-                        )
-                        
-                        ActionButton(
-                            icon: "doc.text",
-                            title: "Kullanım Koşulları",
-                            color: .primary,
-                            showChevron: true,
-                            action: {
+                            
+                            QuickActionButton(
+                                icon: "doc.text",
+                                title: "Koşullar",
+                                subtitle: "Kullanım",
+                                color: .green,
+                                isCompact: true
+                            ) {
                                 showTerms = true
                             }
-                        )
+                        }
                         
-                        ActionButton(
+                        QuickActionButton(
                             icon: "questionmark.circle",
                             title: "Destek",
-                            color: .primary,
-                            showChevron: true,
-                            action: {
-                                showSupport = true
-                            }
-                        )
+                            subtitle: "Yardım ve destek alma",
+                            color: .orange
+                        ) {
+                            showSupport = true
+                        }
                         
-                        ActionButton(
+                        // Upgrade Account (sadece misafir hesaplar için)
+                        if vm.isAnonymous {
+                            QuickActionButton(
+                                icon: "arrow.up.circle.fill",
+                                title: "Hesabı Geliştir",
+                                subtitle: "Kayıtlı hesaba dönüştür",
+                                color: .blue
+                            ) {
+                                print("Upgrade account tapped")
+                            }
+                        }
+                        
+                        // Sign Out
+                        QuickActionButton(
                             icon: "rectangle.portrait.and.arrow.right",
                             title: "Çıkış Yap",
-                            color: .red,
-                            action: {
-                                vm.signOut()
-                            }
-                        )
+                            subtitle: "Hesaptan çıkış yap",
+                            color: .red
+                        ) {
+                            vm.signOut()
+                        }
                     }
-                    
-                    Spacer(minLength: 20)
+                    .padding(.horizontal, 20)
                 }
-                .padding(.horizontal, 20)
-            }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Profil")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
                 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    if vm.isEditing {
-                        HStack(spacing: 12) {
-                            Button("İptal") {
-                                vm.cancelEditing()
-                            }
-                            .foregroundStyle(.blue)
-                            
-                            Button("Kaydet") {
-                                Task { await vm.saveChanges() }
-                            }
-                            .fontWeight(.semibold)
-                            .disabled(vm.isLoading)
-                            .foregroundStyle(vm.isLoading ? .gray : .blue)
-                        }
-                    } else {
-                        Button("Düzenle") {
-                            vm.startEditing()
-                        }
-                        .foregroundStyle(.blue)
-                    }
+                Spacer(minLength: 40)
+            }
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("Profil")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: { showSettings = true }) {
+                    Image(systemName: "gear")
+                        .font(.title2)
                 }
             }
         }
-        
-        .navigationViewStyle(.stack)
-        .sheet(isPresented: $vm.showImagePicker) {
-            ImagePicker(selectedImage: $vm.selectedImage)
-        }
-        .sheet(isPresented: $vm.showPasswordChange) {
-            PasswordChangeSheet(vm: vm)
+        .sheet(isPresented: $showSettings) {
+            SettingsView(vm: vm)
         }
         .fullScreenCover(isPresented: $showPrivacy) {
             NavigationView { PrivacyPolicyView() }
         }
-
         .fullScreenCover(isPresented: $showTerms) {
             NavigationView { TermsOfServiceView() }
         }
-
         .fullScreenCover(isPresented: $showSupport) {
             NavigationView { SupportView() }
         }
-
-        
         .onAppear {
             print("ProfileView appeared")
-            print("DEBUG: User email: '\(vm.user?.email ?? "nil")'")
-            print("DEBUG: isAnonymous: \(vm.isAnonymous)")
             vm.refreshUser()
         }
-        .disabled(vm.isLoading)
-        .overlay {
-            if vm.isLoading {
-                Color.black.opacity(0.3)
-                    .overlay {
-                        VStack(spacing: 16) {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .scaleEffect(1.2)
-                            Text("Güncelleniyor...")
-                                .foregroundStyle(.white)
-                                .font(.caption)
-                        }
-                    }
-                    .ignoresSafeArea()
-            }
-        }
-        .alert("Başarılı", isPresented: $vm.showSuccessMessage) {
-            Button("Tamam") { }
-        } message: {
-            Text("Profil bilgileriniz güncellendi")
-        }
-        .alert("Hata", isPresented: Binding<Bool>(
-            get: { vm.errorMessage != nil },
-            set: { _ in vm.errorMessage = nil }
-        )) {
-            Button("Tamam") { vm.errorMessage = nil }
-        } message: {
-            Text(vm.errorMessage ?? "")
-        }
+    }
+    
+    private var formattedJoinDate: String {
+        guard let user = vm.user else { return "" }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.locale = Locale(identifier: "tr_TR")
+        return formatter.string(from: user.createdAt)
     }
 }
 
-// MARK: - Info Row Component
-struct InfoRow: View {
-    let icon: String
+// MARK: - Stat Item Component
+struct StatItem: View {
     let title: String
     let value: String
-    let iconColor: Color
+    let icon: String
     
     var body: some View {
-        HStack(spacing: 12) {
+        VStack(spacing: 8) {
             Image(systemName: icon)
-                .foregroundStyle(iconColor)
-                .font(.title3)
-                .frame(width: 20)
+                .font(.title2)
+                .foregroundStyle(.blue)
             
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(value)
-                    .font(.body)
-                    .lineLimit(2)
-            }
+            Text(value)
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.primary)
             
-            Spacer()
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
-        .padding(.vertical, 10)
     }
 }
 
-// MARK: - Action Button Component
-struct ActionButton: View {
+// MARK: - Quick Action Button Component
+struct QuickActionButton: View {
     let icon: String
     let title: String
+    let subtitle: String
     let color: Color
-    let showChevron: Bool
+    var isPrimary: Bool = false
+    var isCompact: Bool = false
     let action: () -> Void
-    
-    init(icon: String, title: String, color: Color, showChevron: Bool = false, action: @escaping () -> Void) {
-        self.icon = icon
-        self.title = title
-        self.color = color
-        self.showChevron = showChevron
-        self.action = action
-    }
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 16) {
-                Image(systemName: icon)
-                    .font(.title3)
-                    .frame(width: 20)
+            HStack(spacing: isCompact ? 8 : 16) {
+                ZStack {
+                    Circle()
+                        .fill(color.opacity(isPrimary ? 0.15 : 0.1))
+                        .frame(width: isCompact ? 32 : 40, height: isCompact ? 32 : 40)
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: isCompact ? 14 : 18, weight: isPrimary ? .semibold : .medium))
+                        .foregroundStyle(color)
+                }
                 
-                Text(title)
-                    .font(.body)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(isCompact ? .subheadline : .body)
+                        .fontWeight(isPrimary ? .semibold : .medium)
+                        .foregroundStyle(.primary)
+                    
+                    if !isCompact {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
                 
                 Spacer()
                 
-                if showChevron {
+                if !isCompact {
                     Image(systemName: "chevron.right")
                         .font(.caption)
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(.tertiary)
                 }
             }
-            .foregroundStyle(color)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(.horizontal, isCompact ? 12 : 16)
+            .padding(.vertical, isCompact ? 10 : 14)
             .background(
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color(.systemBackground))
+                    .shadow(color: isPrimary ? color.opacity(0.2) : .black.opacity(0.05), radius: isPrimary ? 8 : 2, x: 0, y: isPrimary ? 4 : 1)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(.gray.opacity(0.1), lineWidth: 1)
+                    .stroke(isPrimary ? color.opacity(0.3) : .gray.opacity(0.1), lineWidth: isPrimary ? 2 : 1)
             )
+            .scaleEffect(isPrimary ? 1.02 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
     }
 }
 
-// MARK: - Password Change Sheet
-struct PasswordChangeSheet: View {
-    @ObservedObject var vm: ProfileViewModel
-    @Environment(\.dismiss) var dismiss
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                VStack(spacing: 16) {
-                    Image(systemName: "key.fill")
-                        .font(.system(size: 50))
-                        .foregroundStyle(.orange)
-                    
-                    Text("Şifre Değiştir")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    
-                    Text("Güvenliğiniz için önce mevcut şifrenizi girin")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.top, 20)
-                
-                VStack(spacing: 16) {
-                    SecureTextFieldWithToggle(placeholder: "Mevcut Şifre", text: $vm.currentPassword)
-                    
-                    SecureTextFieldWithToggle(placeholder: "Yeni Şifre", text: $vm.newPassword)
-                    
-                    SecureTextFieldWithToggle(placeholder: "Yeni Şifre Tekrar", text: $vm.confirmPassword)
-                    
-                    // Real-time validasyon mesajları
-                    if let validationError = vm.passwordValidationError {
-                        Text(validationError)
-                            .foregroundStyle(.orange)
-                            .font(.caption)
-                            .padding(.horizontal)
-                            .multilineTextAlignment(.center)
-                    }
-                    
-                    // Firebase auth hatası (yanlış şifre vs)
-                    if let passwordError = vm.passwordErrorMessage {
-                        Text(passwordError)
-                            .foregroundStyle(.red)
-                            .font(.caption)
-                            .padding(.horizontal)
-                            .multilineTextAlignment(.center)
-                    }
-                }
-                .padding(.horizontal, 20)
-                
-                VStack(spacing: 12) {
-                    Button("Şifre Değiştir") {
-                        Task { await vm.changePassword() }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!vm.isPasswordFormValid || vm.isChangingPassword)
-                    .frame(maxWidth: .infinity)
-                    
-                    Button("İptal") {
-                        vm.cancelPasswordChange()
-                        dismiss()
-                    }
-                    .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 20)
-                
-                Spacer()
-            }
-            .navigationBarHidden(true)
-        }
-        .disabled(vm.isChangingPassword)
-        .overlay {
-            if vm.isChangingPassword {
-                Color.black.opacity(0.3)
-                    .overlay {
-                        VStack(spacing: 16) {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .scaleEffect(1.2)
-                            Text("Şifre değiştiriliyor...")
-                                .foregroundStyle(.white)
-                                .font(.caption)
-                        }
-                    }
-                    .ignoresSafeArea()
-            }
-        }
-        .onChange(of: vm.showPasswordChange) { isShowing in
-            if !isShowing {
-                dismiss()
-            }
-        }
-        // Sheet kapanırken şifre state'ini koruyoruz - sadece error temizleniyor
-        .onDisappear {
-            vm.passwordErrorMessage = nil
-        }
-    }
-}
-
-#Preview {
-    let mockAuthRepo = AuthRepository(
-        service: FirebaseAuthService(),
-        userService: FirestoreUserService()
-    )
-    let mockMediaRepo = MediaRepository(
-        service: FirestoreMediaService(),
-        storage: FirebaseStorageService(),
-        auth: mockAuthRepo
-    )
-    
-    ProfileView(vm: ProfileViewModel(authRepo: mockAuthRepo, mediaRepo: mockMediaRepo))
-}

@@ -1,8 +1,7 @@
 //
-//  NavigationCoordinator.swift (Alternative - ID Based)
+//  NavigationCoordinator.swift
 //  SnapCollab
 //
-//  Deep navigation sistemi - ID tabanlı (daha temiz)
 //
 
 import SwiftUI
@@ -47,7 +46,7 @@ final class NavigationCoordinator: ObservableObject {
     }
 }
 
-// Tab enum
+// Tab enum - tek tanım
 enum TabItem: String, CaseIterable {
     case albums = "albums"
     case notifications = "notifications"
