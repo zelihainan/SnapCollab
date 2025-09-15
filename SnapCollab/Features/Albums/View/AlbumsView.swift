@@ -4,6 +4,7 @@ struct AlbumsView: View {
     @StateObject var vm: AlbumsViewModel
     @Environment(\.di) var di
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var navigationCoordinator: NavigationCoordinator
     @StateObject private var deepLinkHandler = DeepLinkHandler()
     @StateObject private var userCache = UserCacheManager()
     @State private var showProfile = false
@@ -48,9 +49,12 @@ struct AlbumsView: View {
     var body: some View {
         List {
             ForEach(sortedAlbums, id: \.id) { album in
-                NavigationLink {
-                    AlbumDetailView(album: album, di: di)
-                } label: {
+                // NavigationLink yerine Button kullan - ID tabanlı
+                Button(action: {
+                    if let albumId = album.id {
+                        navigationCoordinator.pushToAlbumDetail(albumId: albumId)
+                    }
+                }) {
                     EnhancedAlbumRow(
                         album: album,
                         currentUserId: di.authRepo.uid,
@@ -59,6 +63,7 @@ struct AlbumsView: View {
                         albumRepo: di.albumRepo
                     )
                 }
+                .buttonStyle(PlainButtonStyle())
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
             }
@@ -92,7 +97,8 @@ struct AlbumsView: View {
                         Image(systemName: "arrow.up.arrow.down")
                             .font(.body)
                     }
-                                        Menu {
+                    
+                    Menu {
                         Button {
                             vm.showCreate = true
                         } label: {
@@ -114,8 +120,6 @@ struct AlbumsView: View {
         .sheet(isPresented: $vm.showCreate) {
             CreateAlbumSheet(vm: vm)
         }
-        // AlbumsView.swift içinde sheet kullanımı - doğru ViewModel ile
-
         .sheet(isPresented: $showJoinAlbum) {
             // Bildirim desteği olan ViewModel ile
             let joinVM = JoinAlbumViewModel(
@@ -150,9 +154,31 @@ struct AlbumsView: View {
                 deepLinkHandler.shouldShowJoinView = false
             }
         }
+        .onChange(of: navigationCoordinator.shouldNavigateToAlbum) { albumId in
+            handleDeepNavigation(albumId)
+        }
         .task {
             vm.start()
             await di.albumRepo.migrateAllAlbumFields()
+        }
+    }
+    
+    // MARK: - Deep Navigation Handler - UPDATED
+    private func handleDeepNavigation(_ albumId: String?) {
+        guard let albumId = albumId else { return }
+        
+        print("🧭 AlbumsView: Handling deep navigation to album: \(albumId)")
+        
+        // Albüm listesinde ara
+        if let album = vm.albums.first(where: { $0.id == albumId }) {
+            print("🧭 AlbumsView: Found album in current list, navigating...")
+            if let albumId = album.id {
+                navigationCoordinator.pushToAlbumDetail(albumId: albumId)
+            }
+            navigationCoordinator.clearNavigationRequest()
+        } else {
+            print("🧭 AlbumsView: Album not found in current list, will try when albums load")
+            // Albüm listesi henüz yüklenmemişse, albums değiştiğinde tekrar dene
         }
     }
 }
@@ -223,7 +249,7 @@ struct EnhancedAlbumRow: View {
                                 .font(.caption)
                                 .foregroundStyle(.orange)
                         }
-                        .padding(.leading, 4) // Add spacing from the member count
+                        .padding(.leading, 4)
                     }
                     
                     Spacer()

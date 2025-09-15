@@ -2,18 +2,24 @@
 //  NotificationsView.swift
 //  SnapCollab
 //
-//  Düzeltilmiş bildirimler sayfası - Swipe to delete + layout fix
 //
 
 import SwiftUI
 
 struct NotificationsView: View {
     @StateObject private var notificationRepo: NotificationRepository
+    let navigationCoordinator: NavigationCoordinator? // Navigation coordinator eklendi
     @Environment(\.di) var di
     @State private var showClearAllAlert = false
     
     init(notificationRepo: NotificationRepository) {
         _notificationRepo = StateObject(wrappedValue: notificationRepo)
+        self.navigationCoordinator = nil
+    }
+    
+    init(notificationRepo: NotificationRepository, navigationCoordinator: NavigationCoordinator) {
+        _notificationRepo = StateObject(wrappedValue: notificationRepo)
+        self.navigationCoordinator = navigationCoordinator
     }
     
     var body: some View {
@@ -62,7 +68,6 @@ struct NotificationsView: View {
         }
     }
     
-    // MARK: - Empty State
     private var emptyState: some View {
         VStack(spacing: 32) {
             Spacer()
@@ -101,7 +106,6 @@ struct NotificationsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    // MARK: - Notifications List
     private var notificationsList: some View {
         List {
             // Unread count header
@@ -215,18 +219,25 @@ struct NotificationsView: View {
         }
     }
     
-    // MARK: - Actions
+    // MARK: - Actions - UPDATED with Navigation
     private func handleNotificationTap(_ notification: AppNotification) {
         Task {
             await notificationRepo.markAsRead(notification)
         }
         
+        // Navigate to album if albumId exists
         if let albumId = notification.albumId {
-            print("📬 Navigate to album: \(albumId)")
+            print("📬 Notification tap: Navigating to album: \(albumId)")
+            navigationCoordinator?.navigateToAlbum(albumId)
+            
+            // Haptic feedback
+            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+            impactFeedback.impactOccurred()
+        } else {
+            // Just haptic for notifications without album
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+            impactFeedback.impactOccurred()
         }
-        
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
     }
     
     private func markAllAsRead() {
@@ -240,10 +251,11 @@ struct NotificationsView: View {
     
     private func clearAllNotifications() {
         print("Clear all notifications - to be implemented")
+        // TODO: Implement clear all functionality
     }
 }
 
-// MARK: - Enhanced Notification Row View
+// MARK: - Enhanced Notification Row View (aynı kalıyor)
 struct NotificationRowView: View {
     let notification: AppNotification
     let onTap: () -> Void
@@ -315,6 +327,7 @@ struct NotificationRowView: View {
             if let albumId = notification.albumId {
                 Button("Albüme Git") {
                     print("Navigate to album: \(albumId)")
+                    onTap() // Bu da navigation tetikleyecek
                 }
             }
             

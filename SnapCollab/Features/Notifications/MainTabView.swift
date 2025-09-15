@@ -2,7 +2,7 @@
 //  MainTabView.swift
 //  SnapCollab
 //
-//  Ana tab bar navigasyonu - Bildirim badge'i ile
+//  Ana tab bar navigasyonu - Deep Navigation ile
 //
 
 import SwiftUI
@@ -10,22 +10,30 @@ import SwiftUI
 struct MainTabView: View {
     @Environment(\.di) var di
     @EnvironmentObject var appState: AppState
-    @State private var selectedTab: TabItem = .albums
+    @StateObject private var navigationCoordinator = NavigationCoordinator()
     
     var body: some View {
-        TabView(selection: $selectedTab) {
-            // Albums Tab
-            NavigationStack {
+        TabView(selection: $navigationCoordinator.selectedTab) {
+            // Albums Tab - NavigationStack ile (ID tabanlı)
+            NavigationStack(path: $navigationCoordinator.albumsPath) {
                 AlbumsView(vm: AlbumsViewModel(repo: di.albumRepo))
+                    .navigationDestination(for: String.self) { albumId in
+                        // Album ID'sinden Album objesini bul ve detay sayfasını göster
+                        AlbumDetailViewWrapper(albumId: albumId, di: di)
+                    }
             }
             .tabItem {
-                Label("Albümler", systemImage: selectedTab == .albums ? "photo.stack.fill" : "photo.stack")
+                Label("Albümler", systemImage: navigationCoordinator.selectedTab == .albums ? "photo.stack.fill" : "photo.stack")
             }
             .tag(TabItem.albums)
-                            
-            NotificationsView(notificationRepo: di.notificationRepo)
+            
+            // Notifications Tab - Navigation Coordinator ile
+            NotificationsView(
+                notificationRepo: di.notificationRepo,
+                navigationCoordinator: navigationCoordinator
+            )
             .tabItem {
-                Label("Bildirimler", systemImage: selectedTab == .notifications ? "bell.fill" : "bell")
+                Label("Bildirimler", systemImage: navigationCoordinator.selectedTab == .notifications ? "bell.fill" : "bell")
             }
             .badge(di.notificationRepo.unreadCount > 0 ? di.notificationRepo.unreadCount : 0)
             .tag(TabItem.notifications)
@@ -34,11 +42,12 @@ struct MainTabView: View {
                 ProfileContainerView()
             }
             .tabItem {
-                Label("Profil", systemImage: selectedTab == .profile ? "person.fill" : "person")
+                Label("Profil", systemImage: navigationCoordinator.selectedTab == .profile ? "person.fill" : "person")
             }
             .tag(TabItem.profile)
         }
         .tint(.blue)
+        .environmentObject(navigationCoordinator) // Environment'a inject et
         .onAppear {
             setupTabBarAppearance()
             di.notificationRepo.start()
@@ -69,36 +78,6 @@ struct MainTabView: View {
         
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
-    }
-}
-
-enum TabItem: String, CaseIterable {
-    case albums = "albums"
-    case notifications = "notifications"
-    case profile = "profile"
-    
-    var title: String {
-        switch self {
-        case .albums: return "Albümler"
-        case .notifications: return "Bildirimler"
-        case .profile: return "Profil"
-        }
-    }
-    
-    var icon: String {
-        switch self {
-        case .albums: return "photo.stack"
-        case .notifications: return "bell"
-        case .profile: return "person"
-        }
-    }
-    
-    var selectedIcon: String {
-        switch self {
-        case .albums: return "photo.stack.fill"
-        case .notifications: return "bell.fill"
-        case .profile: return "person.fill"
-        }
     }
 }
 
