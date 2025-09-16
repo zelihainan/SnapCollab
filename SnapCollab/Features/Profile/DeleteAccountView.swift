@@ -21,7 +21,6 @@ struct DeleteAccountView: View {
     
     enum DeleteStep {
         case information
-        case confirmation
         case authentication
         case processing
     }
@@ -60,8 +59,6 @@ struct DeleteAccountView: View {
                     switch deleteStep {
                     case .information:
                         informationContent
-                    case .confirmation:
-                        confirmationContent
                     case .authentication:
                         authenticationContent
                     case .processing:
@@ -155,13 +152,8 @@ struct DeleteAccountView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.title2)
-                        .foregroundStyle(.orange)
-                    
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Önemli Uyarı")
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                        
+                    
                         Text("Bu işlem geri alınamaz. Hesabınız silindikten sonra verilerinize erişemezsiniz.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -178,7 +170,7 @@ struct DeleteAccountView: View {
                 
                 Button("Devam Et") {
                     withAnimation(.easeInOut(duration: 0.3)) {
-                        deleteStep = .confirmation
+                        deleteStep = .authentication
                     }
                 }
                 .buttonStyle(.borderedProminent)
@@ -189,84 +181,13 @@ struct DeleteAccountView: View {
         }
     }
     
-    // MARK: - Confirmation Content
-    private var confirmationContent: some View {
-        VStack(spacing: 24) {
-            VStack(spacing: 16) {
-                Text("Onay Gerekli")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                
-                VStack(spacing: 12) {
-                    Text("Devam etmek için aşağıya")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                    
-                    Text("'\(requiredConfirmationText)'")
-                        .font(.body)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.orange)
-                    
-                    Text("yazın")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                }
-                .multilineTextAlignment(.center)
-            }
-            
-            VStack(spacing: 16) {
-                TextField("Onay kodu", text: $confirmationText)
-                    .textFieldStyle(.roundedBorder)
-                    .autocapitalization(.allCharacters)
-                    .autocorrectionDisabled()
-                    .multilineTextAlignment(.center)
-                    .font(.headline)
-                    .foregroundStyle(confirmationText == requiredConfirmationText ? .orange : .primary)
-                    .padding(.horizontal, 20)
-                
-                if confirmationText == requiredConfirmationText {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                        Text("Onay kodu doğru")
-                            .font(.caption)
-                            .foregroundStyle(.green)
-                    }
-                }
-            }
-            
-            VStack(spacing: 12) {
-                Button("Şifre Doğrulamasına Geç") {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        deleteStep = .authentication
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.orange)
-                .disabled(confirmationText != requiredConfirmationText)
-                .frame(maxWidth: .infinity)
-                
-                Button("Geri") {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        deleteStep = .information
-                    }
-                }
-                .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 20)
-        }
-    }
-    
     // MARK: - Authentication Content
     private var authenticationContent: some View {
         VStack(spacing: 24) {
             VStack(spacing: 16) {
-                Text("Güvenlik Doğrulaması")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
                 
                 Text("Güvenliğiniz için mevcut şifrenizi girin")
-                    .font(.body)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
@@ -276,15 +197,6 @@ struct DeleteAccountView: View {
                     .textFieldStyle(.roundedBorder)
                     .padding(.horizontal, 20)
                 
-                if !currentPassword.isEmpty && currentPassword.count >= 6 {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                        Text("Şifre formatı uygun")
-                            .font(.caption)
-                            .foregroundStyle(.green)
-                    }
-                }
             }
             
             VStack(spacing: 12) {
@@ -298,7 +210,7 @@ struct DeleteAccountView: View {
                 
                 Button("Geri") {
                     withAnimation(.easeInOut(duration: 0.3)) {
-                        deleteStep = .confirmation
+                        deleteStep = .information
                     }
                 }
                 .foregroundStyle(.secondary)

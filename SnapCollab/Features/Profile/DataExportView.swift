@@ -4,6 +4,7 @@
 //
 //  Created by Zeliha İnan on 16.09.2025.
 
+
 import SwiftUI
 import Foundation
 
@@ -52,17 +53,12 @@ struct DataExportView: View {
                             }
                         }
                         
-                        Text(exportComplete ? "Export Tamamlandı" : "Verilerimi İndir")
+                        Text(exportComplete ? "İndirme Tamamlandı" : "Verileri Dışa Aktar")
                             .font(.title2)
                             .fontWeight(.semibold)
                         
-                        if exportComplete {
-                            Text("Tüm verileriniz başarıyla export edildi")
-                                .font(.body)
-                                .foregroundStyle(.green)
-                                .multilineTextAlignment(.center)
-                        } else if isExporting {
-                            Text("Verileriniz export ediliyor, lütfen bekleyin...")
+                        if isExporting {
+                            Text("Verileriniz dışarı aktarılıyor, lütfen bekleyin...")
                                 .font(.body)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
@@ -172,30 +168,21 @@ struct DataExportView: View {
                         .padding(.horizontal, 20)
                     }
                     
-                    Spacer()
-                    
                     // Action Buttons
                     VStack(spacing: 16) {
                         if exportComplete {
-                            VStack(spacing: 12) {
-                                Button("Dosyayı Paylaş") {
-                                    showShareSheet = true
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .frame(maxWidth: .infinity)
-                                
-                                Button("Tekrar Export Et") {
-                                    resetExport()
-                                }
-                                .foregroundStyle(.blue)
+                            Button("Dosyayı Paylaş") {
+                                showShareSheet = true
                             }
+                            .buttonStyle(.borderedProminent)
+                            .frame(maxWidth: .infinity)
                         } else if isExporting {
                             Button("İptal Et") {
                                 cancelExport()
                             }
                             .foregroundStyle(.red)
                         } else {
-                            Button("Export Başlat") {
+                            Button("Dışa Aktar") {
                                 startExport()
                             }
                             .buttonStyle(.borderedProminent)
@@ -204,10 +191,11 @@ struct DataExportView: View {
                         }
                     }
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
+                    
+                    Spacer()
                 }
             }
-            .navigationTitle("Veri Export")
+            .navigationTitle("Verileri Dışa Aktar")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -279,7 +267,7 @@ struct DataExportView: View {
             }
             
             // Step 5: Create export data
-            await updateProgress(1.0, status: "Export tamamlanıyor...")
+            await updateProgress(1.0, status: "İndirme tamamlanıyor...")
             
             let exportData = UserExportData(
                 user: userData,
@@ -294,12 +282,12 @@ struct DataExportView: View {
                 self.exportedData = exportData
                 self.exportComplete = true
                 self.isExporting = false
-                self.exportStatus = "Export tamamlandı!"
+                self.exportStatus = "İndirme tamamlandı!"
             }
             
         } catch {
             await MainActor.run {
-                self.exportError = "Export hatası: \(error.localizedDescription)"
+                self.exportError = "İndirme hatası: \(error.localizedDescription)"
                 self.isExporting = false
             }
         }
@@ -363,7 +351,7 @@ struct DataExportView: View {
     private func cancelExport() {
         isExporting = false
         exportProgress = 0.0
-        exportStatus = "Export iptal edildi"
+        exportStatus = "İndirme iptal edildi"
         exportError = nil
     }
     
@@ -441,7 +429,7 @@ struct ShareExportedDataView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
-                Text("Export dosyanız hazır!")
+                Text("Dışa aktarma tamamlandı!")
                     .font(.title2)
                     .fontWeight(.semibold)
                 
