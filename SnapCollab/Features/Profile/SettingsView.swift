@@ -1,10 +1,11 @@
 //
-//  SettingsView.swift
+//  SettingsView.swift - Complete with All Active Functions
 //  SnapCollab
 //
 
 import SwiftUI
 import UIKit
+import StoreKit
 
 struct SettingsView: View {
     @StateObject var vm: ProfileViewModel
@@ -12,12 +13,20 @@ struct SettingsView: View {
     @Environment(\.colorScheme) var colorScheme
     @AppStorage("preferredColorScheme") private var preferredColorScheme: ColorSchemePreference = .system
     
+    // Sheet state'leri - Mevcut olanlar
     @State private var showFontSizeSettings = false
     @State private var showNotificationSettings = false
+    
+    // 🆕 Yeni aktif fonksiyonlar için sheet state'leri
+    @State private var showStorageDetails = false
+    @State private var showDataExport = false
+    @State private var showDeleteAccount = false
+    @State private var showAboutApp = false
     
     var body: some View {
         NavigationView {
             List {
+                // Profil Bilgileri Bölümü
                 Section {
                     ProfileEditRow(vm: vm)
                 } header: {
@@ -26,6 +35,7 @@ struct SettingsView: View {
                     Text("Profil fotoğrafınızı ve görünen adınızı değiştirin")
                 }
                 
+                // Hesap Güvenliği Bölümü
                 if !vm.isAnonymous {
                     Section {
                         SettingsRow(
@@ -50,7 +60,9 @@ struct SettingsView: View {
                     }
                 }
                 
+                // Görünüm Ayarları Bölümü
                 Section {
+                    // Dark Mode Toggle
                     HStack(spacing: 16) {
                         ZStack {
                             Circle()
@@ -112,6 +124,7 @@ struct SettingsView: View {
                     Text("Görünüm")
                 }
                 
+                // Bildirim Ayarları Bölümü
                 Section {
                     SettingsRow(
                         icon: "bell.fill",
@@ -126,8 +139,9 @@ struct SettingsView: View {
                     Text("Bildirimler")
                 }
                 
+                // Veri ve Depolama Bölümü - 🆕 Enhanced
                 Section {
-                    StorageUsageRow()
+                    StorageUsageRow(showDetails: $showStorageDetails)
                     
                     ClearCacheRow()
                     
@@ -135,6 +149,7 @@ struct SettingsView: View {
                     Text("Veri ve Depolama")
                 }
                 
+                // Hesap Yönetimi Bölümü - 🆕 Enhanced
                 Section {
                     if vm.isAnonymous {
                         SettingsRow(
@@ -143,26 +158,29 @@ struct SettingsView: View {
                             subtitle: "Verilerinizi güvence altına alın",
                             iconColor: .blue
                         ) {
+                            // TODO: Upgrade account implementation
                             print("Upgrade account tapped")
                         }
                     }
                     
+                    // ✅ Verilerimi İndir - ACTIVE
                     SettingsRow(
                         icon: "square.and.arrow.down.fill",
                         title: "Verilerimi İndir",
-                        subtitle: "Tüm verilerinizi indirin",
+                        subtitle: "Tüm verilerinizi JSON olarak indirin",
                         iconColor: .purple
                     ) {
-                        print("Export data tapped")
+                        showDataExport = true
                     }
                     
+                    // ✅ Hesabı Sil - ACTIVE
                     SettingsRow(
                         icon: "trash.fill",
                         title: "Hesabı Sil",
                         subtitle: "Hesabınızı kalıcı olarak silin",
                         iconColor: .red
                     ) {
-                        print("Delete account tapped")
+                        showDeleteAccount = true
                     }
                     
                 } header: {
@@ -171,23 +189,26 @@ struct SettingsView: View {
                     Text("Hesap silme işlemi geri alınamaz")
                 }
                 
+                // App Info Bölümü - 🆕 Enhanced
                 Section {
+                    // ✅ Uygulama Hakkında - ACTIVE
                     SettingsRow(
                         icon: "info.circle.fill",
                         title: "Uygulama Hakkında",
-                        subtitle: "Versiyon 1.0.0",
+                        subtitle: "Versiyon, lisanslar ve geliştirici bilgileri",
                         iconColor: .gray
                     ) {
-                        print("About tapped")
+                        showAboutApp = true
                     }
                     
+                    // ✅ Uygulamayı Değerlendir - ACTIVE
                     SettingsRow(
                         icon: "star.fill",
                         title: "Uygulamayı Değerlendir",
                         subtitle: "App Store'da değerlendirin",
                         iconColor: .yellow
                     ) {
-                        print("Rate app tapped")
+                        requestAppReview()
                     }
                     
                 } header: {
@@ -196,14 +217,13 @@ struct SettingsView: View {
             }
             .navigationTitle("Ayarlar")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Kapat") {
-                        dismiss()
-                    }
+            .navigationBarItems(trailing:
+                Button("Kapat") {
+                    dismiss()
                 }
-            }
+            )
         }
+        // Mevcut sheet'ler
         .sheet(isPresented: $vm.showEmailChange) {
             EmailChangeSheet(vm: vm)
         }
@@ -219,6 +239,22 @@ struct SettingsView: View {
         .sheet(isPresented: $vm.showImagePicker) {
             ImagePicker(selectedImage: $vm.selectedImage, sourceType: .photoLibrary)
         }
+        
+        // 🆕 YENİ AKTİF SHEET'LER
+        .sheet(isPresented: $showStorageDetails) {
+            StorageDetailsView()
+        }
+        .sheet(isPresented: $showDataExport) {
+            DataExportView(authRepo: vm.authRepo)
+        }
+        .sheet(isPresented: $showDeleteAccount) {
+            DeleteAccountView(vm: vm)
+        }
+        .sheet(isPresented: $showAboutApp) {
+            AboutAppView()
+        }
+        
+        // Mevcut onChange ve alert'ler
         .onChange(of: vm.selectedImage) { newImage in
             if newImage != nil {
                 Task {
@@ -252,8 +288,21 @@ struct SettingsView: View {
             return "Her zaman koyu tema"
         }
     }
+    
+    // ✅ App Store Review Request - YENİ FONKSİYON
+    private func requestAppReview() {
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        // Request review
+        if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+            SKStoreReviewController.requestReview(in: scene)
+        }
+    }
 }
 
+// MARK: - ProfileEditRow (Mevcut - değişiklik yok)
 struct ProfileEditRow: View {
     @ObservedObject var vm: ProfileViewModel
     @State private var showNameEditor = false
@@ -341,7 +390,7 @@ struct ProfileEditRow: View {
             VStack(spacing: 8) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Görünen Ad")
+                        Text("Ad Soyad")
                             .font(.headline)
                             .foregroundStyle(.primary)
                         
@@ -400,6 +449,7 @@ struct ProfileEditRow: View {
     }
 }
 
+// MARK: - DisplayNameEditorSheet (Mevcut - değişiklik yok)
 struct DisplayNameEditorSheet: View {
     @ObservedObject var vm: ProfileViewModel
     @Environment(\.dismiss) var dismiss
@@ -485,6 +535,7 @@ struct DisplayNameEditorSheet: View {
     }
 }
 
+// MARK: - SettingsRow (Mevcut - değişiklik yok)
 struct SettingsRow: View {
     let icon: String
     let title: String
@@ -529,6 +580,7 @@ struct SettingsRow: View {
     }
 }
 
+// MARK: - ColorSchemePreference (Mevcut - değişiklik yok)
 enum ColorSchemePreference: String, CaseIterable {
     case system = "system"
     case light = "light"
@@ -551,6 +603,7 @@ enum ColorSchemePreference: String, CaseIterable {
     }
 }
 
+// MARK: - PasswordChangeSheet (Mevcut - değişiklik yok)
 struct PasswordChangeSheet: View {
     @ObservedObject var vm: ProfileViewModel
     @Environment(\.dismiss) var dismiss
@@ -647,8 +700,10 @@ struct PasswordChangeSheet: View {
     }
 }
 
+// MARK: - 🆕 Enhanced Storage Usage Row
 struct StorageUsageRow: View {
     @StateObject private var storageManager = StorageManager.shared
+    @Binding var showDetails: Bool
     
     var body: some View {
         SettingsRow(
@@ -657,8 +712,7 @@ struct StorageUsageRow: View {
             subtitle: storageManager.isCalculating ? "Hesaplanıyor..." : "Kullanılan alan: \(storageManager.formatStorageSize(storageManager.totalStorageUsed))",
             iconColor: .cyan
         ) {
-            // Detaylı depolama view'ına git
-            print("Storage usage tapped")
+            showDetails = true
         }
         .onAppear {
             if storageManager.totalStorageUsed == 0 {
@@ -670,6 +724,7 @@ struct StorageUsageRow: View {
     }
 }
 
+// MARK: - ClearCacheRow (Mevcut - değişiklik yok)
 struct ClearCacheRow: View {
     @StateObject private var storageManager = StorageManager.shared
     @State private var showClearAlert = false

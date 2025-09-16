@@ -21,7 +21,7 @@ final class ProfileViewModel: ObservableObject {
     @Published var isChangingPassword = false
     @Published var passwordErrorMessage: String?
     
-    private let authRepo: AuthRepository
+    let authRepo: AuthRepository
     private let mediaRepo: MediaRepository
     
     private var sessionVM: SessionViewModel?

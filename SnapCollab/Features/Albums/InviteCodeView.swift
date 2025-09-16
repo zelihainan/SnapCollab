@@ -258,28 +258,3 @@ struct AlbumInfoCard: View {
     }
 }
 
-struct InfoItem: View {
-    let icon: String
-    let title: String
-    let value: String
-    let color: Color
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundStyle(color)
-                .font(.title3)
-                .frame(width: 20)
-            
-            Text(title)
-                .font(.body)
-                .foregroundStyle(.secondary)
-            
-            Spacer()
-            
-            Text(value)
-                .font(.body)
-                .fontWeight(.medium)
-        }
-    }
-}

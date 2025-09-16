@@ -58,11 +58,7 @@ struct FontSizeSettingsSheet: View {
                     Text("Yazı Boyutu")
                         .font(.title2)
                         .fontWeight(.semibold)
-                    
-                    Text("Uygulama genelinde kullanılacak yazı boyutunu seçin")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+
                 }
                 .padding(.top, 20)
                 
@@ -114,10 +110,8 @@ struct FontSizeSettingsSheet: View {
                     }
                     .padding(.horizontal, 20)
                 }
-                
-                Spacer()
-                
-                VStack(spacing: 12) {
+                                
+                VStack(spacing: 10) {
                     Button("Uygula") {
                         fontSizePreference = selectedSize
                         
@@ -129,10 +123,6 @@ struct FontSizeSettingsSheet: View {
                     .buttonStyle(.borderedProminent)
                     .frame(maxWidth: .infinity)
                     
-                    Button("İptal") {
-                        dismiss()
-                    }
-                    .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
