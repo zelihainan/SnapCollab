@@ -13,56 +13,60 @@ struct StorageDetailsView: View {
     @StateObject private var storageManager = StorageManager.shared
     @State private var storageBreakdown: StorageBreakdown?
     @State private var isCalculating = false
+    @State private var showClearAlert = false
+    @State private var isClearing = false
     
     var body: some View {
         NavigationView {
             List {
-                // Genel Bilgiler
+                // Header - iCloud Style
                 Section {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Toplam Kullanım")
-                                .font(.headline)
-                                .foregroundStyle(.primary)
+                    VStack(spacing: 20) {
+                        // Storage Circle
+                        ZStack {
+                            Circle()
+                                .stroke(.tertiary, lineWidth: 4)
+                                .frame(width: 120, height: 120)
                             
-                            if isCalculating {
-                                HStack(spacing: 8) {
+                            Circle()
+                                .trim(from: 0, to: usedStoragePercentage)
+                                .stroke(.blue, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                                .rotationEffect(.degrees(-90))
+                                .frame(width: 120, height: 120)
+                                .animation(.easeInOut(duration: 1.0), value: usedStoragePercentage)
+                            
+                            VStack(spacing: 4) {
+                                if isCalculating {
                                     ProgressView()
                                         .scaleEffect(0.8)
-                                    Text("Hesaplanıyor...")
+                                } else {
+                                    Text(storageManager.formatStorageSize(storageManager.totalStorageUsed))
+                                        .font(.title2)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.primary)
+                                    
+                                    Text("Kullanılan")
+                                        .font(.caption)
                                         .foregroundStyle(.secondary)
-                                        .font(.subheadline)
                                 }
-                            } else {
-                                Text(storageManager.formatStorageSize(storageManager.totalStorageUsed))
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(.blue)
                             }
                         }
-                        
-                        Spacer()
-                        
-                        Button("Yenile") {
-                            refreshStorage()
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(isCalculating)
                     }
-                    .padding(.vertical, 8)
-                } header: {
-                    Text("Genel Bilgiler")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
                 }
+                .listRowBackground(Color.clear)
                 
-                // Depolama Dağılımı
+                // Storage Breakdown - iCloud Style
                 if let breakdown = storageBreakdown {
                     Section {
                         StorageItemRow(
                             title: "Önbellek Dosyaları",
-                            subtitle: "Geçici dosyalar ve thumbnails",
+                            subtitle: "Geçici dosyalar ve küçük resimler",
                             size: breakdown.cacheSize,
                             color: .orange,
-                            icon: "arrow.down.circle"
+                            icon: "arrow.clockwise.circle.fill",
+                            totalSize: storageManager.totalStorageUsed
                         )
                         
                         StorageItemRow(
@@ -70,7 +74,8 @@ struct StorageDetailsView: View {
                             subtitle: "Ayarlar ve kullanıcı tercihleri",
                             size: breakdown.documentsSize,
                             color: .blue,
-                            icon: "doc.circle"
+                            icon: "folder.circle.fill",
+                            totalSize: storageManager.totalStorageUsed
                         )
                         
                         StorageItemRow(
@@ -78,68 +83,58 @@ struct StorageDetailsView: View {
                             subtitle: "Uygulama yapılandırması",
                             size: breakdown.userDefaultsSize,
                             color: .green,
-                            icon: "gear.circle"
-                        )
-                        
-                        StorageItemRow(
-                            title: "Favoriler",
-                            subtitle: "Favori medya listesi",
-                            size: breakdown.favoritesSize,
-                            color: .red,
-                            icon: "heart.circle"
+                            icon: "gearshape.circle.fill",
+                            totalSize: storageManager.totalStorageUsed
                         )
                         
                     } header: {
-                        Text("Depolama Dağılımı")
-                    } footer: {
-                        Text("Önbellek dosyaları güvenle silinebilir")
+                        Text("Depolama Ayrıntıları")
                     }
-                }
-                
-                // Temizleme Seçenekleri
-                Section {
-                    Button(action: clearCache) {
-                        HStack {
-                            Image(systemName: "trash.circle.fill")
-                                .font(.title2)
-                                .foregroundStyle(.orange)
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Önbelleği Temizle")
-                                    .foregroundStyle(.primary)
-                                Text("Geçici dosyaları sil")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                    
+                    // Actions Section
+                    Section {
+                        Button(action: { showClearAlert = true }) {
+                            HStack(spacing: 16) {
+                                ZStack {
+                                    Circle()
+                                        .fill(.red.opacity(0.1))
+                                        .frame(width: 32, height: 32)
+                                    
+                                    Image(systemName: "trash.circle.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundStyle(.red)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Önbelleği Temizle")
+                                        .font(.body)
+                                        .foregroundStyle(.primary)
+                                    
+                                    Text("Geçici dosyaları sil")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                if let breakdown = storageBreakdown, breakdown.cacheSize > 0 {
+                                    Text(storageManager.formatStorageSize(breakdown.cacheSize))
+                                        .font(.subheadline)
+                                        .foregroundStyle(.red)
+                                        .fontWeight(.medium)
+                                }
                             }
-                            
-                            Spacer()
-                            
-                            if storageBreakdown?.cacheSize ?? 0 > 0 {
-                                Text(storageManager.formatStorageSize(storageBreakdown?.cacheSize ?? 0))
-                                    .font(.caption)
-                                    .foregroundStyle(.orange)
-                            }
+                            .padding(.vertical, 4)
                         }
-                        .padding(.vertical, 4)
+                        .buttonStyle(PlainButtonStyle())
+                        .disabled(isClearing || (storageBreakdown?.cacheSize ?? 0) == 0)
+                        
+                    } footer: {
+                        Text("Önbellek dosyaları güvenle silinebilir ve uygulama performansını etkilemez")
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                } header: {
-                    Text("Temizleme")
-                }
-                
-                // Sistem Bilgileri
-                Section {
-                    InfoRow(title: "Cihaz Modeli", value: UIDevice.current.model)
-                    InfoRow(title: "iOS Sürümü", value: UIDevice.current.systemVersion)
-                    InfoRow(title: "Uygulama Sürümü", value: Bundle.main.appVersion)
-                    InfoRow(title: "Build Numarası", value: Bundle.main.buildNumber)
-                    
-                } header: {
-                    Text("Sistem Bilgileri")
                 }
             }
-            .navigationTitle("Depolama Detayları")
+            .navigationTitle("Depolama")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -150,13 +145,38 @@ struct StorageDetailsView: View {
         .onAppear {
             calculateDetailedStorage()
         }
+        .alert("Önbelleği Temizle", isPresented: $showClearAlert) {
+            Button("İptal", role: .cancel) { }
+            Button("Temizle", role: .destructive) {
+                clearCache()
+            }
+        } message: {
+            Text("Önbellek dosyaları temizlenecek. Bu işlem geri alınamaz ve uygulama performansını etkilemez.")
+        }
+        .overlay {
+            if isClearing {
+                Color.black.opacity(0.3)
+                    .overlay {
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(1.2)
+                            Text("Temizleniyor...")
+                                .foregroundStyle(.white)
+                                .font(.subheadline)
+                        }
+                    }
+                    .ignoresSafeArea()
+            }
+        }
     }
     
-    private func refreshStorage() {
-        Task {
-            await storageManager.calculateStorageUsage()
-            calculateDetailedStorage()
-        }
+    private var usedStoragePercentage: CGFloat {
+        let total = storageManager.totalStorageUsed
+        if total == 0 { return 0.0 }
+        // Simulated max capacity for visualization (100 MB)
+        let maxCapacity: Int64 = 100 * 1024 * 1024
+        return min(CGFloat(total) / CGFloat(maxCapacity), 1.0)
     }
     
     private func calculateDetailedStorage() {
@@ -173,31 +193,40 @@ struct StorageDetailsView: View {
     }
     
     private func clearCache() {
+        isClearing = true
+        
         Task {
             do {
                 try await storageManager.clearCache()
-                calculateDetailedStorage()
+                await MainActor.run {
+                    calculateDetailedStorage()
+                }
             } catch {
                 print("Cache clear error: \(error)")
+            }
+            
+            await MainActor.run {
+                isClearing = false
             }
         }
     }
 }
 
-// MARK: - Storage Item Row
+// MARK: - Storage Item Row - Updated iCloud Style
 struct StorageItemRow: View {
     let title: String
     let subtitle: String
     let size: Int64
     let color: Color
     let icon: String
+    let totalSize: Int64
     
     var body: some View {
         HStack(spacing: 16) {
             Image(systemName: icon)
                 .font(.title2)
                 .foregroundStyle(color)
-                .frame(width: 24)
+                .frame(width: 28)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -211,16 +240,29 @@ struct StorageItemRow: View {
             
             Spacer()
             
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(StorageManager.shared.formatStorageSize(size))
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(size == 0 ? "0 KB" : StorageManager.shared.formatStorageSize(size))
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundStyle(color)
                 
-                if size > 0 {
-                    ProgressView(value: Double(size), total: Double(StorageManager.shared.totalStorageUsed))
-                        .progressViewStyle(LinearProgressViewStyle(tint: color))
-                        .frame(width: 60)
+                if totalSize > 0 {
+                    GeometryReader { geometry in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color(.systemGray5))
+                            .frame(height: 4)
+                            .overlay(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(color)
+                                    .frame(width: size == 0 ? 0 : geometry.size.width * CGFloat(size) / CGFloat(totalSize), height: 4)
+                                    .animation(.easeInOut(duration: 0.5), value: size)
+                            }
+                    }
+                    .frame(width: 60, height: 4)
+                } else {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color(.systemGray5))
+                        .frame(width: 60, height: 4)
                 }
             }
         }
@@ -228,44 +270,23 @@ struct StorageItemRow: View {
     }
 }
 
-// MARK: - Info Row
-struct InfoRow: View {
-    let title: String
-    let value: String
-    
-    var body: some View {
-        HStack {
-            Text(title)
-                .foregroundStyle(.primary)
-            
-            Spacer()
-            
-            Text(value)
-                .foregroundStyle(.secondary)
-                .font(.subheadline)
-        }
-    }
-}
-
-// MARK: - Storage Breakdown Model
+// MARK: - Storage Breakdown Model (Updated)
 struct StorageBreakdown {
     let cacheSize: Int64
     let documentsSize: Int64
     let userDefaultsSize: Int64
-    let favoritesSize: Int64
     
     var totalSize: Int64 {
-        cacheSize + documentsSize + userDefaultsSize + favoritesSize
+        cacheSize + documentsSize + userDefaultsSize
     }
 }
 
-// MARK: - Storage Calculator
+// MARK: - Storage Calculator (Updated)
 struct StorageCalculator {
     static func calculateBreakdown() async -> StorageBreakdown {
         var cacheSize: Int64 = 0
         var documentsSize: Int64 = 0
         var userDefaultsSize: Int64 = 0
-        var favoritesSize: Int64 = 0
         
         // Cache directory
         if let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
@@ -280,14 +301,10 @@ struct StorageCalculator {
         // UserDefaults size
         userDefaultsSize = await calculateUserDefaultsSize()
         
-        // Favorites size (estimate based on stored favorites)
-        favoritesSize = await calculateFavoritesSize()
-        
         return StorageBreakdown(
             cacheSize: cacheSize,
             documentsSize: documentsSize,
-            userDefaultsSize: userDefaultsSize,
-            favoritesSize: favoritesSize
+            userDefaultsSize: userDefaultsSize
         )
     }
     
@@ -331,26 +348,9 @@ struct StorageCalculator {
             return 0
         }
     }
-    
-    private static func calculateFavoritesSize() async -> Int64 {
-        // Estimate favorites storage size
-        let userDefaults = UserDefaults.standard
-        let allKeys = userDefaults.dictionaryRepresentation().keys
-        
-        var favoritesSize: Int64 = 0
-        for key in allKeys {
-            if key.contains("favorites_") {
-                if let data = userDefaults.data(forKey: key) {
-                    favoritesSize += Int64(data.count)
-                }
-            }
-        }
-        
-        return favoritesSize
-    }
 }
 
-// MARK: - Bundle Extensions
+// MARK: - Bundle Extensions (Updated)
 extension Bundle {
     var appVersion: String {
         return infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"

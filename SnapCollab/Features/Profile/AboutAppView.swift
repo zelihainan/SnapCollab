@@ -4,16 +4,11 @@
 //
 //  Created by Zeliha İnan on 16.09.2025.
 
-
 import SwiftUI
 import UIKit
 
 struct AboutAppView: View {
     @Environment(\.dismiss) var dismiss
-    @State private var showLicenses = false
-    @State private var showPrivacy = false
-    @State private var showTerms = false
-    @State private var showChangelog = false
     
     var body: some View {
         NavigationView {
@@ -114,105 +109,47 @@ struct AboutAppView: View {
                     }
                     .padding(.horizontal, 20)
                     
-                    // Developer Info
+                    // Contact Info - Professional approach
                     VStack(spacing: 16) {
-                        Text("Geliştirici Bilgileri")
+                        Text("İletişim")
                             .font(.headline)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         
                         VStack(spacing: 12) {
-                            InfoItem(
-                                icon: "person.circle.fill",
-                                title: "Geliştirici",
-                                value: "Zeliha İnan",
+                            ContactInfoItem(
+                                icon: "envelope.fill",
+                                title: "Genel Destek",
+                                value: "support@snapcollab.com",
                                 color: .blue
                             )
                             
-                            InfoItem(
-                                icon: "envelope.fill",
-                                title: "İletişim",
-                                value: "zelihainan@snapcollab.com",
+                            ContactInfoItem(
+                                icon: "person.2.fill",
+                                title: "İş Birliği",
+                                value: "partnership@snapcollab.com",
                                 color: .green
                             )
                             
-                            InfoItem(
+                            ContactInfoItem(
+                                icon: "exclamationmark.triangle.fill",
+                                title: "Hata Bildirimi",
+                                value: "bugs@snapcollab.com",
+                                color: .orange
+                            )
+                            
+                            ContactInfoItem(
+                                icon: "lightbulb.fill",
+                                title: "Öneriler",
+                                value: "feedback@snapcollab.com",
+                                color: .purple
+                            )
+                            
+                            ContactInfoItem(
                                 icon: "globe",
                                 title: "Web Sitesi",
                                 value: "www.snapcollab.com",
-                                color: .purple
+                                color: .cyan
                             )
-                            
-                            InfoItem(
-                                icon: "calendar",
-                                title: "İlk Sürüm",
-                                value: "Eylül 2025",
-                                color: .orange
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    
-                    // Technical Info
-                    VStack(spacing: 16) {
-                        Text("Teknik Bilgiler")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        
-                        VStack(spacing: 12) {
-                            TechnicalInfoItem(title: "Platform", value: "iOS 18.5+")
-                            TechnicalInfoItem(title: "Framework", value: "SwiftUI")
-                            TechnicalInfoItem(title: "Backend", value: "Firebase")
-                            TechnicalInfoItem(title: "Dil", value: "Swift 5.0")
-                            TechnicalInfoItem(title: "Minimum iOS", value: "18.5")
-                            TechnicalInfoItem(title: "Cihaz Desteği", value: "iPhone, iPad")
-                            TechnicalInfoItem(title: "İnternet", value: "Gerekli")
-                            TechnicalInfoItem(title: "Depolama", value: "~50 MB")
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    
-                    // Actions
-                    VStack(spacing: 16) {
-                        Text("Daha Fazla Bilgi")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        
-                        VStack(spacing: 12) {
-                            AboutActionButton(
-                                icon: "doc.text.fill",
-                                title: "Sürüm Notları",
-                                subtitle: "Yeni özellikler ve düzeltmeler",
-                                color: .blue
-                            ) {
-                                showChangelog = true
-                            }
-                            
-                            AboutActionButton(
-                                icon: "books.vertical.fill",
-                                title: "Açık Kaynak Lisansları",
-                                subtitle: "Kullanılan kütüphaneler ve lisanslar",
-                                color: .green
-                            ) {
-                                showLicenses = true
-                            }
-                            
-                            AboutActionButton(
-                                icon: "hand.raised.fill",
-                                title: "Gizlilik Politikası",
-                                subtitle: "Verileriniz nasıl korunuyor",
-                                color: .purple
-                            ) {
-                                showPrivacy = true
-                            }
-                            
-                            AboutActionButton(
-                                icon: "doc.plaintext.fill",
-                                title: "Kullanım Koşulları",
-                                subtitle: "Uygulama kullanım kuralları",
-                                color: .orange
-                            ) {
-                                showTerms = true
-                            }
                         }
                     }
                     .padding(.horizontal, 20)
@@ -242,18 +179,6 @@ struct AboutAppView: View {
                     Button("Kapat") { dismiss() }
                 }
             }
-        }
-        .sheet(isPresented: $showLicenses) {
-            LicensesView()
-        }
-        .sheet(isPresented: $showPrivacy) {
-            PrivacyPolicyView()
-        }
-        .sheet(isPresented: $showTerms) {
-            TermsOfServiceView()
-        }
-        .sheet(isPresented: $showChangelog) {
-            ChangelogView()
         }
     }
 }
@@ -293,7 +218,68 @@ struct FeatureItem: View {
     }
 }
 
-// MARK: - Info Item
+// MARK: - Contact Info Item
+struct ContactInfoItem: View {
+    let icon: String
+    let title: String
+    let value: String
+    let color: Color
+    
+    var body: some View {
+        Button(action: { openContact() }) {
+            HStack(spacing: 16) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundStyle(color)
+                    .frame(width: 24)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.body)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.primary)
+                    
+                    Text(value)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(color.opacity(0.1))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(color.opacity(0.2), lineWidth: 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private func openContact() {
+        if value.contains("@") {
+            // Email
+            if let url = URL(string: "mailto:\(value)") {
+                UIApplication.shared.open(url)
+            }
+        } else if value.contains("www.") {
+            // Website
+            if let url = URL(string: "https://\(value)") {
+                UIApplication.shared.open(url)
+            }
+        }
+    }
+}
+
+// MARK: - Info Item (Shared Component)
 struct InfoItem: View {
     let icon: String
     let title: String
@@ -329,258 +315,3 @@ struct InfoItem: View {
     }
 }
 
-// MARK: - Technical Info Item
-struct TechnicalInfoItem: View {
-    let title: String
-    let value: String
-    
-    var body: some View {
-        HStack {
-            Text(title)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            
-            Spacer()
-            
-            Text(value)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundStyle(.primary)
-        }
-        .padding(.vertical, 2)
-    }
-}
-
-// MARK: - About Action Button
-struct AboutActionButton: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    let color: Color
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 16) {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundStyle(color)
-                    .frame(width: 24)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.body)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.primary)
-                    
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                
-                Spacer()
-                
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.gray)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.systemBackground))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(color.opacity(0.2), lineWidth: 1)
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
-
-// MARK: - Licenses View
-struct LicensesView: View {
-    @Environment(\.dismiss) var dismiss
-    
-    var body: some View {
-        NavigationView {
-            List {
-                Section {
-                    LicenseItem(
-                        name: "Firebase iOS SDK",
-                        version: "12.2.0",
-                        license: "Apache License 2.0",
-                        url: "https://github.com/firebase/firebase-ios-sdk"
-                    )
-                    
-                    LicenseItem(
-                        name: "GoogleSignIn-iOS",
-                        version: "9.0.0",
-                        license: "Apache License 2.0",
-                        url: "https://github.com/google/GoogleSignIn-iOS"
-                    )
-                    
-                    LicenseItem(
-                        name: "SwiftUI",
-                        version: "Built-in",
-                        license: "Apple Software License",
-                        url: "https://developer.apple.com/documentation/swiftui"
-                    )
-                    
-                } header: {
-                    Text("Üçüncü Taraf Kütüphaneler")
-                } footer: {
-                    Text("Bu uygulama açık kaynak kütüphanelerini kullanmaktadır. İlgili lisanslar için bağlantılara tıklayabilirsiniz.")
-                }
-                
-                Section {
-                    LicenseItem(
-                        name: "Albert Sans Font",
-                        version: "1.0",
-                        license: "SIL Open Font License",
-                        url: "https://fonts.google.com/specimen/Albert+Sans"
-                    )
-                    
-                    LicenseItem(
-                        name: "SF Symbols",
-                        version: "Apple",
-                        license: "Apple Software License",
-                        url: "https://developer.apple.com/sf-symbols/"
-                    )
-                    
-                } header: {
-                    Text("Fontlar ve İkonlar")
-                }
-            }
-            .navigationTitle("Açık Kaynak Lisansları")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Kapat") { dismiss() }
-                }
-            }
-        }
-    }
-}
-
-// MARK: - License Item
-struct LicenseItem: View {
-    let name: String
-    let version: String
-    let license: String
-    let url: String
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(name)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                
-                Spacer()
-                
-                Text(version)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .fill(Color(.systemGray6))
-                    )
-            }
-            
-            Text(license)
-                .font(.subheadline)
-                .foregroundStyle(.blue)
-            
-            if !url.isEmpty {
-                Button(url) {
-                    if let websiteURL = URL(string: url) {
-                        UIApplication.shared.open(websiteURL)
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(.blue)
-                .buttonStyle(PlainButtonStyle())
-            }
-        }
-        .padding(.vertical, 4)
-    }
-}
-
-// MARK: - Changelog View
-struct ChangelogView: View {
-    @Environment(\.dismiss) var dismiss
-    
-    var body: some View {
-        NavigationView {
-            List {
-                Section {
-                    ChangelogVersionItem(
-                        version: "1.0.0",
-                        date: "15 Eylül 2025",
-                        changes: [
-                            "🎉 İlk sürüm yayınlandı",
-                            "📱 Ortak albüm oluşturma ve paylaşma",
-                            "👥 Davet kodları ile üye ekleme",
-                            "❤️ Favori fotoğraf işaretleme",
-                            "🔔 Push bildirimler",
-                            "🎨 Koyu/açık tema desteği",
-                            "📝 Yazı boyutu ayarları",
-                            "🔐 Google Sign-In entegrasyonu",
-                            "📊 Depolama kullanımı görüntüleme",
-                            "🗂️ Kullanıcı verilerini export etme"
-                        ]
-                    )
-                } header: {
-                    Text("Sürüm Geçmişi")
-                } footer: {
-                    Text("Gelecek güncellemelerde yeni özellikler eklenecek")
-                }
-            }
-            .navigationTitle("Sürüm Notları")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Kapat") { dismiss() }
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Changelog Version Item
-struct ChangelogVersionItem: View {
-    let version: String
-    let date: String
-    let changes: [String]
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Versiyon \(version)")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.primary)
-                
-                Spacer()
-                
-                Text(date)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(changes, id: \.self) { change in
-                    Text(change)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.leading)
-                }
-            }
-        }
-        .padding(.vertical, 8)
-    }
-}

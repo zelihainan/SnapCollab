@@ -1,5 +1,5 @@
 //
-//  SettingsView.swift - Complete with All Active Functions
+//  SettingsView.swift - Updated
 //  SnapCollab
 //
 
@@ -143,8 +143,6 @@ struct SettingsView: View {
                 Section {
                     StorageUsageRow(showDetails: $showStorageDetails)
                     
-                    ClearCacheRow()
-                    
                 } header: {
                     Text("Veri ve Depolama")
                 }
@@ -195,7 +193,7 @@ struct SettingsView: View {
                     SettingsRow(
                         icon: "info.circle.fill",
                         title: "Uygulama Hakkında",
-                        subtitle: "Versiyon, lisanslar ve geliştirici bilgileri",
+                        subtitle: "Versiyon, özellikler ve iletişim bilgileri",
                         iconColor: .gray
                     ) {
                         showAboutApp = true
@@ -700,7 +698,6 @@ struct PasswordChangeSheet: View {
     }
 }
 
-// MARK: - 🆕 Enhanced Storage Usage Row
 struct StorageUsageRow: View {
     @StateObject private var storageManager = StorageManager.shared
     @Binding var showDetails: Bool
@@ -720,41 +717,6 @@ struct StorageUsageRow: View {
                     await storageManager.calculateStorageUsage()
                 }
             }
-        }
-    }
-}
-
-// MARK: - ClearCacheRow (Mevcut - değişiklik yok)
-struct ClearCacheRow: View {
-    @StateObject private var storageManager = StorageManager.shared
-    @State private var showClearAlert = false
-    @State private var isClearing = false
-    
-    var body: some View {
-        SettingsRow(
-            icon: "arrow.down.circle.fill",
-            title: "Önbellek Temizle",
-            subtitle: isClearing ? "Temizleniyor..." : "Geçici dosyaları temizle",
-            iconColor: .orange
-        ) {
-            showClearAlert = true
-        }
-        .disabled(isClearing)
-        .alert("Önbellek Temizle", isPresented: $showClearAlert) {
-            Button("İptal", role: .cancel) { }
-            Button("Temizle", role: .destructive) {
-                Task {
-                    isClearing = true
-                    do {
-                        try await storageManager.clearCache()
-                    } catch {
-                        print("Cache clear error: \(error)")
-                    }
-                    isClearing = false
-                }
-            }
-        } message: {
-            Text("Önbellek dosyaları temizlenecek. Bu işlem geri alınamaz.")
         }
     }
 }

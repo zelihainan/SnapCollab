@@ -4,7 +4,6 @@
 //
 //  Created by Zeliha İnan on 16.09.2025.
 
-
 import SwiftUI
 import Foundation
 
@@ -20,178 +19,193 @@ struct DataExportView: View {
     @State private var exportError: String?
     @State private var exportComplete = false
     
+    // Export seçenekleri
+    @State private var exportProfile = true
+    @State private var exportAlbums = true
+    @State private var exportFavorites = true
+    @State private var exportSettings = true
+    @State private var exportNotifications = true
+    
     var body: some View {
         NavigationView {
-            VStack(spacing: 32) {
-                // Header
-                VStack(spacing: 16) {
-                    ZStack {
-                        Circle()
-                            .fill(.purple.opacity(0.1))
-                            .frame(width: 100, height: 100)
+            ScrollView {
+                VStack(spacing: 32) {
+                    // Header
+                    VStack(spacing: 16) {
+                        ZStack {
+                            Circle()
+                                .fill(.purple.opacity(0.1))
+                                .frame(width: 100, height: 100)
+                            
+                            if exportComplete {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 50))
+                                    .foregroundStyle(.green)
+                            } else if isExporting {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .purple))
+                                    .scaleEffect(1.5)
+                            } else {
+                                Image(systemName: "square.and.arrow.down.fill")
+                                    .font(.system(size: 50))
+                                    .foregroundStyle(.purple)
+                            }
+                        }
+                        
+                        Text(exportComplete ? "Export Tamamlandı" : "Verilerimi İndir")
+                            .font(.title2)
+                            .fontWeight(.semibold)
                         
                         if exportComplete {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 50))
+                            Text("Tüm verileriniz başarıyla export edildi")
+                                .font(.body)
                                 .foregroundStyle(.green)
+                                .multilineTextAlignment(.center)
                         } else if isExporting {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .purple))
-                                .scaleEffect(1.5)
-                        } else {
-                            Image(systemName: "square.and.arrow.down.fill")
-                                .font(.system(size: 50))
-                                .foregroundStyle(.purple)
-                        }
-                    }
-                    
-                    Text(exportComplete ? "Export Tamamlandı" : "Verilerimi İndir")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    
-                    if exportComplete {
-                        Text("Tüm verileriniz başarıyla export edildi")
-                            .font(.body)
-                            .foregroundStyle(.green)
-                            .multilineTextAlignment(.center)
-                    } else if isExporting {
-                        Text("Verileriniz export ediliyor, lütfen bekleyin...")
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    } else {
-                        Text("SnapCollab hesabınızdaki tüm verilerinizi JSON formatında indirebilirsiniz")
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                }
-                .padding(.top, 20)
-                
-                // Progress Section
-                if isExporting || exportComplete {
-                    VStack(spacing: 16) {
-                        ProgressView(value: exportProgress, total: 1.0)
-                            .progressViewStyle(LinearProgressViewStyle(tint: .purple))
-                            .frame(height: 8)
-                            .background(Color(.systemGray5))
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
-                        
-                        HStack {
-                            Text(exportStatus)
-                                .font(.subheadline)
+                            Text("Verileriniz export ediliyor, lütfen bekleyin...")
+                                .font(.body)
                                 .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        } else {
+                            VStack(spacing: 8) {
+                                Text("SnapCollab hesabınızdaki")
+                                    .font(.body)
+                                    .foregroundStyle(.secondary)
+                                
+                                Text("verilerinizi JSON formatında indirebilirsiniz")
+                                    .font(.body)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .multilineTextAlignment(.center)
+                        }
+                    }
+                    .padding(.top, 20)
+                    
+                    // Progress Section
+                    if isExporting || exportComplete {
+                        VStack(spacing: 16) {
+                            ProgressView(value: exportProgress, total: 1.0)
+                                .progressViewStyle(LinearProgressViewStyle(tint: .purple))
+                                .frame(height: 8)
+                                .background(Color(.systemGray5))
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
                             
-                            Spacer()
+                            HStack {
+                                Text(exportStatus)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                
+                                Spacer()
+                                
+                                Text("\(Int(exportProgress * 100))%")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.purple)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                    
+                    // Export Details
+                    if !isExporting && !exportComplete {
+                        VStack(spacing: 16) {
+                            Text("İndirilecek Veriler")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             
-                            Text("\(Int(exportProgress * 100))%")
+                            VStack(spacing: 12) {
+                                ExportDataItem(
+                                    icon: "person.circle",
+                                    title: "Profil Bilgileri",
+                                    description: "Ad, e-posta, kayıt tarihi",
+                                    isSelected: $exportProfile
+                                )
+                                
+                                ExportDataItem(
+                                    icon: "photo.stack",
+                                    title: "Albüm Verileri",
+                                    description: "Oluşturduğunuz ve katıldığınız albümler",
+                                    isSelected: $exportAlbums
+                                )
+                                
+                                ExportDataItem(
+                                    icon: "heart",
+                                    title: "Favoriler",
+                                    description: "Favori olarak işaretlediğiniz medyalar",
+                                    isSelected: $exportFavorites
+                                )
+                                
+                                ExportDataItem(
+                                    icon: "gear",
+                                    title: "Uygulama Ayarları",
+                                    description: "Tema, yazı boyutu ve tercihler",
+                                    isSelected: $exportSettings
+                                )
+                                
+                                ExportDataItem(
+                                    icon: "bell",
+                                    title: "Bildirim Geçmişi",
+                                    description: "Son 30 günün bildirim kayıtları",
+                                    isSelected: $exportNotifications
+                                )
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                    
+                    // Error Message
+                    if let error = exportError {
+                        HStack(spacing: 12) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                            
+                            Text(error)
                                 .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundStyle(.purple)
+                                .foregroundStyle(.red)
+                                .multilineTextAlignment(.leading)
                         }
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(.red.opacity(0.1))
+                        )
+                        .padding(.horizontal, 20)
                     }
-                    .padding(.horizontal, 20)
-                }
-                
-                // Export Details
-                if !isExporting && !exportComplete {
+                    
+                    Spacer()
+                    
+                    // Action Buttons
                     VStack(spacing: 16) {
-                        Text("İndirilecek Veriler")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        
-                        VStack(spacing: 12) {
-                            ExportDataItem(
-                                icon: "person.circle",
-                                title: "Profil Bilgileri",
-                                description: "Ad, e-posta, kayıt tarihi"
-                            )
-                            
-                            ExportDataItem(
-                                icon: "photo.stack",
-                                title: "Albüm Verileri",
-                                description: "Oluşturduğunuz ve katıldığınız albümler"
-                            )
-                            
-                            ExportDataItem(
-                                icon: "heart",
-                                title: "Favoriler",
-                                description: "Favori olarak işaretlediğiniz medyalar"
-                            )
-                            
-                            ExportDataItem(
-                                icon: "gear",
-                                title: "Uygulama Ayarları",
-                                description: "Tema, yazı boyutu ve tercihler"
-                            )
-                            
-                            ExportDataItem(
-                                icon: "bell",
-                                title: "Bildirim Geçmişi",
-                                description: "Son 30 günün bildirim kayıtları"
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                }
-                
-                // Error Message
-                if let error = exportError {
-                    HStack(spacing: 12) {
-                        Image(systemName: "exclamationmark.triangle.fill")
+                        if exportComplete {
+                            VStack(spacing: 12) {
+                                Button("Dosyayı Paylaş") {
+                                    showShareSheet = true
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .frame(maxWidth: .infinity)
+                                
+                                Button("Tekrar Export Et") {
+                                    resetExport()
+                                }
+                                .foregroundStyle(.blue)
+                            }
+                        } else if isExporting {
+                            Button("İptal Et") {
+                                cancelExport()
+                            }
                             .foregroundStyle(.red)
-                        
-                        Text(error)
-                            .font(.subheadline)
-                            .foregroundStyle(.red)
-                            .multilineTextAlignment(.leading)
-                    }
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(.red.opacity(0.1))
-                    )
-                    .padding(.horizontal, 20)
-                }
-                
-                Spacer()
-                
-                // Action Buttons
-                VStack(spacing: 16) {
-                    if exportComplete {
-                        VStack(spacing: 12) {
-                            Button("Dosyayı Paylaş") {
-                                showShareSheet = true
+                        } else {
+                            Button("Export Başlat") {
+                                startExport()
                             }
                             .buttonStyle(.borderedProminent)
                             .frame(maxWidth: .infinity)
-                            
-                            Button("Tekrar Export Et") {
-                                resetExport()
-                            }
-                            .foregroundStyle(.blue)
+                            .disabled(authRepo.currentUser == nil || !hasAnySelection)
                         }
-                    } else if isExporting {
-                        Button("İptal Et") {
-                            cancelExport()
-                        }
-                        .foregroundStyle(.red)
-                    } else {
-                        Button("Export Başlat") {
-                            startExport()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .frame(maxWidth: .infinity)
-                        .disabled(authRepo.currentUser == nil)
                     }
-                    
-                    Button("Kapat") {
-                        dismiss()
-                    }
-                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 20)
             }
             .navigationTitle("Veri Export")
             .navigationBarTitleDisplayMode(.inline)
@@ -206,6 +220,10 @@ struct DataExportView: View {
                 ShareExportedDataView(exportData: data)
             }
         }
+    }
+    
+    private var hasAnySelection: Bool {
+        exportProfile || exportAlbums || exportFavorites || exportSettings || exportNotifications
     }
     
     private func startExport() {
@@ -225,21 +243,40 @@ struct DataExportView: View {
     
     private func performExport(for user: User) async {
         do {
+            var steps = 0
+            let totalSteps = [exportProfile, exportAlbums, exportFavorites, exportSettings, exportNotifications].filter { $0 }.count
+            
             // Step 1: Collect user data
-            await updateProgress(0.2, status: "Profil bilgileri toplanıyor...")
-            let userData = await collectUserData(user)
+            var userData: ExportedUser? = nil
+            if exportProfile {
+                steps += 1
+                await updateProgress(Double(steps) / Double(totalSteps + 1), status: "Profil bilgileri toplanıyor...")
+                userData = await collectUserData(user)
+            }
             
             // Step 2: Collect albums
-            await updateProgress(0.4, status: "Albüm verileri toplanıyor...")
-            let albumsData = await collectAlbumsData(user.uid)
+            var albumsData: [ExportedAlbum] = []
+            if exportAlbums {
+                steps += 1
+                await updateProgress(Double(steps) / Double(totalSteps + 1), status: "Albüm verileri toplanıyor...")
+                albumsData = await collectAlbumsData(user.uid)
+            }
             
             // Step 3: Collect favorites
-            await updateProgress(0.6, status: "Favoriler toplanıyor...")
-            let favoritesData = await collectFavoritesData(user.uid)
+            var favoritesData: [String] = []
+            if exportFavorites {
+                steps += 1
+                await updateProgress(Double(steps) / Double(totalSteps + 1), status: "Favoriler toplanıyor...")
+                favoritesData = await collectFavoritesData(user.uid)
+            }
             
             // Step 4: Collect settings
-            await updateProgress(0.8, status: "Uygulama ayarları toplanıyor...")
-            let settingsData = await collectSettingsData()
+            var settingsData: ExportedSettings? = nil
+            if exportSettings {
+                steps += 1
+                await updateProgress(Double(steps) / Double(totalSteps + 1), status: "Uygulama ayarları toplanıyor...")
+                settingsData = await collectSettingsData()
+            }
             
             // Step 5: Create export data
             await updateProgress(1.0, status: "Export tamamlanıyor...")
@@ -339,42 +376,59 @@ struct DataExportView: View {
     }
 }
 
-// MARK: - Export Data Item
+// MARK: - Export Data Item (Updated with Toggle)
 struct ExportDataItem: View {
     let icon: String
     let title: String
     let description: String
+    @Binding var isSelected: Bool
     
     var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundStyle(.purple)
-                .frame(width: 24)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.body)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.primary)
+        Button(action: { isSelected.toggle() }) {
+            HStack(spacing: 16) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundStyle(.purple)
+                    .frame(width: 24)
                 
-                Text(description)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.body)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.primary)
+                    
+                    Text(description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? .purple : Color(.systemGray5))
+                        .frame(width: 24, height: 24)
+                    
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                }
             }
-            
-            Spacer()
-            
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-                .font(.title3)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? .purple.opacity(0.05) : Color(.systemGray6))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? .purple.opacity(0.3) : .clear, lineWidth: 1)
+            )
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
-        )
+        .buttonStyle(PlainButtonStyle())
+        .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
 }
 
@@ -432,10 +486,10 @@ struct ShareExportedDataView: View {
 
 // MARK: - Export Data Models
 struct UserExportData: Codable {
-    let user: ExportedUser
+    let user: ExportedUser?
     let albums: [ExportedAlbum]
     let favorites: [String]
-    let settings: ExportedSettings
+    let settings: ExportedSettings?
     let exportDate: Date
     let appVersion: String
 }

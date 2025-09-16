@@ -17,11 +17,10 @@ struct DeleteAccountView: View {
     @State private var isDeleting = false
     @State private var deleteError: String?
     @State private var showFinalConfirmation = false
-    @State private var agreedToDelete = false
-    @State private var deleteStep: DeleteStep = .warning
+    @State private var deleteStep: DeleteStep = .information
     
     enum DeleteStep {
-        case warning
+        case information
         case confirmation
         case authentication
         case processing
@@ -33,33 +32,34 @@ struct DeleteAccountView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 32) {
-                    // Header - Warning Icon
+                    // Header
                     VStack(spacing: 16) {
                         ZStack {
                             Circle()
-                                .fill(.red.opacity(0.1))
+                                .fill(.orange.opacity(0.1))
                                 .frame(width: 100, height: 100)
                             
-                            Image(systemName: "exclamationmark.triangle.fill")
+                            Image(systemName: "person.badge.minus")
                                 .font(.system(size: 50))
-                                .foregroundStyle(.red)
+                                .foregroundStyle(.orange)
                         }
                         
-                        Text("Hesabı Kalıcı Olarak Sil")
+                        Text("Hesabı Sil")
                             .font(.title2)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(.primary)
                         
-                        Text("Bu işlem geri alınamaz!")
-                            .font(.headline)
-                            .foregroundStyle(.red)
+                        Text("Hesabınızı kalıcı olarak silmek istiyorsunuz")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
                     }
                     .padding(.top, 20)
                     
                     // Content based on step
                     switch deleteStep {
-                    case .warning:
-                        warningContent
+                    case .information:
+                        informationContent
                     case .confirmation:
                         confirmationContent
                     case .authentication:
@@ -71,18 +71,18 @@ struct DeleteAccountView: View {
                     // Error Message
                     if let error = deleteError {
                         HStack(spacing: 12) {
-                            Image(systemName: "exclamationmark.circle.fill")
-                                .foregroundStyle(.red)
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
                             
                             Text(error)
                                 .font(.subheadline)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(.primary)
                                 .multilineTextAlignment(.leading)
                         }
                         .padding()
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(.red.opacity(0.1))
+                                .fill(.orange.opacity(0.1))
                         )
                         .padding(.horizontal, 20)
                     }
@@ -90,7 +90,7 @@ struct DeleteAccountView: View {
                     Spacer(minLength: 40)
                 }
             }
-            .navigationTitle("Hesabı Sil")
+            .navigationTitle("Hesap Yönetimi")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -109,41 +109,41 @@ struct DeleteAccountView: View {
         }
     }
     
-    // MARK: - Warning Content
-    private var warningContent: some View {
+    // MARK: - Information Content
+    private var informationContent: some View {
         VStack(spacing: 24) {
             VStack(spacing: 16) {
-                Text("Silme İşlemi Hakkında")
+                Text("Silinecek Veriler")
                     .font(.headline)
                     .foregroundStyle(.primary)
                 
                 VStack(spacing: 12) {
-                    WarningItem(
-                        icon: "person.slash",
-                        title: "Hesap Bilgileri",
-                        description: "Profil, e-posta ve tüm kişisel bilgiler"
+                    DeletionInfoItem(
+                        icon: "person.circle",
+                        title: "Profil Bilgileri",
+                        description: "Ad, e-posta, profil fotoğrafı"
                     )
                     
-                    WarningItem(
+                    DeletionInfoItem(
                         icon: "photo.stack",
                         title: "Albüm Verileri",
                         description: "Oluşturduğunuz albümler ve üyelikler"
                     )
                     
-                    WarningItem(
-                        icon: "heart.slash",
+                    DeletionInfoItem(
+                        icon: "heart",
                         title: "Favoriler",
                         description: "Tüm favori işaretlemeleriniz"
                     )
                     
-                    WarningItem(
+                    DeletionInfoItem(
                         icon: "gear",
                         title: "Uygulama Ayarları",
                         description: "Tüm kişisel tercih ve ayarlar"
                     )
                     
-                    WarningItem(
-                        icon: "bell.slash",
+                    DeletionInfoItem(
+                        icon: "bell",
                         title: "Bildirim Geçmişi",
                         description: "Tüm bildirim kayıtları"
                     )
@@ -153,24 +153,27 @@ struct DeleteAccountView: View {
             
             VStack(spacing: 16) {
                 HStack(spacing: 12) {
-                    Button(action: { agreedToDelete.toggle() }) {
-                        Image(systemName: agreedToDelete ? "checkmark.square.fill" : "square")
-                            .font(.title2)
-                            .foregroundStyle(agreedToDelete ? .red : .gray)
-                    }
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.title2)
+                        .foregroundStyle(.orange)
                     
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Uyarıları Okudum ve Anladım")
-                            .font(.body)
+                        Text("Önemli Uyarı")
+                            .font(.headline)
                             .foregroundStyle(.primary)
                         
-                        Text("Yukarıdaki tüm verilerin kalıcı olarak silineceğini kabul ediyorum")
-                            .font(.caption)
+                        Text("Bu işlem geri alınamaz. Hesabınız silindikten sonra verilerinize erişemezsiniz.")
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     
                     Spacer()
                 }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(.orange.opacity(0.1))
+                )
                 .padding(.horizontal, 20)
                 
                 Button("Devam Et") {
@@ -179,8 +182,7 @@ struct DeleteAccountView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.red)
-                .disabled(!agreedToDelete)
+                .tint(.orange)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 20)
             }
@@ -191,14 +193,25 @@ struct DeleteAccountView: View {
     private var confirmationContent: some View {
         VStack(spacing: 24) {
             VStack(spacing: 16) {
-                Text("Onay Kodu Girin")
+                Text("Onay Gerekli")
                     .font(.headline)
                     .foregroundStyle(.primary)
                 
-                Text("Devam etmek için aşağıya '\(requiredConfirmationText)' yazın")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                VStack(spacing: 12) {
+                    Text("Devam etmek için aşağıya")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                    
+                    Text("'\(requiredConfirmationText)'")
+                        .font(.body)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.orange)
+                    
+                    Text("yazın")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+                .multilineTextAlignment(.center)
             }
             
             VStack(spacing: 16) {
@@ -208,7 +221,7 @@ struct DeleteAccountView: View {
                     .autocorrectionDisabled()
                     .multilineTextAlignment(.center)
                     .font(.headline)
-                    .foregroundStyle(confirmationText == requiredConfirmationText ? .red : .primary)
+                    .foregroundStyle(confirmationText == requiredConfirmationText ? .orange : .primary)
                     .padding(.horizontal, 20)
                 
                 if confirmationText == requiredConfirmationText {
@@ -229,13 +242,13 @@ struct DeleteAccountView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.red)
+                .tint(.orange)
                 .disabled(confirmationText != requiredConfirmationText)
                 .frame(maxWidth: .infinity)
                 
                 Button("Geri") {
                     withAnimation(.easeInOut(duration: 0.3)) {
-                        deleteStep = .warning
+                        deleteStep = .information
                     }
                 }
                 .foregroundStyle(.secondary)
@@ -248,13 +261,14 @@ struct DeleteAccountView: View {
     private var authenticationContent: some View {
         VStack(spacing: 24) {
             VStack(spacing: 16) {
-                Text("Şifre Doğrulaması")
+                Text("Güvenlik Doğrulaması")
                     .font(.headline)
                     .foregroundStyle(.primary)
                 
-                Text("Güvenlik için mevcut şifrenizi girin")
+                Text("Güvenliğiniz için mevcut şifrenizi girin")
                     .font(.body)
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
             
             VStack(spacing: 16) {
@@ -298,12 +312,12 @@ struct DeleteAccountView: View {
         VStack(spacing: 24) {
             VStack(spacing: 16) {
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .red))
+                    .progressViewStyle(CircularProgressViewStyle(tint: .orange))
                     .scaleEffect(1.5)
                 
                 Text("Hesap Siliniyor...")
                     .font(.headline)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(.orange)
                 
                 Text("Bu işlem birkaç dakika sürebilir. Lütfen uygulamayı kapatmayın.")
                     .font(.body)
@@ -378,8 +392,8 @@ struct DeleteAccountView: View {
     }
 }
 
-// MARK: - Warning Item Component
-struct WarningItem: View {
+// MARK: - Deletion Info Item Component
+struct DeletionInfoItem: View {
     let icon: String
     let title: String
     let description: String
@@ -388,7 +402,7 @@ struct WarningItem: View {
         HStack(spacing: 16) {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundStyle(.red)
+                .foregroundStyle(.orange)
                 .frame(width: 24)
             
             VStack(alignment: .leading, spacing: 4) {
@@ -404,19 +418,15 @@ struct WarningItem: View {
             
             Spacer()
             
-            Image(systemName: "xmark.circle.fill")
-                .foregroundStyle(.red)
+            Image(systemName: "minus.circle")
+                .foregroundStyle(.orange)
                 .font(.title3)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(.red.opacity(0.05))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(.red.opacity(0.2), lineWidth: 1)
+                .fill(Color(.systemGray6))
         )
     }
 }
