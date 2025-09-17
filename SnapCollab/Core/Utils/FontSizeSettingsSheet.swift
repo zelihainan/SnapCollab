@@ -4,47 +4,13 @@
 
 import SwiftUI
 
-enum FontSizePreference: String, CaseIterable {
-    case small = "small"
-    case medium = "medium"
-    case large = "large"
-    case extraLarge = "extraLarge"
-    
-    var displayName: String {
-        switch self {
-        case .small: return "Küçük"
-        case .medium: return "Orta"
-        case .large: return "Büyük"
-        case .extraLarge: return "Çok Büyük"
-        }
-    }
-    
-    var scale: CGFloat {
-        switch self {
-        case .small: return 0.9
-        case .medium: return 1.0
-        case .large: return 1.1
-        case .extraLarge: return 1.2
-        }
-    }
-    
-    var sampleSize: CGFloat {
-        switch self {
-        case .small: return 14
-        case .medium: return 16
-        case .large: return 18
-        case .extraLarge: return 20
-        }
-    }
-}
-
 struct FontSizeSettingsSheet: View {
     @Environment(\.dismiss) var dismiss
-    @AppStorage("fontSizePreference") private var fontSizePreference: FontSizePreference = .medium
+    @EnvironmentObject var fontManager: FontManager
     @State private var selectedSize: FontSizePreference
     
     init() {
-        _selectedSize = State(initialValue: UserDefaults.standard.fontSizePreference)
+        _selectedSize = State(initialValue: FontManager.shared.fontSizePreference)
     }
     
     var body: some View {
@@ -56,15 +22,14 @@ struct FontSizeSettingsSheet: View {
                         .foregroundStyle(.green)
                     
                     Text("Yazı Boyutu")
-                        .font(.title2)
+                        .scaledFont(.title2)
                         .fontWeight(.semibold)
-
                 }
                 .padding(.top, 20)
                 
                 VStack(spacing: 20) {
                     Text("Önizleme")
-                        .font(.headline)
+                        .scaledFont(.headline)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 20)
                     
@@ -88,7 +53,7 @@ struct FontSizeSettingsSheet: View {
                 
                 VStack(spacing: 16) {
                     Text("Boyut Seçimi")
-                        .font(.headline)
+                        .scaledFont(.headline)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 20)
                     
@@ -113,7 +78,7 @@ struct FontSizeSettingsSheet: View {
                                 
                 VStack(spacing: 10) {
                     Button("Uygula") {
-                        fontSizePreference = selectedSize
+                        fontManager.setFontSize(selectedSize)
                         
                         let notificationFeedback = UINotificationFeedbackGenerator()
                         notificationFeedback.notificationOccurred(.success)
@@ -122,7 +87,6 @@ struct FontSizeSettingsSheet: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .frame(maxWidth: .infinity)
-                    
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
@@ -206,6 +170,40 @@ struct FontSizeOptionCard: View {
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+enum FontSizePreference: String, CaseIterable {
+    case small = "small"
+    case medium = "medium"
+    case large = "large"
+    case extraLarge = "extraLarge"
+    
+    var displayName: String {
+        switch self {
+        case .small: return "Küçük"
+        case .medium: return "Orta"
+        case .large: return "Büyük"
+        case .extraLarge: return "Çok Büyük"
+        }
+    }
+    
+    var scale: CGFloat {
+        switch self {
+        case .small: return 0.9
+        case .medium: return 1.0
+        case .large: return 1.1
+        case .extraLarge: return 1.2
+        }
+    }
+    
+    var sampleSize: CGFloat {
+        switch self {
+        case .small: return 14
+        case .medium: return 16
+        case .large: return 18
+        case .extraLarge: return 20
+        }
     }
 }
 

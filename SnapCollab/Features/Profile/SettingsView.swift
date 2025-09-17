@@ -1,5 +1,5 @@
 //
-//  SettingsView.swift - Updated
+//  SettingsView.swift
 //  SnapCollab
 //
 
@@ -11,13 +11,9 @@ struct SettingsView: View {
     @StateObject var vm: ProfileViewModel
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) var colorScheme
-    @AppStorage("preferredColorScheme") private var preferredColorScheme: ColorSchemePreference = .system
-    
-    // Sheet state'leri - Mevcut olanlar
-    @State private var showFontSizeSettings = false
+    @EnvironmentObject var themeManager: ThemeManager
+        
     @State private var showNotificationSettings = false
-    
-    // 🆕 Yeni aktif fonksiyonlar için sheet state'leri
     @State private var showStorageDetails = false
     @State private var showDataExport = false
     @State private var showDeleteAccount = false
@@ -26,7 +22,6 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             List {
-                // Profil Bilgileri Bölümü
                 Section {
                     ProfileEditRow(vm: vm)
                 } header: {
@@ -35,7 +30,6 @@ struct SettingsView: View {
                     Text("Profil fotoğrafınızı ve görünen adınızı değiştirin")
                 }
                 
-                // Hesap Güvenliği Bölümü
                 if !vm.isAnonymous {
                     Section {
                         SettingsRow(
@@ -60,18 +54,17 @@ struct SettingsView: View {
                     }
                 }
                 
-                // Görünüm Ayarları Bölümü
                 Section {
-                    // Dark Mode Toggle
                     HStack(spacing: 16) {
                         ZStack {
                             Circle()
                                 .fill(.purple.opacity(0.1))
                                 .frame(width: 32, height: 32)
                             
-                            Image(systemName: colorScheme == .dark ? "moon.fill" : "sun.max.fill")
+                            Image(systemName: themeIconName)
                                 .font(.system(size: 16))
                                 .foregroundStyle(.purple)
+                                .animation(.easeInOut(duration: 0.3), value: themeManager.colorSchemePreference)
                         }
                         
                         VStack(alignment: .leading, spacing: 2) {
@@ -82,26 +75,32 @@ struct SettingsView: View {
                             Text(themeDescription)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                                .animation(.easeInOut(duration: 0.2), value: themeManager.colorSchemePreference)
                         }
                         
                         Spacer()
                         
                         Menu {
-                            Picker("Tema Seçimi", selection: $preferredColorScheme) {
+                            Picker("Tema Seçimi", selection: $themeManager.colorSchemePreference) {
                                 Label("Sistem", systemImage: "gear")
-                                    .tag(ColorSchemePreference.system)
+                                    .tag(AppColorSchemePreference.system)
                                 
                                 Label("Açık", systemImage: "sun.max")
-                                    .tag(ColorSchemePreference.light)
+                                    .tag(AppColorSchemePreference.light)
                                 
                                 Label("Koyu", systemImage: "moon")
-                                    .tag(ColorSchemePreference.dark)
+                                    .tag(AppColorSchemePreference.dark)
+                            }
+                            .onChange(of: themeManager.colorSchemePreference) { _ in
+                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                impactFeedback.impactOccurred()
                             }
                         } label: {
                             HStack(spacing: 4) {
-                                Text(preferredColorScheme.displayName)
+                                Text(themeManager.colorSchemePreference.displayName)
                                     .font(.subheadline)
                                     .foregroundStyle(.blue)
+                                    .animation(.easeInOut(duration: 0.2), value: themeManager.colorSchemePreference)
                                 
                                 Image(systemName: "chevron.up.chevron.down")
                                     .font(.caption2)
@@ -111,20 +110,10 @@ struct SettingsView: View {
                     }
                     .padding(.vertical, 8)
                     
-                    SettingsRow(
-                        icon: "textformat.size",
-                        title: "Yazı Boyutu",
-                        subtitle: "Uygulama yazı boyutunu ayarlayın",
-                        iconColor: .green
-                    ) {
-                        showFontSizeSettings = true
-                    }
-                    
                 } header: {
                     Text("Görünüm")
                 }
                 
-                // Bildirim Ayarları Bölümü
                 Section {
                     SettingsRow(
                         icon: "bell.fill",
@@ -134,20 +123,16 @@ struct SettingsView: View {
                     ) {
                         showNotificationSettings = true
                     }
-                    
                 } header: {
                     Text("Bildirimler")
                 }
                 
-                // Veri ve Depolama Bölümü - 🆕 Enhanced
                 Section {
                     StorageUsageRow(showDetails: $showStorageDetails)
-                    
                 } header: {
                     Text("Veri ve Depolama")
                 }
                 
-                // Hesap Yönetimi Bölümü - 🆕 Enhanced
                 Section {
                     if vm.isAnonymous {
                         SettingsRow(
@@ -156,12 +141,10 @@ struct SettingsView: View {
                             subtitle: "Verilerinizi güvence altına alın",
                             iconColor: .blue
                         ) {
-                            // TODO: Upgrade account implementation
                             print("Upgrade account tapped")
                         }
                     }
                     
-                    // ✅ Verilerimi İndir - ACTIVE
                     SettingsRow(
                         icon: "square.and.arrow.down.fill",
                         title: "Verilerimi İndir",
@@ -171,7 +154,6 @@ struct SettingsView: View {
                         showDataExport = true
                     }
                     
-                    // ✅ Hesabı Sil - ACTIVE
                     SettingsRow(
                         icon: "trash.fill",
                         title: "Hesabı Sil",
@@ -187,9 +169,7 @@ struct SettingsView: View {
                     Text("Hesap silme işlemi geri alınamaz")
                 }
                 
-                // App Info Bölümü - 🆕 Enhanced
                 Section {
-                    // ✅ Uygulama Hakkında - ACTIVE
                     SettingsRow(
                         icon: "info.circle.fill",
                         title: "Uygulama Hakkında",
@@ -199,7 +179,6 @@ struct SettingsView: View {
                         showAboutApp = true
                     }
                     
-                    // ✅ Uygulamayı Değerlendir - ACTIVE
                     SettingsRow(
                         icon: "star.fill",
                         title: "Uygulamayı Değerlendir",
@@ -208,7 +187,6 @@ struct SettingsView: View {
                     ) {
                         requestAppReview()
                     }
-                    
                 } header: {
                     Text("Uygulama")
                 }
@@ -221,12 +199,14 @@ struct SettingsView: View {
                 }
             )
         }
-        // Mevcut sheet'ler
+        .background(
+            themeManager.colorSchemePreference == .dark ?
+                Color(.systemGray6) :
+                Color(.systemBackground)
+        )
+        
         .sheet(isPresented: $vm.showEmailChange) {
             EmailChangeSheet(vm: vm)
-        }
-        .sheet(isPresented: $showFontSizeSettings) {
-            FontSizeSettingsSheet()
         }
         .sheet(isPresented: $showNotificationSettings) {
             NotificationSettingsSheet()
@@ -237,8 +217,6 @@ struct SettingsView: View {
         .sheet(isPresented: $vm.showImagePicker) {
             ImagePicker(selectedImage: $vm.selectedImage, sourceType: .photoLibrary)
         }
-        
-        // 🆕 YENİ AKTİF SHEET'LER
         .sheet(isPresented: $showStorageDetails) {
             StorageDetailsView()
         }
@@ -252,7 +230,6 @@ struct SettingsView: View {
             AboutAppView()
         }
         
-        // Mevcut onChange ve alert'ler
         .onChange(of: vm.selectedImage) { newImage in
             if newImage != nil {
                 Task {
@@ -273,34 +250,37 @@ struct SettingsView: View {
         } message: {
             Text(vm.errorMessage ?? "")
         }
-        .preferredColorScheme(preferredColorScheme.colorScheme)
+    }
+    
+    private var themeIconName: String {
+        switch themeManager.colorSchemePreference {
+        case .system: return "gear"
+        case .light: return "sun.max.fill"
+        case .dark: return "moon.fill"
+        }
     }
     
     private var themeDescription: String {
-        switch preferredColorScheme {
+        switch themeManager.colorSchemePreference {
         case .system:
             return "Sistem ayarını takip eder"
         case .light:
             return "Her zaman açık tema"
         case .dark:
-            return "Her zaman koyu tema"
+            return "Yumuşak koyu tema"
         }
     }
     
-    // ✅ App Store Review Request - YENİ FONKSİYON
     private func requestAppReview() {
-        // Haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()
         
-        // Request review
         if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
             SKStoreReviewController.requestReview(in: scene)
         }
     }
 }
 
-// MARK: - ProfileEditRow (Mevcut - değişiklik yok)
 struct ProfileEditRow: View {
     @ObservedObject var vm: ProfileViewModel
     @State private var showNameEditor = false
@@ -407,8 +387,6 @@ struct ProfileEditRow: View {
                     .buttonStyle(PlainButtonStyle())
                     .disabled(vm.isLoading)
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { }
             }
         }
         .padding(.vertical, 8)
@@ -447,7 +425,6 @@ struct ProfileEditRow: View {
     }
 }
 
-// MARK: - DisplayNameEditorSheet (Mevcut - değişiklik yok)
 struct DisplayNameEditorSheet: View {
     @ObservedObject var vm: ProfileViewModel
     @Environment(\.dismiss) var dismiss
@@ -533,7 +510,6 @@ struct DisplayNameEditorSheet: View {
     }
 }
 
-// MARK: - SettingsRow (Mevcut - değişiklik yok)
 struct SettingsRow: View {
     let icon: String
     let title: String
@@ -578,30 +554,6 @@ struct SettingsRow: View {
     }
 }
 
-// MARK: - ColorSchemePreference (Mevcut - değişiklik yok)
-enum ColorSchemePreference: String, CaseIterable {
-    case system = "system"
-    case light = "light"
-    case dark = "dark"
-    
-    var displayName: String {
-        switch self {
-        case .system: return "Sistem"
-        case .light: return "Açık"
-        case .dark: return "Koyu"
-        }
-    }
-    
-    var colorScheme: ColorScheme? {
-        switch self {
-        case .system: return nil
-        case .light: return .light
-        case .dark: return .dark
-        }
-    }
-}
-
-// MARK: - PasswordChangeSheet (Mevcut - değişiklik yok)
 struct PasswordChangeSheet: View {
     @ObservedObject var vm: ProfileViewModel
     @Environment(\.dismiss) var dismiss

@@ -2,9 +2,9 @@
 //  FontManager.swift
 //  SnapCollab
 //
-//  Created by Zeliha İnan on 15.09.2025.
 
 import SwiftUI
+import Combine
 
 class FontManager: ObservableObject {
     static let shared = FontManager()
@@ -12,6 +12,7 @@ class FontManager: ObservableObject {
     @Published var fontSizePreference: FontSizePreference {
         didSet {
             UserDefaults.standard.fontSizePreference = fontSizePreference
+            objectWillChange.send()
         }
     }
     
@@ -51,6 +52,10 @@ class FontManager: ObservableObject {
     func scaledSize(_ size: CGFloat) -> CGFloat {
         return size * fontSizePreference.scale
     }
+    
+    func setFontSize(_ preference: FontSizePreference) {
+        fontSizePreference = preference
+    }
 }
 
 extension Font {
@@ -64,11 +69,12 @@ extension Font {
 }
 
 struct ScaledFont: ViewModifier {
+    @EnvironmentObject var fontManager: FontManager
     let font: Font
     
     func body(content: Content) -> some View {
         content
-            .font(FontManager.shared.scaledFont(font))
+            .font(fontManager.scaledFont(font))
     }
 }
 
