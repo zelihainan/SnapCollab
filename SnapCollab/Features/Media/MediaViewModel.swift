@@ -1,11 +1,12 @@
 //
-//  MediaViewModel.swift
+//  MediaViewModel.swift - Toplu İşlemler İçin Güncellenmiş
 //  SnapCollab
 //
 
 import SwiftUI
 import Foundation
 import AVKit
+import PhotosUI
 
 @MainActor
 final class MediaViewModel: ObservableObject {
@@ -17,6 +18,20 @@ final class MediaViewModel: ObservableObject {
     @Published var currentFilter: MediaFilter = .all
     @Published var favorites: Set<String> = []
     @Published var favoriteAnimations: [String: Bool] = [:]
+    
+    // Toplu işlemler için yeni özellikler
+    @Published var isSelectionMode = false
+    @Published var selectedItems: Set<String> = []
+    @Published var isUploading = false
+    @Published var uploadProgress: Double = 0.0
+    @Published var uploadStatus = ""
+    @Published var uploadedCount = 0
+    @Published var totalUploadCount = 0
+    
+    // Çoklu seçim için
+    @Published var selectedPhotos: [PhotosPickerItem] = []
+    @Published var isProcessingBulkUpload = false
+    @Published var bulkUploadProgress: Double = 0.0
     
     enum MediaFilter {
         case all
@@ -47,6 +62,150 @@ final class MediaViewModel: ObservableObject {
         
         loadFavorites()
     }
+    
+    // MARK: - Toplu İşlem Fonksiyonları
+    
+    func toggleSelectionMode() {
+        isSelectionMode.toggle()
+        if !isSelectionMode {
+            selectedItems.removeAll()
+        }
+    }
+    
+    func toggleItemSelection(_ itemId: String) {
+        if selectedItems.contains(itemId) {
+            selectedItems.remove(itemId)
+        } else {
+            selectedItems.insert(itemId)
+        }
+    }
+    
+    func selectAllVisibleItems() {
+        selectedItems = Set(filteredItems.compactMap { $0.id })
+    }
+    
+    func clearSelection() {
+        selectedItems.removeAll()
+    }
+    
+    var selectedItemsCount: Int {
+        selectedItems.count
+    }
+    
+    var canDeleteSelected: Bool {
+        guard let currentUserId = auth.uid else { return false }
+        let selectedMediaItems = filteredItems.filter { selectedItems.contains($0.id ?? "") }
+        return selectedMediaItems.allSatisfy { $0.uploaderId == currentUserId }
+    }
+    
+    // MARK: - Çoklu Fotoğraf Yükleme
+    
+    func processBulkPhotoUpload() async {
+        guard !selectedPhotos.isEmpty else { return }
+        
+        isProcessingBulkUpload = true
+        bulkUploadProgress = 0.0
+        uploadedCount = 0
+        totalUploadCount = selectedPhotos.count
+        uploadStatus = "Fotoğraflar hazırlanıyor..."
+        
+        var processedImages: [UIImage] = []
+        
+        // İlk aşama: Fotoğrafları yükle ve işle
+        for (index, photoItem) in selectedPhotos.enumerated() {
+            do {
+                if let imageData = try await photoItem.loadTransferable(type: Data.self),
+                   let image = UIImage(data: imageData) {
+                    processedImages.append(image)
+                }
+                
+                await MainActor.run {
+                    bulkUploadProgress = Double(index + 1) / Double(selectedPhotos.count * 2) // İlk yarı
+                    uploadStatus = "Hazırlanıyor: \(index + 1)/\(selectedPhotos.count)"
+                }
+            } catch {
+                print("Error loading photo: \(error)")
+            }
+        }
+        
+        // İkinci aşama: Firebase'e yükle
+        for (index, image) in processedImages.enumerated() {
+            do {
+                if let notificationRepo = notificationRepo {
+                    try await repo.uploadWithNotification(image: image, albumId: albumId, notificationRepo: notificationRepo)
+                } else {
+                    try await repo.upload(image: image, albumId: albumId)
+                }
+                
+                await MainActor.run {
+                    uploadedCount = index + 1
+                    bulkUploadProgress = 0.5 + (Double(index + 1) / Double(processedImages.count)) * 0.5
+                    uploadStatus = "Yükleniyor: \(index + 1)/\(processedImages.count)"
+                }
+                
+                // Her 5 fotoğrafta bir kısa bekleme (Firebase rate limiting için)
+                if (index + 1) % 5 == 0 {
+                    try await Task.sleep(nanoseconds: 500_000_000) // 0.5 saniye
+                }
+                
+            } catch {
+                print("Error uploading photo \(index): \(error)")
+                // Hatalı yüklemeleri devam ettir
+            }
+        }
+        
+        await MainActor.run {
+            isProcessingBulkUpload = false
+            selectedPhotos.removeAll()
+            uploadStatus = "\(uploadedCount) fotoğraf başarıyla yüklendi!"
+            
+            // Başarı mesajını 3 saniye sonra temizle
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                self.uploadStatus = ""
+            }
+        }
+    }
+    
+    // MARK: - Toplu Silme
+    
+    func deleteSelectedItems() async throws {
+        let itemsToDelete = filteredItems.filter { selectedItems.contains($0.id ?? "") }
+        
+        for item in itemsToDelete {
+            do {
+                try await repo.deleteMedia(albumId: albumId, item: item)
+                
+                // Favorilerden de çıkar
+                if let itemId = item.id {
+                    removeFavorite(itemId)
+                }
+            } catch {
+                print("Error deleting item \(item.id ?? ""): \(error)")
+                // Hatalı silmeleri devam ettir
+            }
+        }
+        
+        clearSelection()
+        isSelectionMode = false
+    }
+    
+    // MARK: - Toplu İndirme (Favorilere Ekleme)
+    
+    func addSelectedToFavorites() {
+        let itemIds = Array(selectedItems)
+        addMultipleToFavorites(itemIds)
+        clearSelection()
+        isSelectionMode = false
+    }
+    
+    func removeSelectedFromFavorites() {
+        let itemIds = Array(selectedItems)
+        removeMultipleFromFavorites(itemIds)
+        clearSelection()
+        isSelectionMode = false
+    }
+    
+    // MARK: - Mevcut Fonksiyonlar (Değiştirilmeden)
     
     func start() {
         Task {

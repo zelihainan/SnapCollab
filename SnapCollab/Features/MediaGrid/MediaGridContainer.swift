@@ -1,9 +1,3 @@
-//
-//  MediaGridContainer.swift
-//  SnapCollab
-//
-//
-
 import SwiftUI
 import PhotosUI
 
@@ -12,6 +6,50 @@ struct MediaGridContainer: View {
     @ObservedObject var state: MediaGridState
     
     var body: some View {
+        ZStack {
+            mainContent
+            if vm.isProcessingBulkUpload { bulkUploadProgressOverlay }
+        }
+        .toolbar { MediaGridToolbarContent(vm: vm, state: state) } // Burası ToolbarContent protokolüne uyuyorsa OK
+        .sheet(isPresented: $state.showMediaPicker) { mediaPicker }
+        .onChange(of: state.selectedImage, perform: handleImageSelection(_:))
+        .onChange(of: state.selectedVideoURL, perform: handleVideoSelection(_:))
+        .onChange(of: state.selectedPhotos, perform: handleBulkPhotoSelection(_:))
+        .fullScreenCover(isPresented: $state.showViewer, onDismiss: { state.closeViewer() }) {
+            if let selectedItem = state.selectedItem {
+                MediaViewerView(vm: vm, initialItem: selectedItem) {
+                    state.closeViewer()
+                }
+            }
+        }
+        .alert("Medyayı Sil", isPresented: $state.showDeleteAlert) {
+            Button("Vazgeç", role: .cancel) { state.itemToDelete = nil }
+            Button("Sil", role: .destructive) {
+                if let item = state.itemToDelete {
+                    Task { try? await vm.deletePhoto(item) }
+                }
+                state.itemToDelete = nil
+            }
+        } message: {
+            if let item = state.itemToDelete {
+                Text("Bu \(item.isVideo ? "videoyu" : "fotoğrafı") kalıcı olarak silmek istediğinizden emin misiniz?")
+            }
+        }
+
+        .alert("Seçili Öğeleri Sil", isPresented: $state.showBulkDeleteAlert) {
+            Button("Vazgeç", role: .cancel) { }
+            Button("Sil", role: .destructive) {
+                Task { try? await vm.deleteSelectedItems() }
+            }
+        } message: {
+            Text("\(vm.selectedItemsCount) öğeyi kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
+        }
+
+    }
+
+    // MARK: - Pieces split out to reduce type-checking load
+    @ViewBuilder
+    private var mainContent: some View {
         GeometryReader { geometry in
             if vm.filteredItems.isEmpty {
                 MediaGridEmptyState(
@@ -22,132 +60,83 @@ struct MediaGridContainer: View {
                 MediaGridScrollView(vm: vm, state: state, geometry: geometry)
             }
         }
-        .toolbar {
-            MediaGridToolbarContent(vm: vm, state: state)
-        }
-        .sheet(isPresented: $state.showMediaPicker) {
-            MediaPickerSheet(
-                isPresented: $state.showMediaPicker,
-                selectedImage: $state.selectedImage,
-                selectedVideoURL: $state.selectedVideoURL,
-                currentFilter: vm.currentFilter // Filter bilgisini geçiyoruz
-            )
-        }
-        .onChange(of: state.selectedImage) { newImage in
-            handleImageSelection(newImage)
-        }
-        .onChange(of: state.selectedVideoURL) { newVideoURL in
-            handleVideoSelection(newVideoURL)
-        }
-        .fullScreenCover(isPresented: $state.showViewer) {
-            state.closeViewer()
-        } content: {
-            if let selectedItem = state.selectedItem {
-                MediaViewerView(vm: vm, initialItem: selectedItem) {
-                    state.closeViewer()
-                }
-            }
-        }
-        .alert("Medyayı Sil", isPresented: $state.showDeleteAlert) {
-            MediaGridDeleteAlert(state: state, vm: vm)
-        } message: {
-            if let item = state.itemToDelete {
-                Text("Bu \(item.isVideo ? "videoyu" : "fotoğrafı") kalıcı olarak silmek istediğinizden emin misiniz?")
-            }
-        }
     }
-        
-    private func handleImageSelection(_ image: UIImage?) {
-        guard let image = image else { return }
-        
-        vm.pickedImage = image
-        Task {
-            await vm.uploadPicked()
-        }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            state.resetMediaSelection()
-        }
-    }
-    
-    private func handleVideoSelection(_ videoURL: URL?) {
-        guard let videoURL = videoURL else { return }
-        
-        vm.pickedVideoURL = videoURL
-        Task {
-            await vm.uploadPicked()
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            state.resetMediaSelection()
-        }
-    }
-}
 
-struct MediaGridScrollView: View {
-    @ObservedObject var vm: MediaViewModel
-    @ObservedObject var state: MediaGridState
-    let geometry: GeometryProxy
-    
-    var body: some View {
-        ScrollView {
-            regularGrid
-        }
-        .refreshable {
-            await refreshData()
-        }
+    @ViewBuilder
+    private var mediaPicker: some View {
+        MediaPickerSheet(
+            isPresented: $state.showMediaPicker,
+            selectedImage: $state.selectedImage,
+            selectedVideoURL: $state.selectedVideoURL,
+            selectedPhotos: $state.selectedPhotos,
+            currentFilter: vm.currentFilter
+        )
     }
-    
-    private var regularGrid: some View {
-        let sortedItems = vm.sortedItems(by: .newest)
-        
-        return PinterestGrid(
-            items: sortedItems,
-            spacing: 8,
-            columns: 2,
-            containerWidth: geometry.size.width
-        ) { item in
-            EnhancedMediaGridCard(
-                vm: vm,
-                item: item,
-                onTap: {
-                    state.openViewer(with: item)
-                },
-                onDelete: { item in
-                    state.showDeleteConfirmation(for: item)
-                }
-            )
-        }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-    }
-    
-    private func refreshData() async {
-        try? await Task.sleep(nanoseconds: 500_000_000)
-    }
-}
 
-struct MediaGridDeleteAlert: View {
-    @ObservedObject var state: MediaGridState
-    @ObservedObject var vm: MediaViewModel
-    
-    var body: some View {
-        Group {
-            Button("İptal", role: .cancel) {
-                state.cancelDelete()
-            }
-            
-            Button("Sil", role: .destructive) {
-                if let item = state.itemToDelete {
-                    Task {
-                        do {
-                            try await vm.deletePhoto(item)
-                        } catch {
-                            print("Delete error: \(error)")
-                        }
-                        state.cancelDelete()
+    // MARK: - Bulk upload overlay (senin aynısı)
+    private var bulkUploadProgressOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.4).ignoresSafeArea()
+            VStack(spacing: 20) {
+                ZStack {
+                    Circle()
+                        .stroke(.white.opacity(0.3), lineWidth: 8)
+                        .frame(width: 80, height: 80)
+                    Circle()
+                        .trim(from: 0, to: vm.bulkUploadProgress)
+                        .stroke(.blue, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 80, height: 80)
+                        .animation(.easeInOut, value: vm.bulkUploadProgress)
+                    Text("\(Int(vm.bulkUploadProgress * 100))%")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                }
+                VStack(spacing: 8) {
+                    Text("Fotoğraflar Yükleniyor")
+                        .font(.title2).fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                    Text(vm.uploadStatus)
+                        .font(.body)
+                        .foregroundStyle(.white.opacity(0.8))
+                        .multilineTextAlignment(.center)
+                    if vm.totalUploadCount > 0 {
+                        Text("\(vm.uploadedCount) / \(vm.totalUploadCount)")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.6))
                     }
                 }
             }
+            .padding(40)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.ultraThinMaterial)
+                    .environment(\.colorScheme, .dark)
+            )
+            .padding(.horizontal, 20)
         }
+    }
+
+    // MARK: - Handlers
+    private func handleImageSelection(_ image: UIImage?) {
+        guard let image = image else { return }
+        vm.pickedImage = image
+        Task { await vm.uploadPicked() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { state.resetMediaSelection() }
+    }
+
+    private func handleVideoSelection(_ videoURL: URL?) {
+        guard let videoURL = videoURL else { return }
+        vm.pickedVideoURL = videoURL
+        Task { await vm.uploadPicked() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { state.resetMediaSelection() }
+    }
+
+    private func handleBulkPhotoSelection(_ photos: [PhotosPickerItem]) {
+        guard !photos.isEmpty else { return }
+        vm.selectedPhotos = photos
+        Task { await vm.processBulkPhotoUpload() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { state.resetMediaSelection() }
     }
 }
