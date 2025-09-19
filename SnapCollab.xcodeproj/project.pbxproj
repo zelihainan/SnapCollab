@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0A116DFF2E7DC2EF00F99AB9 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 0A116DFE2E7DC2EF00F99AB9 /* ZIPFoundation */; };
 		0AC488682E6F3A5200C48F99 /* FirebaseAI in Frameworks */ = {isa = PBXBuildFile; productRef = 0AC488672E6F3A5200C48F99 /* FirebaseAI */; };
 		0AC4886A2E6F3A5200C48F99 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 0AC488692E6F3A5200C48F99 /* FirebaseAnalytics */; };
 		0AC4886C2E6F3A5200C48F99 /* FirebaseAnalyticsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0AC4886B2E6F3A5200C48F99 /* FirebaseAnalyticsCore */; };
@@ -57,6 +58,7 @@
 			files = (
 				0AC4886E2E6F3A5200C48F99 /* FirebaseAnalyticsIdentitySupport in Frameworks */,
 				0AC488722E6F3A5200C48F99 /* FirebaseAuth in Frameworks */,
+				0A116DFF2E7DC2EF00F99AB9 /* ZIPFoundation in Frameworks */,
 				0AC4886A2E6F3A5200C48F99 /* FirebaseAnalytics in Frameworks */,
 				0AC489142E6F68D500C48F99 /* GoogleSignInSwift in Frameworks */,
 				0AC4887E2E6F3A5200C48F99 /* FirebaseFunctions in Frameworks */,
@@ -129,6 +131,7 @@
 				0AC488812E6F3A5200C48F99 /* FirebaseStorageCombine-Community */,
 				0AC489112E6F68D500C48F99 /* GoogleSignIn */,
 				0AC489132E6F68D500C48F99 /* GoogleSignInSwift */,
+				0A116DFE2E7DC2EF00F99AB9 /* ZIPFoundation */,
 			);
 			productName = SnapCollab;
 			productReference = 0A492CD42E6F37B500CA1B68 /* SnapCollab.app */;
@@ -161,6 +164,7 @@
 			packageReferences = (
 				0AC488662E6F3A5200C48F99 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				0AC489102E6F68D500C48F99 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				0A116DFD2E7DC2EF00F99AB9 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0A492CD52E6F37B500CA1B68 /* Products */;
@@ -392,6 +396,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		0A116DFD2E7DC2EF00F99AB9 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/weichsel/ZIPFoundation";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.19;
+			};
+		};
 		0AC488662E6F3A5200C48F99 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
@@ -411,6 +423,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		0A116DFE2E7DC2EF00F99AB9 /* ZIPFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0A116DFD2E7DC2EF00F99AB9 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			productName = ZIPFoundation;
+		};
 		0AC488672E6F3A5200C48F99 /* FirebaseAI */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 0AC488662E6F3A5200C48F99 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;

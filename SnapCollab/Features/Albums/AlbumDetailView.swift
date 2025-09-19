@@ -14,6 +14,7 @@ struct AlbumDetailView: View {
     @State private var isDeleting = false
     @State private var selectedCategory: MediaCategory = .all
     @State private var showMediaGrid = false
+    @State private var showBulkShareSheet = false
 
     enum MediaCategory: String, CaseIterable {
         case all = "Tümü"
@@ -117,6 +118,10 @@ struct AlbumDetailView: View {
                             Label("Albümü Sil", systemImage: "trash")
                         }
                         
+                        Button(action: { showBulkShareSheet = true}) {
+                            Label("Albümü Dışa Aktar (ZIP)", systemImage: "doc.zipper")
+                        }
+                        
                         Divider()
                     }
                     
@@ -178,6 +183,9 @@ struct AlbumDetailView: View {
         }
         .sheet(isPresented: $showCoverManagement) {
             AlbumCoverManagementSheet(album: album, albumRepo: di.albumRepo)
+        }
+        .sheet(isPresented: $showBulkShareSheet){
+            BulkShareSheet(album: album, mediaItems: vm.items, mediaRepo: di.mediaRepo)
         }
         .alert("Albümden Ayrıl", isPresented: $showLeaveAlert) {
             Button("İptal", role: .cancel) { }
