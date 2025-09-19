@@ -102,7 +102,8 @@ final class MediaViewModel: ObservableObject {
     var canDeleteSelected: Bool {
         guard let currentUserId = auth.uid, selectedItemsCount > 0 else { return false }
         let selectedMediaItems = filteredItems.filter { selectedItems.contains($0.id ?? "") }
-        return selectedMediaItems.allSatisfy { $0.uploaderId == currentUserId }
+        // Tüm seçili öğelerin uploaderId'sini kontrol et
+        return !selectedMediaItems.isEmpty && selectedMediaItems.allSatisfy { $0.uploaderId == currentUserId }
     }
     
     // MARK: - Direkt İndirme İşlemi

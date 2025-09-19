@@ -1,5 +1,5 @@
 //
-//  MediaPickerSheet.swift
+//  MediaPickerSheet.swift - Basitleştirilmiş Versiyon
 //  SnapCollab
 //
 
@@ -19,8 +19,6 @@ struct MediaPickerSheet: View {
     @State private var showCameraPicker = false
     @State private var pickerItem: PhotosPickerItem?
     @State private var cameraSourceType: UIImagePickerController.SourceType = .camera
-    @State private var isBulkMode = false
-
     
     var body: some View {
         NavigationView {
@@ -40,33 +38,6 @@ struct MediaPickerSheet: View {
                         .multilineTextAlignment(.center)
                 }
                 .padding(.top, 20)
-                
-                if currentFilter == .all || currentFilter == .photos {
-                    VStack(spacing: 16) {
-                        Text("Yükleme Modu")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        
-                        HStack(spacing: 12) {
-                            ModeSelectionButton(
-                                title: "Tekli",
-                                subtitle: "Bir fotoğraf",
-                                icon: "photo",
-                                isSelected: !isBulkMode,
-                                action: { isBulkMode = false }
-                            )
-                            
-                            ModeSelectionButton(
-                                title: "Çoklu",
-                                subtitle: "Birden fazla",
-                                icon: "photo.stack",
-                                isSelected: isBulkMode,
-                                action: { isBulkMode = true }
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                }
                 
                 VStack(spacing: 16) {
                     switch currentFilter {
@@ -129,31 +100,19 @@ struct MediaPickerSheet: View {
         
     @ViewBuilder
     private var allFilterOptions: some View {
-        if isBulkMode {
-            PhotosPicker(
-                selection: $selectedPhotos,
-                maxSelectionCount: 30,
-                matching: .images
-            ) {
-                MediaOptionButton(
-                    icon: "photo.stack.fill",
-                    title: "Çoklu Fotoğraf Seç",
-                    subtitle: "En fazla 30 fotoğraf seçin",
-                    color: .blue
-                )
-            }
-        } else {
-            PhotosPicker(
-                selection: $pickerItem,
-                matching: .any(of: [.images, .videos])
-            ) {
-                MediaOptionButton(
-                    icon: "photo.on.rectangle.angled",
-                    title: "Galeriden Seç",
-                    subtitle: "Fotoğraf veya video seçin",
-                    color: .blue
-                )
-            }
+        // Direkt çoklu seçim - telefon galerisinin kendi özelliği
+        PhotosPicker(
+            selection: $selectedPhotos,
+            maxSelectionCount: 50, // Daha yüksek limit
+            matching: .any(of: [.images, .videos]),
+            photoLibrary: .shared()
+        ) {
+            MediaOptionButton(
+                icon: "photo.on.rectangle.angled",
+                title: "Galeriden Seç",
+                subtitle: "Fotoğraf veya video seçin",
+                color: .blue
+            )
         }
         
         Button(action: {
@@ -170,73 +129,63 @@ struct MediaPickerSheet: View {
     }
     
     @ViewBuilder
-        private var photoFilterOptions: some View {
-            if isBulkMode {
-                // Çoklu fotoğraf seçimi
-                PhotosPicker(
-                    selection: $selectedPhotos,
-                    maxSelectionCount: 30,
-                    matching: .images
-                ) {
-                    MediaOptionButton(
-                        icon: "photo.stack.fill",
-                        title: "Çoklu Fotoğraf Seç",
-                        subtitle: "En fazla 30 fotoğraf seçin",
-                        color: .blue
-                    )
-                }
-            } else {
-                PhotosPicker(selection: $pickerItem, matching: .images) {
-                    MediaOptionButton(
-                        icon: "photo",
-                        title: "Galeriden Fotoğraf Seç",
-                        subtitle: "Galeriden fotoğraf seçin",
-                        color: .blue
-                    )
-                }
-            }
-                
-            Button(action: {
-                cameraSourceType = .camera
-                showImagePicker = true
-            }) {
-                MediaOptionButton(
-                    icon: "camera",
-                    title: "Fotoğraf Çek",
-                    subtitle: "Kamera ile fotoğraf çekin",
-                    color: .green
-                )
-            }
-            .buttonStyle(PlainButtonStyle())
+    private var photoFilterOptions: some View {
+        // Fotoğraf için direkt çoklu seçim
+        PhotosPicker(
+            selection: $selectedPhotos,
+            maxSelectionCount: 50,
+            matching: .images,
+            photoLibrary: .shared()
+        ) {
+            MediaOptionButton(
+                icon: "photo.stack.fill",
+                title: "Galeriden Fotoğraf Seç",
+                subtitle: "Tek veya çoklu fotoğraf seçin",
+                color: .blue
+            )
         }
-        
-        @ViewBuilder
-        private var videoFilterOptions: some View {
-            Button(action: {
-                showVideoPicker = true
-            }) {
-                MediaOptionButton(
-                    icon: "video",
-                    title: "Galeriden Video Seç",
-                    subtitle: "Galeriden video seçin",
-                    color: .purple
-                )
-            }
-            .buttonStyle(PlainButtonStyle())
             
-            Button(action: {
-                cameraSourceType = .camera
-                showCameraPicker = true
-            }) {
-                MediaOptionButton(
-                    icon: "video.badge.plus",
-                    title: "Video Çek",
-                    subtitle: "Kamera ile video kaydedin",
-                    color: .red
-                )
-            }
-            .buttonStyle(PlainButtonStyle())
+        Button(action: {
+            cameraSourceType = .camera
+            showImagePicker = true
+        }) {
+            MediaOptionButton(
+                icon: "camera",
+                title: "Fotoğraf Çek",
+                subtitle: "Kamera ile fotoğraf çekin",
+                color: .green
+            )
         }
+        .buttonStyle(PlainButtonStyle())
+    }
+        
+    @ViewBuilder
+    private var videoFilterOptions: some View {
+        Button(action: {
+            showVideoPicker = true
+        }) {
+            MediaOptionButton(
+                icon: "video",
+                title: "Galeriden Video Seç",
+                subtitle: "Galeriden video seçin",
+                color: .purple
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        
+        Button(action: {
+            cameraSourceType = .camera
+            showCameraPicker = true
+        }) {
+            MediaOptionButton(
+                icon: "video.badge.plus",
+                title: "Video Çek",
+                subtitle: "Kamera ile video kaydedin",
+                color: .red
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
         
     private var iconForFilter: String {
         switch currentFilter {
@@ -291,47 +240,6 @@ struct MediaPickerSheet: View {
                 }
             }
         }
-    }
-}
-
-struct ModeSelectionButton: View {
-    let title: String
-    let subtitle: String
-    let icon: String
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundStyle(isSelected ? .blue : .secondary)
-                
-                VStack(spacing: 4) {
-                    Text(title)
-                        .font(.subheadline)
-                        .fontWeight(isSelected ? .semibold : .medium)
-                        .foregroundStyle(.primary)
-                    
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: 80)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? .blue.opacity(0.1) : Color(.systemGray6))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? .blue : .clear, lineWidth: 2)
-            )
-            .scaleEffect(isSelected ? 1.05 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
-        }
-        .buttonStyle(PlainButtonStyle())
     }
 }
 
