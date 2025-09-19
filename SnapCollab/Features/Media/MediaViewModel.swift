@@ -1,5 +1,5 @@
 //
-//  MediaViewModel.swift - Toplu İşlemler İçin Güncellenmiş
+//  MediaViewModel.swift - Direkt İndirme ve Düzeltilmiş Silme İzinleri
 //  SnapCollab
 //
 
@@ -7,6 +7,7 @@ import SwiftUI
 import Foundation
 import AVKit
 import PhotosUI
+import Photos
 
 @MainActor
 final class MediaViewModel: ObservableObject {
@@ -32,6 +33,11 @@ final class MediaViewModel: ObservableObject {
     @Published var selectedPhotos: [PhotosPickerItem] = []
     @Published var isProcessingBulkUpload = false
     @Published var bulkUploadProgress: Double = 0.0
+    
+    // Direkt indirme için
+    @Published var isDownloading = false
+    @Published var downloadProgress: Double = 0.0
+    @Published var downloadStatus = ""
     
     enum MediaFilter {
         case all
@@ -92,10 +98,158 @@ final class MediaViewModel: ObservableObject {
         selectedItems.count
     }
     
+    // Silme iznini düzelt - sadece kendi yüklediği dosyaları silebilsin
     var canDeleteSelected: Bool {
-        guard let currentUserId = auth.uid else { return false }
+        guard let currentUserId = auth.uid, selectedItemsCount > 0 else { return false }
         let selectedMediaItems = filteredItems.filter { selectedItems.contains($0.id ?? "") }
         return selectedMediaItems.allSatisfy { $0.uploaderId == currentUserId }
+    }
+    
+    // MARK: - Direkt İndirme İşlemi
+    
+    func downloadSelectedItems() async {
+        let itemsToDownload = filteredItems.filter { selectedItems.contains($0.id ?? "") }
+        guard !itemsToDownload.isEmpty else { return }
+        
+        // İzin kontrolü
+        let status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+        if status == .denied || status == .restricted {
+            print("Photo library access denied")
+            return
+        } else if status == .notDetermined {
+            let newStatus = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+            if newStatus != .authorized && newStatus != .limited {
+                print("Photo library access denied after request")
+                return
+            }
+        }
+        
+        isDownloading = true
+        downloadProgress = 0.0
+        downloadStatus = "İndirme başlıyor..."
+        
+        var downloadedCount = 0
+        let totalCount = itemsToDownload.count
+        
+        for (index, item) in itemsToDownload.enumerated() {
+            do {
+                await updateDownloadProgress(Double(index) / Double(totalCount), status: "İndiriliyor: \(index + 1)/\(totalCount)")
+                
+                if item.type == "image" {
+                    try await downloadImage(item)
+                } else if item.type == "video" {
+                    try await downloadVideo(item)
+                }
+                
+                downloadedCount = index + 1
+                
+                // Her 3 dosyada bir kısa bekleme
+                if (index + 1) % 3 == 0 {
+                    try await Task.sleep(nanoseconds: 300_000_000)
+                }
+                
+            } catch {
+                print("Download error for item \(item.id ?? ""): \(error)")
+            }
+        }
+        
+        downloadProgress = 1.0
+        downloadStatus = "\(downloadedCount) öğe başarıyla indirildi!"
+        
+        // 2 saniye sonra temizle
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            self.isDownloading = false
+            self.clearSelection()
+            self.isSelectionMode = false
+        }
+    }
+    
+    private func updateDownloadProgress(_ progress: Double, status: String) async {
+        await MainActor.run {
+            downloadProgress = progress
+            downloadStatus = status
+        }
+    }
+    
+    private func downloadImage(_ item: MediaItem) async throws {
+        let imageURL = try await repo.downloadURL(for: item.path)
+        let (data, _) = try await URLSession.shared.data(from: imageURL)
+        
+        guard let image = UIImage(data: data) else {
+            throw MediaError.uploadError
+        }
+        
+        try await PHPhotoLibrary.shared().performChanges {
+            PHAssetChangeRequest.creationRequestForAsset(from: image)
+        }
+    }
+    
+    private func downloadVideo(_ item: MediaItem) async throws {
+        let videoURL = try await repo.downloadURL(for: item.path)
+        let (data, _) = try await URLSession.shared.data(from: videoURL)
+        
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("mp4")
+        
+        try data.write(to: tempURL)
+        
+        try await PHPhotoLibrary.shared().performChanges {
+            PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: tempURL)
+        }
+        
+        try? FileManager.default.removeItem(at: tempURL)
+    }
+    
+    // MARK: - Paylaşım İşlevi
+    
+    func shareSelectedItems() {
+        let itemsToShare = filteredItems.filter { selectedItems.contains($0.id ?? "") }
+        
+        // Bu işlevi implement etmek için download URL'lerini alıp UIActivityViewController'da paylaşabilirsiniz
+        print("Sharing \(itemsToShare.count) items")
+        
+        Task {
+            var urlsToShare: [URL] = []
+            
+            for item in itemsToShare.prefix(10) { // Maksimum 10 öğe
+                do {
+                    let url = try await repo.downloadURL(for: item.path)
+                    urlsToShare.append(url)
+                } catch {
+                    print("Error getting URL for sharing: \(error)")
+                }
+            }
+            
+            await MainActor.run {
+                if !urlsToShare.isEmpty {
+                    showShareSheet(with: urlsToShare)
+                }
+            }
+        }
+    }
+    
+    private func showShareSheet(with urls: [URL]) {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first,
+              let rootViewController = window.rootViewController else { return }
+        
+        var topViewController = rootViewController
+        while let presentedViewController = topViewController.presentedViewController {
+            topViewController = presentedViewController
+        }
+        
+        let activityVC = UIActivityViewController(activityItems: urls, applicationActivities: nil)
+        
+        if let popover = activityVC.popoverPresentationController {
+            popover.sourceView = topViewController.view
+            popover.sourceRect = CGRect(x: topViewController.view.bounds.midX,
+                                      y: topViewController.view.bounds.midY,
+                                      width: 0, height: 0)
+            popover.permittedArrowDirections = []
+        }
+        
+        topViewController.present(activityVC, animated: true)
     }
     
     // MARK: - Çoklu Fotoğraf Yükleme
@@ -111,7 +265,6 @@ final class MediaViewModel: ObservableObject {
         
         var processedImages: [UIImage] = []
         
-        // İlk aşama: Fotoğrafları yükle ve işle
         for (index, photoItem) in selectedPhotos.enumerated() {
             do {
                 if let imageData = try await photoItem.loadTransferable(type: Data.self),
@@ -120,7 +273,7 @@ final class MediaViewModel: ObservableObject {
                 }
                 
                 await MainActor.run {
-                    bulkUploadProgress = Double(index + 1) / Double(selectedPhotos.count * 2) // İlk yarı
+                    bulkUploadProgress = Double(index + 1) / Double(selectedPhotos.count * 2)
                     uploadStatus = "Hazırlanıyor: \(index + 1)/\(selectedPhotos.count)"
                 }
             } catch {
@@ -128,7 +281,6 @@ final class MediaViewModel: ObservableObject {
             }
         }
         
-        // İkinci aşama: Firebase'e yükle
         for (index, image) in processedImages.enumerated() {
             do {
                 if let notificationRepo = notificationRepo {
@@ -143,14 +295,12 @@ final class MediaViewModel: ObservableObject {
                     uploadStatus = "Yükleniyor: \(index + 1)/\(processedImages.count)"
                 }
                 
-                // Her 5 fotoğrafta bir kısa bekleme (Firebase rate limiting için)
                 if (index + 1) % 5 == 0 {
-                    try await Task.sleep(nanoseconds: 500_000_000) // 0.5 saniye
+                    try await Task.sleep(nanoseconds: 500_000_000)
                 }
                 
             } catch {
                 print("Error uploading photo \(index): \(error)")
-                // Hatalı yüklemeleri devam ettir
             }
         }
         
@@ -159,7 +309,6 @@ final class MediaViewModel: ObservableObject {
             selectedPhotos.removeAll()
             uploadStatus = "\(uploadedCount) fotoğraf başarıyla yüklendi!"
             
-            // Başarı mesajını 3 saniye sonra temizle
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 self.uploadStatus = ""
             }
@@ -175,32 +324,14 @@ final class MediaViewModel: ObservableObject {
             do {
                 try await repo.deleteMedia(albumId: albumId, item: item)
                 
-                // Favorilerden de çıkar
                 if let itemId = item.id {
                     removeFavorite(itemId)
                 }
             } catch {
                 print("Error deleting item \(item.id ?? ""): \(error)")
-                // Hatalı silmeleri devam ettir
             }
         }
         
-        clearSelection()
-        isSelectionMode = false
-    }
-    
-    // MARK: - Toplu İndirme (Favorilere Ekleme)
-    
-    func addSelectedToFavorites() {
-        let itemIds = Array(selectedItems)
-        addMultipleToFavorites(itemIds)
-        clearSelection()
-        isSelectionMode = false
-    }
-    
-    func removeSelectedFromFavorites() {
-        let itemIds = Array(selectedItems)
-        removeMultipleFromFavorites(itemIds)
         clearSelection()
         isSelectionMode = false
     }
@@ -510,31 +641,5 @@ final class MediaViewModel: ObservableObject {
         
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()
-    }
-}
-
-extension MediaViewModel {
-    func debugVideoURL(for item: MediaItem) async {
-        guard item.isVideo else { return }
-        
-        do {
-            let url = try await repo.downloadURL(for: item.path)
-            print("DEBUG Video URL: \(url.absoluteString)")
-            
-            let asset = AVAsset(url: url)
-            let playable = try await asset.load(.isPlayable)
-            let duration = try await asset.load(.duration)
-            
-            print("DEBUG Video playable: \(playable)")
-            print("DEBUG Video duration: \(duration.seconds) seconds")
-            
-            if playable && duration.seconds > 0 {
-                print("DEBUG Video seems valid!")
-            } else {
-                print("DEBUG Video has issues")
-            }
-        } catch {
-            print("DEBUG Video test failed: \(error)")
-        }
     }
 }

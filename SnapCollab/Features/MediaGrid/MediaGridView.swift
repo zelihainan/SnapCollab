@@ -8,32 +8,72 @@ import SwiftUI
 struct MediaGridView: View {
     @ObservedObject var vm: MediaViewModel
     @StateObject private var gridState = MediaGridState()
-    @State private var showBulkDownloadSheet = false
     
     var body: some View {
-        MediaGridContainer(vm: vm, state: gridState)
-            .task {
-                vm.start()
+        ZStack {
+            MediaGridContainer(vm: vm, state: gridState)
+            
+            // Direkt indirme progress overlay'i
+            if vm.isDownloading {
+                downloadProgressOverlay
             }
-            .sheet(isPresented: $showBulkDownloadSheet) {
-                BulkDownloadSheet(
-                    selectedItems: vm.filteredItems.filter { vm.selectedItems.contains($0.id ?? "") },
-                    mediaRepo: vm.repo
-                )
-            }
-            .onChange(of: vm.selectedItems) { selectedItems in
-                // iPhone gibi: Hiç seçim yoksa seçim modundan çık
-                if selectedItems.isEmpty && vm.isSelectionMode {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        vm.isSelectionMode = false
-                    }
+        }
+        .task {
+            vm.start()
+        }
+        .onChange(of: vm.selectedItems) { selectedItems in
+            // iPhone gibi: Hiç seçim yoksa seçim modundan çık
+            if selectedItems.isEmpty && vm.isSelectionMode {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    vm.isSelectionMode = false
                 }
             }
-            .onChange(of: gridState.showBulkDownloadSheet) { isShowing in
-                if isShowing {
-                    showBulkDownloadSheet = true
+        }
+    }
+    
+    private var downloadProgressOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.4).ignoresSafeArea()
+            
+            VStack(spacing: 20) {
+                ZStack {
+                    Circle()
+                        .stroke(.white.opacity(0.3), lineWidth: 8)
+                        .frame(width: 80, height: 80)
+                    
+                    Circle()
+                        .trim(from: 0, to: vm.downloadProgress)
+                        .stroke(.green, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 80, height: 80)
+                        .animation(.easeInOut, value: vm.downloadProgress)
+                    
+                    Text("\(Int(vm.downloadProgress * 100))%")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                }
+                
+                VStack(spacing: 8) {
+                    Text("Galeriye İndiriliyor")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                    
+                    Text(vm.downloadStatus)
+                        .font(.body)
+                        .foregroundStyle(.white.opacity(0.8))
+                        .multilineTextAlignment(.center)
                 }
             }
+            .padding(40)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.ultraThinMaterial)
+                    .environment(\.colorScheme, .dark)
+            )
+            .padding(.horizontal, 20)
+        }
     }
 }
     

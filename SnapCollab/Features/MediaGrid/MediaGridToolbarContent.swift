@@ -57,23 +57,18 @@ struct MediaGridToolbarContent: ToolbarContent {
     private var selectionModeMenuItems: some View {
         if vm.selectedItemsCount > 0 {
             Button(action: {
-                vm.addSelectedToFavorites()
-            }) {
-                Label("Favorilere Ekle", systemImage: "heart")
-            }
-            
-            if vm.currentFilter == .favorites {
-                Button(action: {
-                    vm.removeSelectedFromFavorites()
-                }) {
-                    Label("Favorilerden Çıkar", systemImage: "heart.slash")
+                // Direkt indirme işlemini başlat
+                Task {
+                    await vm.downloadSelectedItems()
                 }
+            }) {
+                Label("Galeriye Kaydet", systemImage: "arrow.down.to.line")
             }
             
             Button(action: {
-                state.showBulkDownloadSheet = true
+                vm.shareSelectedItems()
             }) {
-                Label("Galeriye Kaydet", systemImage: "arrow.down.to.line")
+                Label("Paylaş", systemImage: "square.and.arrow.up")
             }
             
             if vm.canDeleteSelected {

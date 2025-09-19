@@ -43,11 +43,12 @@ struct MediaGridContainer: View {
         } message: {
             Text("\(vm.selectedItemsCount) öğeyi kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
         }
-        .onChange(of: state.showBulkDownloadSheet) { isShowing in
-            if !isShowing {
-                // Bulk download sheet'i kapandığında seçimleri temizle
-                vm.clearSelection()
-                vm.isSelectionMode = false
+        .onChange(of: vm.selectedItems) { selectedItems in
+            // Hiç seçim kalmadığında otomatik çıkış
+            if selectedItems.isEmpty && vm.isSelectionMode {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    vm.isSelectionMode = false
+                }
             }
         }
     }
