@@ -11,53 +11,33 @@ struct MediaGridView: View {
     @State private var showBulkDownloadSheet = false
     
     var body: some View {
-        ZStack {
-            MediaGridContainer(vm: vm, state: gridState)
-            
-            // Seçim modu için floating action button
-            if vm.isSelectionMode && vm.selectedItemsCount > 0 {
-                VStack {
-                    Spacer()
-                    
-                    HStack {
-                        Spacer()
-                        
-                        FloatingActionMenu(
-                            selectedCount: vm.selectedItemsCount,
-                            canDelete: vm.canDeleteSelected,
-                            onFavoriteAdd: {
-                                vm.addSelectedToFavorites()
-                            },
-                            onFavoriteRemove: {
-                                vm.removeSelectedFromFavorites()
-                            },
-                            onDownload: {
-                                showBulkDownloadSheet = true
-                            },
-                            onDelete: {
-                                gridState.showBulkDeleteAlert = true
-                            },
-                            currentFilter: vm.currentFilter
-                        )
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 100) // Tab bar için boşluk
+        MediaGridContainer(vm: vm, state: gridState)
+            .task {
+                vm.start()
+            }
+            .sheet(isPresented: $showBulkDownloadSheet) {
+                BulkDownloadSheet(
+                    selectedItems: vm.filteredItems.filter { vm.selectedItems.contains($0.id ?? "") },
+                    mediaRepo: vm.repo
+                )
+            }
+            .onChange(of: vm.selectedItems) { selectedItems in
+                // iPhone gibi: Hiç seçim yoksa seçim modundan çık
+                if selectedItems.isEmpty && vm.isSelectionMode {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        vm.isSelectionMode = false
                     }
                 }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: vm.isSelectionMode)
             }
-        }
-        .task {
-            vm.start()
-        }
-        .sheet(isPresented: $showBulkDownloadSheet) {
-            BulkDownloadSheet(
-                selectedItems: vm.filteredItems.filter { vm.selectedItems.contains($0.id ?? "") },
-                mediaRepo: vm.repo
-            )
-        }
+            .onChange(of: gridState.showBulkDownloadSheet) { isShowing in
+                if isShowing {
+                    showBulkDownloadSheet = true
+                }
+            }
     }
 }
+    
+
 
 struct FloatingActionMenu: View {
     let selectedCount: Int
@@ -176,11 +156,6 @@ struct FloatingActionButton: View {
     }
 }
 
-//
-//  MediaGridScrollView.swift - Son güncelleme
-//  SnapCollab
-//
-
 struct MediaGridScrollView: View {
     @ObservedObject var vm: MediaViewModel
     @ObservedObject var state: MediaGridState
@@ -189,16 +164,9 @@ struct MediaGridScrollView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                // Seçim modu header'ı
-                if vm.isSelectionMode {
-                    SelectionModeHeader(vm: vm)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 16)
-                }
-                
                 regularGrid
             }
-            .padding(.top, vm.isSelectionMode ? 16 : 8)
+            .padding(.top, 8)
         }
         .refreshable {
             await refreshData()
@@ -232,52 +200,5 @@ struct MediaGridScrollView: View {
     
     private func refreshData() async {
         try? await Task.sleep(nanoseconds: 500_000_000)
-    }
-}
-
-struct SelectionModeHeader: View {
-    @ObservedObject var vm: MediaViewModel
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Text("Seçim Modu")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                
-                Spacer()
-                
-                Button("Tümünü Seç") {
-                    vm.selectAllVisibleItems()
-                }
-                .font(.subheadline)
-                .foregroundStyle(.blue)
-            }
-            
-            HStack {
-                Text("\(vm.selectedItemsCount) öğe seçili")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                
-                Spacer()
-                
-                if vm.selectedItemsCount > 0 {
-                    Button("Seçimi Temizle") {
-                        vm.clearSelection()
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(.orange)
-                }
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.blue.opacity(0.05))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(.blue.opacity(0.2), lineWidth: 1)
-        )
     }
 }

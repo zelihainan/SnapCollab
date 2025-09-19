@@ -10,7 +10,7 @@ struct MediaGridContainer: View {
             mainContent
             if vm.isProcessingBulkUpload { bulkUploadProgressOverlay }
         }
-        .toolbar { MediaGridToolbarContent(vm: vm, state: state) } // Burası ToolbarContent protokolüne uyuyorsa OK
+        .toolbar { MediaGridToolbarContent(vm: vm, state: state) }
         .sheet(isPresented: $state.showMediaPicker) { mediaPicker }
         .onChange(of: state.selectedImage, perform: handleImageSelection(_:))
         .onChange(of: state.selectedVideoURL, perform: handleVideoSelection(_:))
@@ -35,7 +35,6 @@ struct MediaGridContainer: View {
                 Text("Bu \(item.isVideo ? "videoyu" : "fotoğrafı") kalıcı olarak silmek istediğinizden emin misiniz?")
             }
         }
-
         .alert("Seçili Öğeleri Sil", isPresented: $state.showBulkDeleteAlert) {
             Button("Vazgeç", role: .cancel) { }
             Button("Sil", role: .destructive) {
@@ -44,7 +43,13 @@ struct MediaGridContainer: View {
         } message: {
             Text("\(vm.selectedItemsCount) öğeyi kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
         }
-
+        .onChange(of: state.showBulkDownloadSheet) { isShowing in
+            if !isShowing {
+                // Bulk download sheet'i kapandığında seçimleri temizle
+                vm.clearSelection()
+                vm.isSelectionMode = false
+            }
+        }
     }
 
     // MARK: - Pieces split out to reduce type-checking load
@@ -73,7 +78,7 @@ struct MediaGridContainer: View {
         )
     }
 
-    // MARK: - Bulk upload overlay (senin aynısı)
+    // MARK: - Bulk upload overlay
     private var bulkUploadProgressOverlay: some View {
         ZStack {
             Color.black.opacity(0.4).ignoresSafeArea()

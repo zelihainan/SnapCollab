@@ -11,16 +11,9 @@ struct MediaGridToolbarContent: ToolbarContent {
     
     var body: some ToolbarContent {
         if vm.isSelectionMode {
-            // Seçim modu toolbar'ı
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button("İptal") {
-                    vm.toggleSelectionMode()
-                }
-                .foregroundStyle(.red)
-            }
-            
+            // Seçim modu toolbar'ı - iPhone Galerisi gibi
             ToolbarItem(placement: .principal) {
-                Text("\(vm.selectedItemsCount) seçili")
+                Text(vm.selectedItemsCount == 0 ? "Öğe Seç" : "\(vm.selectedItemsCount) Seçili")
                     .font(.headline)
                     .foregroundStyle(.primary)
             }
@@ -38,14 +31,13 @@ struct MediaGridToolbarContent: ToolbarContent {
             // Normal mod toolbar'ı
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
-                    // Seçim modu butonu
-                    Button(action: {
-                        vm.toggleSelectionMode()
-                    }) {
-                        Image(systemName: "checkmark.circle")
-                            .font(.title2)
+                    // Seçim modu butonu - sadece fotoğraf varsa göster
+                    if !vm.filteredItems.isEmpty {
+                        Button("Seç") {
+                            vm.toggleSelectionMode()
+                        }
+                        .foregroundStyle(.blue)
                     }
-                    .opacity(vm.filteredItems.isEmpty ? 0 : 1)
                     
                     // Ekleme butonu
                     if shouldShowAddButton {
@@ -65,14 +57,6 @@ struct MediaGridToolbarContent: ToolbarContent {
     private var selectionModeMenuItems: some View {
         if vm.selectedItemsCount > 0 {
             Button(action: {
-                vm.selectAllVisibleItems()
-            }) {
-                Label("Tümünü Seç", systemImage: "checkmark.square")
-            }
-            
-            Divider()
-            
-            Button(action: {
                 vm.addSelectedToFavorites()
             }) {
                 Label("Favorilere Ekle", systemImage: "heart")
@@ -86,20 +70,20 @@ struct MediaGridToolbarContent: ToolbarContent {
                 }
             }
             
-            Divider()
+            Button(action: {
+                state.showBulkDownloadSheet = true
+            }) {
+                Label("Galeriye Kaydet", systemImage: "arrow.down.to.line")
+            }
             
             if vm.canDeleteSelected {
+                Divider()
+                
                 Button(role: .destructive, action: {
                     state.showBulkDeleteAlert = true
                 }) {
-                    Label("Sil (\(vm.selectedItemsCount))", systemImage: "trash")
+                    Label("Sil", systemImage: "trash")
                 }
-            }
-        } else {
-            Button(action: {
-                vm.selectAllVisibleItems()
-            }) {
-                Label("Tümünü Seç", systemImage: "checkmark.square")
             }
         }
     }

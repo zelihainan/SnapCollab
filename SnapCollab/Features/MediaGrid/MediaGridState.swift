@@ -1,4 +1,3 @@
-
 //  MediaGridState.swift - Toplu İşlemler İçin Güncellenmiş
 //  SnapCollab
 //
@@ -11,13 +10,14 @@ final class MediaGridState: ObservableObject {
     @Published var showMediaPicker = false
     @Published var selectedImage: UIImage?
     @Published var selectedVideoURL: URL?
-    @Published var selectedPhotos: [PhotosPickerItem] = [] // Yeni: Çoklu fotoğraf
+    @Published var selectedPhotos: [PhotosPickerItem] = []
     @Published var selectedItem: MediaItem?
     @Published var showViewer = false
     @Published var showDeleteAlert = false
     @Published var itemToDelete: MediaItem?
-    @Published var showBulkDeleteAlert = false // Yeni: Toplu silme alert'i
-    @Published var showBulkUploadProgress = false // Yeni: Çoklu yükleme progress'i
+    @Published var showBulkDeleteAlert = false
+    @Published var showBulkDownloadSheet = false // Yeni: Toplu indirme sheet'i
+    @Published var showBulkUploadProgress = false
     
     
     func openViewer(with item: MediaItem) {
