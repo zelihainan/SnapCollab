@@ -20,6 +20,7 @@ struct MediaViewerView: View {
     @State private var muteStates: [String: Bool] = [:]
 
     private let thumbnailBarHeight: CGFloat = 86
+    private let uploaderBarHeight: CGFloat = 60 // Yeni uploader bar height
     private let controlsGapAboveThumbs: CGFloat = 22
     private let soundIconExtraTop: CGFloat = 18
 
@@ -59,6 +60,7 @@ struct MediaViewerView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
 
             if showUI { topBar }
+            if showUI { uploaderInfoBar } // Yeni uploader bilgi barı
             if showUI && items.count > 1 { thumbnailBar }
 
             if showToast, let msg = toastMessage { toastView(msg) }
@@ -106,8 +108,9 @@ struct MediaViewerView: View {
                         get: { muteStates[id] ?? false },
                         set: { muteStates[id] = $0; player.isMuted = $0 }
                     ),
-                    bottomOverlayPadding: thumbnailBarHeight + controlsGapAboveThumbs,
-                    topRightExtraTop: soundIconExtraTop
+                    bottomOverlayPadding: thumbnailBarHeight + controlsGapAboveThumbs + uploaderBarHeight,
+                    topRightExtraTop: soundIconExtraTop,
+                    autoPlay: true
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -183,6 +186,17 @@ struct MediaViewerView: View {
         }
     }
 
+    private var uploaderInfoBar: some View {
+        VStack {
+            Spacer()
+            
+            UploaderInfoView(item: currentItem, vm: vm)
+                .padding(.horizontal, 16)
+                .padding(.bottom, thumbnailBarHeight + 8) // Thumbnaillerin hemen üstü
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     private var thumbnailBar: some View {
         VStack {
             Spacer()
@@ -226,13 +240,14 @@ struct MediaViewerView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    // Diğer fonksiyonlar aynı kalıyor...
     private func ensurePlayer(for item: MediaItem) async {
         guard let id = item.id, players[id] == nil else { return }
         guard let url = await vm.videoURL(for: item) else { return }
         await MainActor.run {
             let p = AVPlayer(url: url)
             p.isMuted = muteStates[id] ?? false
-            p.pause()                      // <<< başlangıçta DURAKLAT
+            p.pause()
             players[id] = p
             currentPlayingId = id
 
@@ -373,6 +388,136 @@ struct MediaViewerView: View {
     }
 }
 
+// Yeni UploaderInfoView komponenti
+struct UploaderInfoView: View {
+    let item: MediaItem
+    let vm: MediaViewModel
+    
+    @State private var uploaderUser: User?
+    @State private var isLoading = true
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Profil fotoğrafı
+            Group {
+                if let user = uploaderUser, let photoURL = user.photoURL, !photoURL.isEmpty {
+                    AsyncImage(url: URL(string: photoURL)) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        if isLoading {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                        } else {
+                            defaultAvatar
+                        }
+                    }
+                    .frame(width: 32, height: 32)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(.white.opacity(0.3), lineWidth: 1))
+                } else {
+                    defaultAvatar
+                }
+            }
+            
+            // Kullanıcı adı ve "ekledi" yazısı
+            VStack(alignment: .leading, spacing: 2) {
+                if let user = uploaderUser {
+                    Text(user.displayName ?? user.email)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                } else {
+                    if isLoading {
+                        Text("Yükleniyor...")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.7))
+                    } else {
+                        Text("Bilinmeyen kullanıcı")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                }
+                
+                HStack(spacing: 4) {
+                    
+                    Text(timeAgoText)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.8))
+                }
+            }
+            
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+                .environment(\.colorScheme, .dark)
+        )
+        .onAppear {
+            loadUploaderInfo()
+        }
+        .onChange(of: item.uploaderId) { _ in
+            loadUploaderInfo()
+        }
+    }
+    
+    private var defaultAvatar: some View {
+        Circle()
+            .fill(.white.opacity(0.2))
+            .frame(width: 32, height: 32)
+            .overlay {
+                Image(systemName: "person.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+    }
+    
+    private var timeAgoText: String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        formatter.locale = Locale(identifier: "tr_TR")
+        return formatter.localizedString(for: item.createdAt, relativeTo: Date())
+    }
+    
+    private func loadUploaderInfo() {
+        isLoading = true
+        
+        // Önce cache'ten kontrol et
+        if let cachedUser = vm.getUser(for: item.uploaderId) {
+            uploaderUser = cachedUser
+            isLoading = false
+            return
+        }
+        
+        // Cache'te yoksa Firestore'dan yükle
+        Task {
+            do {
+                let userService = FirestoreUserService()
+                let user = try await userService.getUser(uid: item.uploaderId)
+                
+                await MainActor.run {
+                    uploaderUser = user
+                    isLoading = false
+                    
+                    // Cache'e ekle
+                    vm.cacheUser(user, for: item.uploaderId)
+                }
+            } catch {
+                await MainActor.run {
+                    uploaderUser = nil
+                    isLoading = false
+                }
+                print("Error loading uploader info: \(error)")
+            }
+        }
+    }
+}
+
 private struct InlineVideoView: View {
     let player: AVPlayer
     let itemId: String
@@ -380,6 +525,7 @@ private struct InlineVideoView: View {
 
     let bottomOverlayPadding: CGFloat
     let topRightExtraTop: CGFloat
+    let autoPlay: Bool
 
     @State private var isPlaying = false
     @State private var current: Double = 0
@@ -391,11 +537,18 @@ private struct InlineVideoView: View {
         ZStack {
             PlayerViewRepresentable(player: player)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .onTapGesture { showControlsTemporarily() }
+                .onTapGesture {
+                    if isPlaying {
+                        player.pause()
+                    } else {
+                        player.play()
+                    }
+                    showControlsTemporarily()
+                }
 
             if showControls {
                 VStack {
-                    // Ses
+                    // Ses butonu - sağ üst köşe
                     HStack {
                         Spacer()
                         Button {
@@ -404,9 +557,9 @@ private struct InlineVideoView: View {
                             showControlsTemporarily()
                         } label: {
                             Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                                .font(.title2)
+                                .font(.title3)
                                 .foregroundColor(.white)
-                                .padding(12)
+                                .padding(8)
                                 .background(Circle().fill(.black.opacity(0.6)))
                         }
                         .padding(.trailing, 16)
@@ -415,19 +568,30 @@ private struct InlineVideoView: View {
 
                     Spacer()
 
-                    // Slider + Play/Pause
-                    VStack(spacing: 8) {
-                        HStack {
-                            Text(format(current)).font(.caption).foregroundColor(.white).monospacedDigit()
+                    // Minimal video kontrolleri - alt kısımda
+                    VStack(spacing: 6) {
+                        // Progress bar - daha ince
+                        HStack(spacing: 8) {
+                            Text(format(current))
+                                .font(.caption2)
+                                .foregroundColor(.white)
+                                .monospacedDigit()
+                            
                             Slider(value: $current, in: 0...max(duration, 1), onEditingChanged: { editing in
                                 if !editing {
                                     player.seek(to: CMTime(seconds: current, preferredTimescale: 600))
                                 }
                             })
-                            Text(format(duration)).font(.caption).foregroundColor(.white).monospacedDigit()
+                            .accentColor(.white)
+                            
+                            Text(format(duration))
+                                .font(.caption2)
+                                .foregroundColor(.white)
+                                .monospacedDigit()
                         }
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, 20)
 
+                        // Play/Pause butonu - daha küçük
                         HStack {
                             Spacer()
                             Button {
@@ -435,17 +599,19 @@ private struct InlineVideoView: View {
                                 showControlsTemporarily()
                             } label: {
                                 Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                                    .font(.system(size: 44))
+                                    .font(.system(size: 32)) // Daha küçük
                                     .foregroundColor(.white)
+                                    .background(Circle().fill(.black.opacity(0.3)))
                             }
                             Spacer()
                         }
+                        .padding(.bottom, 8)
                     }
                     .padding(.bottom, bottomOverlayPadding)
                     .background(
-                        LinearGradient(colors: [.clear, .black.opacity(0.7)],
+                        LinearGradient(colors: [.clear, .black.opacity(0.6)], // Daha hafif gradient
                                        startPoint: .top, endPoint: .bottom)
-                            .frame(height: 120)
+                            .frame(height: 100) // Daha küçük gradient area
                     )
                 }
                 .transition(.opacity)
@@ -453,10 +619,19 @@ private struct InlineVideoView: View {
         }
         .onAppear {
             setupObservers()
+            if autoPlay {
+                // Kısa bir gecikme sonra otomatik başlat
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    player.play()
+                }
+            }
             showControlsTemporarily()
             player.isMuted = isMuted
         }
-        .onDisappear { timer?.invalidate() }
+        .onDisappear {
+            timer?.invalidate()
+            player.pause() // View'dan çıkarken durdur
+        }
     }
 
     private func setupObservers() {
@@ -467,6 +642,10 @@ private struct InlineVideoView: View {
             ) { _ in
                 player.seek(to: .zero)
                 isPlaying = false
+                // Otomatik tekrar oynatma için
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    player.play()
+                }
             }
         }
         player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600),
@@ -480,7 +659,7 @@ private struct InlineVideoView: View {
     private func showControlsTemporarily() {
         withAnimation { showControls = true }
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in // Daha kısa süre
             withAnimation { showControls = false }
         }
     }
@@ -498,7 +677,7 @@ private struct PlayerViewRepresentable: UIViewRepresentable {
     func makeUIView(context: Context) -> PlayerView {
         let v = PlayerView()
         v.playerLayer.player = player
-        v.playerLayer.videoGravity = .resizeAspect // contain
+        v.playerLayer.videoGravity = .resizeAspect
         return v
     }
 

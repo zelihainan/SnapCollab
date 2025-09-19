@@ -103,10 +103,6 @@ struct MediaGridContainer: View {
                     Text("Fotoğraflar Yükleniyor")
                         .font(.title2).fontWeight(.semibold)
                         .foregroundStyle(.white)
-                    Text(vm.uploadStatus)
-                        .font(.body)
-                        .foregroundStyle(.white.opacity(0.8))
-                        .multilineTextAlignment(.center)
                     if vm.totalUploadCount > 0 {
                         Text("\(vm.uploadedCount) / \(vm.totalUploadCount)")
                             .font(.caption)
