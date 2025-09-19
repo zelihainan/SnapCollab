@@ -114,12 +114,14 @@ struct AlbumDetailView: View {
                             Label("Albüm Adını Değiştir", systemImage: "pencil")
                         }
                         
-                        Button(role: .destructive, action: { showDeleteAlert = true }) {
-                            Label("Albümü Sil", systemImage: "trash")
-                        }
+
                         
                         Button(action: { showBulkShareSheet = true}) {
                             Label("Albümü Dışa Aktar (ZIP)", systemImage: "doc.zipper")
+                        }
+                        
+                        Button(role: .destructive, action: { showDeleteAlert = true }) {
+                            Label("Albümü Sil", systemImage: "trash")
                         }
                         
                         Divider()

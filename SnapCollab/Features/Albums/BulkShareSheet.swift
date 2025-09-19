@@ -14,14 +14,14 @@ struct BulkShareSheet: View {
 
     // UI State
     @State private var isCreatingZip = false
-    @State private var zipProgress: Double = 0.0
+    @State private var zipProgress: Double = 0
     @State private var zipStatus: String = ""
     @State private var zipURL: URL?
     @State private var zipError: String?
     @State private var selectedShareOption: ShareOption = .photosOnly
     @State private var showDoneAlert = false
 
-    // Cancel Support
+    // Cancel
     @State private var zipTask: Task<Void, Never>?
 
     enum ShareOption: String, CaseIterable {
@@ -29,7 +29,6 @@ struct BulkShareSheet: View {
         case videosOnly = "Sadece Videolar"
         case all        = "Tümü (Fotoğraf + Video)"
 
-        /// Güvenli SF Symbols
         var icon: String {
             switch self {
             case .photosOnly: return "photo.on.rectangle"
@@ -39,7 +38,6 @@ struct BulkShareSheet: View {
         }
     }
 
-    // Seçime göre filtrelenmiş öğeler
     private var filteredItems: [MediaItem] {
         switch selectedShareOption {
         case .photosOnly: return mediaItems.filter { !$0.isVideo }
@@ -50,38 +48,26 @@ struct BulkShareSheet: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
+            VStack(spacing: 16) {
 
-                // MARK: Header
-                VStack(spacing: 12) {
+                // MARK: Header (ikon + başlık)
+                VStack(spacing: 10) {
                     ZStack {
-                        Circle().fill(.blue.opacity(0.12))
+                        Circle()
+                            .fill(.blue.opacity(0.12))
                             .frame(width: 110, height: 110)
 
-                        if isCreatingZip {
-                            // Tek, dairesel progress
-                            ProgressView(value: zipProgress)
-                                .progressViewStyle(.circular)
-                                .frame(width: 110, height: 110)
-                                .tint(.blue)
-
-                            Text("\(Int(zipProgress * 100))%")
-                                .font(.footnote)
-                                .monospacedDigit()
-                                .foregroundStyle(.blue)
-                        } else {
-                            Image(systemName: UIImage(systemName: "doc.zipper") != nil ? "doc.zipper" : "archivebox.fill")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 56, height: 56)
-                                .symbolRenderingMode(.hierarchical)
-                                .foregroundStyle(.blue)
-                        }
+                        Image(systemName: UIImage(systemName: "doc.zipper") != nil ? "doc.zipper" : "archivebox.fill")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 56, height: 56)
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(.blue)
                     }
+                    .padding(.top, 12)   // tepeye yapışmasın
 
                     Text("Albümü ZIP ile Paylaş")
-                        .font(.title2)
-                        .fontWeight(.semibold)
+                        .font(.title2).fontWeight(.semibold)
 
                     Text("\"\(album.title)\" albümündeki medyalar ZIP dosyası olarak paylaşılacak")
                         .font(.subheadline)
@@ -102,28 +88,29 @@ struct BulkShareSheet: View {
                                 option: option,
                                 isSelected: selectedShareOption == option,
                                 count: countForOption(option)
-                            ) {
-                                selectedShareOption = option
-                            }
+                            ) { selectedShareOption = option }
                         }
                     }
                 }
                 .padding(.horizontal, 20)
 
-                // MARK: Durum Metni (tek progress: header’da)
+                // MARK: Lineer progress + durum metni (ikon içinde progress YOK)
                 if isCreatingZip {
-                    Text(zipStatus)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 20)
-                        .frame(maxWidth: .infinity, alignment: .center)
+                    VStack(spacing: 8) {
+                        ProgressView(value: zipProgress)
+                            .progressViewStyle(.linear)
+                            .tint(.blue)
+                        Text(zipStatus)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 20)
                 }
 
-                // MARK: Hata
                 if let error = zipError {
                     Text(error)
-                        .foregroundStyle(.red)
                         .font(.caption)
+                        .foregroundStyle(.red)
                         .padding(.horizontal, 20)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -165,7 +152,7 @@ struct BulkShareSheet: View {
         }
     }
 
-    // MARK: Helpers
+    // MARK: Actions
 
     private func countForOption(_ option: ShareOption) -> Int {
         switch option {
@@ -175,13 +162,12 @@ struct BulkShareSheet: View {
         }
     }
 
-    // ZIP oluşturma (paylaşımı butona bıraktık)
     private func createZip() {
         guard !filteredItems.isEmpty else { return }
 
         isCreatingZip = true
-        zipError = nil
         zipURL = nil
+        zipError = nil
         zipProgress = 0
         zipStatus = "Hazırlanıyor…"
 
@@ -192,9 +178,8 @@ struct BulkShareSheet: View {
                     mediaItems: filteredItems,
                     mediaRepo: mediaRepo
                 ) { progress, status in
-                        self.zipProgress = progress
-                        self.zipStatus = status
-                    
+                    self.zipProgress = progress
+                    self.zipStatus = status
                 }
 
                 await MainActor.run {
@@ -226,21 +211,21 @@ struct BulkShareSheet: View {
     }
 
     private func shareZipFile(_ url: URL) {
-        let activityVC = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        activityVC.excludedActivityTypes = [.assignToContact, .saveToCameraRoll, .addToReadingList]
+        let vc = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        vc.excludedActivityTypes = [.assignToContact, .saveToCameraRoll, .addToReadingList]
 
         if let top = UIApplication.topMostViewController() {
-            if let pop = activityVC.popoverPresentationController {
+            if let pop = vc.popoverPresentationController {
                 pop.sourceView = top.view
                 pop.sourceRect = CGRect(x: top.view.bounds.midX, y: top.view.bounds.midY, width: 0, height: 0)
                 pop.permittedArrowDirections = []
             }
-            top.present(activityVC, animated: true)
+            top.present(vc, animated: true)
         }
     }
 }
 
-// MARK: - Option Row
+// MARK: - Row
 
 struct ShareOptionRow: View {
     let option: BulkShareSheet.ShareOption
@@ -260,8 +245,6 @@ struct ShareOptionRow: View {
                     Text(option.rawValue)
                         .font(.body)
                         .fontWeight(isSelected ? .semibold : .regular)
-                        .foregroundStyle(.primary)
-
                     Text("\(count) öğe")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -273,7 +256,6 @@ struct ShareOptionRow: View {
                     Circle()
                         .fill(isSelected ? .blue : Color(.systemGray5))
                         .frame(width: 20, height: 20)
-
                     if isSelected {
                         Image(systemName: "checkmark")
                             .font(.system(size: 12, weight: .bold))
@@ -297,7 +279,7 @@ struct ShareOptionRow: View {
     }
 }
 
-// MARK: - UIKit Helpers
+// MARK: - UIKit Helper
 
 private extension UIApplication {
     static func topMostViewController(
