@@ -47,7 +47,6 @@ enum NotificationType: String, Codable, CaseIterable {
     case memberJoined = "member_joined"
     case albumInvite = "album_invite"
     case albumUpdated = "album_updated"
-    case ownershipTransferred = "ownership_transferred"
     
     var icon: String {
         switch self {
@@ -61,8 +60,6 @@ enum NotificationType: String, Codable, CaseIterable {
             return "envelope.fill"
         case .albumUpdated:
             return "pencil.circle.fill"
-        case .ownershipTransferred:
-            return "crown.fill"
         }
     }
     
@@ -78,8 +75,6 @@ enum NotificationType: String, Codable, CaseIterable {
             return "orange"
         case .albumUpdated:
             return "blue"
-        case .ownershipTransferred:
-            return "orange"
         }
     }
 }
@@ -121,15 +116,11 @@ extension NotificationType {
             return "Albüm Daveti"
         case .albumUpdated:
             return "Albüm Güncellendi"
-        case .ownershipTransferred:
-            return "Albüm Sahipliği"
         }
     }
     
     var priority: Int {
         switch self {
-        case .ownershipTransferred:
-            return 5
         case .albumInvite:
             return 4
         case .memberJoined:

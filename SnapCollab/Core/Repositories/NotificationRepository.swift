@@ -152,44 +152,6 @@ extension NotificationRepository {
             albumId: album.id
         )
     }
-    
-    func notifyOwnershipTransferred(
-        fromUser: User,
-        toUserId: String,
-        album: Album,
-        oldOwnerId: String
-    ) async {
-        // Yeni owner'a özel bildirim
-        let newOwnerNotification = AppNotification(
-            type: .ownershipTransferred,
-            title: "Albüm Yöneticisi Oldunuz",
-            message: "\(fromUser.displayName ?? fromUser.email) sizi \"\(album.title)\" albümünün yöneticisi yaptı",
-            fromUserId: fromUser.uid,
-            toUserId: toUserId,
-            albumId: album.id
-        )
-        
-        do {
-            try await service.createNotification(newOwnerNotification)
-            print("NotificationRepo: Ownership transfer notification sent to new owner")
-        } catch {
-            print("Error creating ownership transfer notification: \(error)")
-        }
-        
-        // Diğer üyelere genel bildirim
-        let otherMemberIds = album.members.filter { $0 != oldOwnerId && $0 != toUserId }
-        
-        if !otherMemberIds.isEmpty {
-            await createNotificationsForUsers(
-                type: .albumUpdated,
-                title: "Albüm Yöneticisi Değişti",
-                message: "\"\(album.title)\" albümünün yöneticisi değişti",
-                fromUser: fromUser,
-                toUserIds: otherMemberIds,
-                albumId: album.id
-            )
-        }
-    }
 }
 
 // MARK: - Notification Management

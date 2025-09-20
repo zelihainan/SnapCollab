@@ -209,54 +209,9 @@ extension AlbumRepository {
     }
 }
 
-// MARK: - Owner Transfer & Pinning
+// MARK: - Pinning Özelliği
 extension AlbumRepository {
     
-    // MARK: - Owner Transfer
-    func transferOwnership(_ albumId: String, to newOwnerId: String, notificationRepo: NotificationRepository? = nil) async throws {
-        guard let currentUID = auth.uid else {
-            throw AlbumError.notAuthenticated
-        }
-        
-        guard var album = try await getAlbum(by: albumId) else {
-            throw AlbumError.albumNotFound
-        }
-        
-        // Sadece mevcut owner transfer yapabilir
-        if !album.isOwner(currentUID) {
-            throw AlbumError.onlyOwnerCanEdit
-        }
-        
-        // Yeni owner albüm üyesi olmalı
-        if !album.isMember(newOwnerId) {
-            throw AlbumError.notMember
-        }
-        
-        // Owner kendine transfer edemez
-        if currentUID == newOwnerId {
-            throw AlbumError.cannotTransferToSelf
-        }
-        
-        let oldOwnerId = album.ownerId
-        album.transferOwnership(to: newOwnerId)
-        
-        try await updateAlbum(album)
-        
-        // Bildirim gönder
-        if let notificationRepo = notificationRepo,
-           let currentUser = auth.currentUser {
-            await notificationRepo.notifyOwnershipTransferred(
-                fromUser: currentUser,
-                toUserId: newOwnerId,
-                album: album,
-                oldOwnerId: oldOwnerId
-            )
-        }
-        
-        print("AlbumRepo: Ownership transferred from \(oldOwnerId) to \(newOwnerId) for album: \(album.title)")
-    }
-    
-    // MARK: - Pinleme Özelliği
     func toggleAlbumPin(_ albumId: String) async throws {
         guard let uid = auth.uid else {
             throw AlbumError.notAuthenticated
@@ -755,8 +710,6 @@ enum AlbumError: LocalizedError {
     case cannotRemoveOwner
     case noCoverImageToDelete
     case imageProcessingFailed
-    case cannotTransferToSelf
-    case ownershipTransferFailed
     
     var errorDescription: String? {
         switch self {
@@ -786,10 +739,6 @@ enum AlbumError: LocalizedError {
             return "Silinecek kapak fotoğrafı yok"
         case .imageProcessingFailed:
             return "Görüntü işleme hatası"
-        case .cannotTransferToSelf:
-            return "Kendinize owner transfer yapamazsınız"
-        case .ownershipTransferFailed:
-            return "Owner transfer işlemi başarısız"
         }
     }
 }

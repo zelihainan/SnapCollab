@@ -389,11 +389,8 @@ struct AlbumMembersView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var showRemoveAlert = false
-    @State private var showOwnerTransferAlert = false
     @State private var memberToRemove: User?
-    @State private var memberToPromote: User?
     @State private var isRemoving = false
-    @State private var isTransferring = false
     
     private var isOwner: Bool {
         album.isOwner(albumRepo.auth.uid ?? "")
@@ -448,10 +445,6 @@ struct AlbumMembersView: View {
                                     onRemove: { user in
                                         memberToRemove = user
                                         showRemoveAlert = true
-                                    },
-                                    onPromoteToOwner: { user in
-                                        memberToPromote = user
-                                        showOwnerTransferAlert = true
                                     }
                                 )
                                 
@@ -493,28 +486,16 @@ struct AlbumMembersView: View {
                 Text("\(member.displayName ?? member.email) kullanıcısını albümden çıkarmak istediğinizden emin misiniz?")
             }
         }
-        .alert("Albüm Yöneticisi Yap", isPresented: $showOwnerTransferAlert) {
-            Button("İptal", role: .cancel) { memberToPromote = nil }
-            Button("Yönetici Yap", role: .destructive) {
-                if let member = memberToPromote {
-                    Task { await transferOwnership(member) }
-                }
-            }
-        } message: {
-            if let member = memberToPromote {
-                Text("\(member.displayName ?? member.email) kullanıcısını albüm yöneticisi yapmak istediğinizden emin misiniz? Bu işlemden sonra sadece o kişi albümü yönetebilir.")
-            }
-        }
-        .disabled(isTransferring || isRemoving)
+        .disabled(isRemoving)
         .overlay {
-            if isTransferring || isRemoving {
+            if isRemoving {
                 Color.black.opacity(0.3)
                     .overlay {
                         VStack(spacing: 16) {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                 .scaleEffect(1.2)
-                            Text(isTransferring ? "Yönetici değiştiriliyor..." : "Üye çıkarılıyor...")
+                            Text("Üye çıkarılıyor...")
                                 .foregroundStyle(.white)
                                 .font(.caption)
                         }
@@ -597,31 +578,6 @@ struct AlbumMembersView: View {
         
         isRemoving = false
     }
-    
-    private func transferOwnership(_ user: User) async {
-        guard let albumId = album.id else {
-            memberToPromote = nil
-            return
-        }
-        
-        isTransferring = true
-        
-        do {
-            try await albumRepo.transferOwnership(albumId, to: user.uid)
-            await MainActor.run {
-                memberToPromote = nil
-                // UI'ı yenile
-                loadMembers()
-            }
-        } catch {
-            await MainActor.run {
-                errorMessage = "Yönetici değiştirme hatası: \(error.localizedDescription)"
-                memberToPromote = nil
-            }
-        }
-        
-        isTransferring = false
-    }
 }
 
 struct EnhancedMemberRowView: View {
@@ -630,7 +586,6 @@ struct EnhancedMemberRowView: View {
     let isOwner: Bool
     let currentUserUID: String
     let onRemove: (User) -> Void
-    let onPromoteToOwner: (User) -> Void
     
     private var isCurrentUser: Bool { member.uid == currentUserUID }
     private var isAlbumOwner: Bool { album.isOwner(member.uid) }
@@ -683,31 +638,13 @@ struct EnhancedMemberRowView: View {
             
             Spacer()
             
-            // Aksiyon menüsü - sadece owner ve kendi hesabı değilse
-            if isOwner && !isCurrentUser {
-                Menu {
-                    if !isAlbumOwner {
-                        Button(action: { onPromoteToOwner(member) }) {
-                            Label("Yönetici Yap", systemImage: "crown")
-                        }
-                        
-                        Divider()
-                    }
-                    
-                    if !isAlbumOwner {
-                        Button(role: .destructive, action: { onRemove(member) }) {
-                            Label("Albümden Çıkar", systemImage: "person.badge.minus")
-                        }
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
+            // Sadece üye çıkarma aksiyonu - owner transfer kaldırıldı
+            if isOwner && !isAlbumOwner && !isCurrentUser {
+                Button(action: { onRemove(member) }) {
+                    Image(systemName: "person.badge.minus")
                         .font(.title3)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.red)
                         .frame(width: 30, height: 30)
-                        .background(
-                            Circle()
-                                .fill(.secondary.opacity(0.1))
-                        )
                 }
                 .buttonStyle(PlainButtonStyle())
             }
