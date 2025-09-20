@@ -27,6 +27,7 @@ final class MediaRepository {
         }
     }
     
+    // MARK: - Temel Upload Metotları (Bildirim Olmadan)
     func upload(image: UIImage, albumId: String) async throws {
         guard let uid = auth.uid else { return }
         guard let data = image.jpegData(compressionQuality: 0.9) else { return }
@@ -82,16 +83,6 @@ final class MediaRepository {
         
         print("VIDEO & THUMBNAIL STORAGE OK")
         
-        do {
-            let videoURL = try await storage.url(for: videoPath)
-            print("Video uploaded to: \(videoURL.absoluteString)")
-            
-            let thumbURL = try await storage.url(for: thumbPath)
-            print("Thumbnail uploaded to: \(thumbURL.absoluteString)")
-        } catch {
-            print("Warning: Could not verify upload URLs: \(error)")
-        }
-        
         let item = MediaItem(
             id: nil,
             path: videoPath,
@@ -104,225 +95,153 @@ final class MediaRepository {
         let docId = try await service.createMedia(albumId: albumId, item: item)
         print("FIRESTORE OK → video doc:", docId)
     }
-    
-    private func isValidVideoFormat(data: Data) -> Bool {
-        let mp4Headers: [[UInt8]] = [
-            [0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70],
-            [0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70],
-            [0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70]
-        ]
-        
-        guard data.count >= 8 else { return false }
-        
-        let headerBytes = Array(data.prefix(8))
-        
-        for header in mp4Headers {
-            if headerBytes.starts(with: header) {
-                return true
-            }
-        }
-        
-        if headerBytes.count >= 4 {
-            let qtHeader = Array(headerBytes[4..<8])
-            if qtHeader == [0x66, 0x74, 0x79, 0x70] {
-                return true
-            }
-        }
-        
-        return false
-    }
-    
-    private func generateThumbnail(from videoURL: URL) async throws -> UIImage {
-        return try await withCheckedThrowingContinuation { continuation in
-            let asset = AVAsset(url: videoURL)
-            let imageGenerator = AVAssetImageGenerator(asset: asset)
-            imageGenerator.appliesPreferredTrackTransform = true
-            imageGenerator.maximumSize = CGSize(width: 400, height: 400) // Daha yüksek kalite
-            
-            let times = [
-                CMTime(seconds: 1, preferredTimescale: 600),
-                CMTime(seconds: 0.5, preferredTimescale: 600),
-                CMTime(seconds: 0.1, preferredTimescale: 600)
-            ]
-            
-            var attemptCount = 0
-            
-            func tryNextTime() {
-                guard attemptCount < times.count else {
-                    continuation.resume(throwing: MediaError.uploadError)
-                    return
-                }
-                
-                let time = times[attemptCount]
-                attemptCount += 1
-                
-                imageGenerator.generateCGImagesAsynchronously(forTimes: [NSValue(time: time)]) { _, cgImage, _, result, error in
-                    if let cgImage = cgImage {
-                        let uiImage = UIImage(cgImage: cgImage)
-                        continuation.resume(returning: uiImage)
-                    } else {
-                        print("Thumbnail generation failed at time \(time.seconds), trying next...")
-                        tryNextTime()
-                    }
-                }
-            }
-            
-            tryNextTime()
-        }
-    }
-
-    func downloadURL(for path: String) async throws -> URL {
-        try await storage.url(for: path)
-    }
-    
-    func updateMedia(albumId: String, item: MediaItem) async throws {
-        guard let itemId = item.id else { return }
-        try await service.updateMedia(albumId: albumId, itemId: itemId, item: item)
-    }
-    
-    func deleteMedia(albumId: String, item: MediaItem) async throws {
-        guard let uid = auth.uid else {
-            throw MediaError.notAuthenticated
-        }
-        
-        guard let itemId = item.id else {
-            throw MediaError.invalidMediaItem
-        }
-        
-        let isUploader = item.uploaderId == uid
-        
-        if !isUploader {
-            throw MediaError.noPermissionToDelete
-        }
-        
-        do {
-            try await service.deleteMedia(albumId: albumId, itemId: itemId)
-            print("MediaRepo: Deleted from Firestore: \(itemId)")
-            
-            try await storage.delete(path: item.path)
-            print("MediaRepo: Deleted from Storage: \(item.path)")
-            
-            if let thumbPath = item.thumbPath {
-                try await storage.delete(path: thumbPath)
-                print("MediaRepo: Deleted thumbnail: \(thumbPath)")
-            }
-            
-        } catch {
-            print("MediaRepo: Delete error: \(error)")
-            throw MediaError.deleteError
-        }
-    }
 }
 
-// MARK: - Toplu Bildirim Entegrasyonu
+// MARK: - Toplu Bildirim ile Upload İşlemleri
 extension MediaRepository {
     
-    /// Tek fotoğraf yükleme - toplu bildirim sistemi ile
+    /// TEK FOTOĞRAF YÜKLEME - Toplu bildirim sistemi ile
     func uploadWithBatchNotification(image: UIImage, albumId: String, notificationRepo: NotificationRepository) async throws {
+        // Önce fotoğrafı yükle
         try await upload(image: image, albumId: albumId)
+        
+        // Sonra batch bildirim gönder
         await sendBatchPhotoNotification(albumId: albumId, notificationRepo: notificationRepo)
     }
     
-    /// Tek video yükleme - toplu bildirim sistemi ile
+    /// TEK VIDEO YÜKLEME - Toplu bildirim sistemi ile
     func uploadVideoWithBatchNotification(from videoURL: URL, albumId: String, notificationRepo: NotificationRepository) async throws {
+        // Önce videoyu yükle
         try await uploadVideo(from: videoURL, albumId: albumId)
+        
+        // Sonra batch bildirim gönder
         await sendBatchVideoNotification(albumId: albumId, notificationRepo: notificationRepo)
     }
     
-    /// Çoklu fotoğraf yükleme - toplu bildirim sistemi ile
+    /// ÇOKLU FOTOĞRAF YÜKLEME - Toplu bildirim sistemi ile
     func uploadMultipleImagesWithBatchNotification(images: [UIImage], albumId: String, notificationRepo: NotificationRepository) async throws {
-        // Tüm fotoğrafları yükle
-        for image in images {
-            try await upload(image: image, albumId: albumId)
-        }
+        print("🔄 Starting batch upload of \(images.count) images")
         
-        // Her fotoğraf için batch notification gönder
-        for _ in images {
+        // Tüm fotoğrafları yükle
+        for (index, image) in images.enumerated() {
+            print("📸 Uploading image \(index + 1)/\(images.count)")
+            try await upload(image: image, albumId: albumId)
+            
+            // Her fotoğraf için batch notification ekle
             await sendBatchPhotoNotification(albumId: albumId, notificationRepo: notificationRepo)
         }
+        
+        print("✅ Completed batch upload of \(images.count) images")
     }
     
-    /// Karma medya yükleme - toplu bildirim sistemi ile
+    /// KARMA MEDYA YÜKLEME - Toplu bildirim sistemi ile
     func uploadMixedMediaWithBatchNotification(
         images: [UIImage],
         videoURLs: [URL],
         albumId: String,
         notificationRepo: NotificationRepository
     ) async throws {
-        // Tüm medyaları yükle
-        for image in images {
+        print("🔄 Starting mixed media upload - \(images.count) images, \(videoURLs.count) videos")
+        
+        // Tüm fotoğrafları yükle
+        for (index, image) in images.enumerated() {
+            print("📸 Uploading image \(index + 1)/\(images.count)")
             try await upload(image: image, albumId: albumId)
-        }
-        
-        for videoURL in videoURLs {
-            try await uploadVideo(from: videoURL, albumId: albumId)
-        }
-        
-        // Batch bildirimlerini gönder
-        for _ in images {
             await sendBatchPhotoNotification(albumId: albumId, notificationRepo: notificationRepo)
         }
         
-        for _ in videoURLs {
+        // Tüm videoları yükle
+        for (index, videoURL) in videoURLs.enumerated() {
+            print("🎥 Uploading video \(index + 1)/\(videoURLs.count)")
+            try await uploadVideo(from: videoURL, albumId: albumId)
             await sendBatchVideoNotification(albumId: albumId, notificationRepo: notificationRepo)
         }
+        
+        print("✅ Completed mixed media upload")
     }
     
-    /// Legacy - Tek seferlik bildirim sistemi (eski metotlar için uyumluluk)
-    func uploadWithNotification(image: UIImage, albumId: String, notificationRepo: NotificationRepository) async throws {
-        try await upload(image: image, albumId: albumId)
-        await sendInstantPhotoNotification(albumId: albumId, notificationRepo: notificationRepo)
-    }
-    
-    func uploadVideoWithNotification(from videoURL: URL, albumId: String, notificationRepo: NotificationRepository) async throws {
-        try await uploadVideo(from: videoURL, albumId: albumId)
-        await sendInstantVideoNotification(albumId: albumId, notificationRepo: notificationRepo)
-    }
-    
-    // MARK: - Private Batch Notification Helpers
+    // MARK: - Batch Notification Helper Metotları
     
     private func sendBatchPhotoNotification(albumId: String, notificationRepo: NotificationRepository) async {
-        guard let currentUser = auth.currentUser else { return }
+        guard let currentUser = auth.currentUser else {
+            print("❌ No current user for photo notification")
+            return
+        }
         
         do {
+            // Albüm bilgilerini al
             let db = Firestore.firestore()
             let doc = try await db.collection("albums").document(albumId).getDocument()
-            guard let album = try? doc.data(as: Album.self) else { return }
+            guard let album = try? doc.data(as: Album.self) else {
+                print("❌ Could not fetch album for photo notification")
+                return
+            }
             
+            // Diğer üyeleri bul
             let otherMemberIds = album.members.filter { $0 != currentUser.uid }
             
             if !otherMemberIds.isEmpty {
+                print("📸 Sending batch photo notification to \(otherMemberIds.count) members")
                 await notificationRepo.notifyPhotoAddedBatch(
                     fromUser: currentUser,
                     toUserIds: otherMemberIds,
                     album: album
                 )
+            } else {
+                print("📸 No other members to notify for photo")
             }
         } catch {
-            print("Failed to send batch photo notification: \(error)")
+            print("❌ Failed to send batch photo notification: \(error)")
         }
     }
     
     private func sendBatchVideoNotification(albumId: String, notificationRepo: NotificationRepository) async {
-        guard let currentUser = auth.currentUser else { return }
+        guard let currentUser = auth.currentUser else {
+            print("❌ No current user for video notification")
+            return
+        }
         
         do {
+            // Albüm bilgilerini al
             let db = Firestore.firestore()
             let doc = try await db.collection("albums").document(albumId).getDocument()
-            guard let album = try? doc.data(as: Album.self) else { return }
+            guard let album = try? doc.data(as: Album.self) else {
+                print("❌ Could not fetch album for video notification")
+                return
+            }
             
+            // Diğer üyeleri bul
             let otherMemberIds = album.members.filter { $0 != currentUser.uid }
             
             if !otherMemberIds.isEmpty {
+                print("🎥 Sending batch video notification to \(otherMemberIds.count) members")
                 await notificationRepo.notifyVideoAddedBatch(
                     fromUser: currentUser,
                     toUserIds: otherMemberIds,
                     album: album
                 )
+            } else {
+                print("🎥 No other members to notify for video")
             }
         } catch {
-            print("Failed to send batch video notification: \(error)")
+            print("❌ Failed to send batch video notification: \(error)")
         }
+    }
+}
+
+// MARK: - Legacy Anında Bildirim Sistemi (Eski Uyumluluk)
+extension MediaRepository {
+    
+    /// Legacy - Tek seferlik fotoğraf bildirimi (eski kod uyumluluğu için)
+    func uploadWithNotification(image: UIImage, albumId: String, notificationRepo: NotificationRepository) async throws {
+        try await upload(image: image, albumId: albumId)
+        await sendInstantPhotoNotification(albumId: albumId, notificationRepo: notificationRepo)
+    }
+    
+    /// Legacy - Tek seferlik video bildirimi (eski kod uyumluluğu için)
+    func uploadVideoWithNotification(from videoURL: URL, albumId: String, notificationRepo: NotificationRepository) async throws {
+        try await uploadVideo(from: videoURL, albumId: albumId)
+        await sendInstantVideoNotification(albumId: albumId, notificationRepo: notificationRepo)
     }
     
     // MARK: - Legacy Instant Notification Helpers
@@ -368,6 +287,120 @@ extension MediaRepository {
             }
         } catch {
             print("Failed to send instant video notification: \(error)")
+        }
+    }
+}
+
+// MARK: - Diğer MediaRepository Metotları (Değişiklik Yok)
+extension MediaRepository {
+    
+    func downloadURL(for path: String) async throws -> URL {
+        try await storage.url(for: path)
+    }
+    
+    func updateMedia(albumId: String, item: MediaItem) async throws {
+        guard let itemId = item.id else { return }
+        try await service.updateMedia(albumId: albumId, itemId: itemId, item: item)
+    }
+    
+    func deleteMedia(albumId: String, item: MediaItem) async throws {
+        guard let uid = auth.uid else {
+            throw MediaError.notAuthenticated
+        }
+        
+        guard let itemId = item.id else {
+            throw MediaError.invalidMediaItem
+        }
+        
+        let isUploader = item.uploaderId == uid
+        
+        if !isUploader {
+            throw MediaError.noPermissionToDelete
+        }
+        
+        do {
+            try await service.deleteMedia(albumId: albumId, itemId: itemId)
+            print("MediaRepo: Deleted from Firestore: \(itemId)")
+            
+            try await storage.delete(path: item.path)
+            print("MediaRepo: Deleted from Storage: \(item.path)")
+            
+            if let thumbPath = item.thumbPath {
+                try await storage.delete(path: thumbPath)
+                print("MediaRepo: Deleted thumbnail: \(thumbPath)")
+            }
+            
+        } catch {
+            print("MediaRepo: Delete error: \(error)")
+            throw MediaError.deleteError
+        }
+    }
+    
+    // MARK: - Video Processing Helpers
+    
+    private func isValidVideoFormat(data: Data) -> Bool {
+        let mp4Headers: [[UInt8]] = [
+            [0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70],
+            [0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70],
+            [0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70]
+        ]
+        
+        guard data.count >= 8 else { return false }
+        
+        let headerBytes = Array(data.prefix(8))
+        
+        for header in mp4Headers {
+            if headerBytes.starts(with: header) {
+                return true
+            }
+        }
+        
+        if headerBytes.count >= 4 {
+            let qtHeader = Array(headerBytes[4..<8])
+            if qtHeader == [0x66, 0x74, 0x79, 0x70] {
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    private func generateThumbnail(from videoURL: URL) async throws -> UIImage {
+        return try await withCheckedThrowingContinuation { continuation in
+            let asset = AVAsset(url: videoURL)
+            let imageGenerator = AVAssetImageGenerator(asset: asset)
+            imageGenerator.appliesPreferredTrackTransform = true
+            imageGenerator.maximumSize = CGSize(width: 400, height: 400)
+            
+            let times = [
+                CMTime(seconds: 1, preferredTimescale: 600),
+                CMTime(seconds: 0.5, preferredTimescale: 600),
+                CMTime(seconds: 0.1, preferredTimescale: 600)
+            ]
+            
+            var attemptCount = 0
+            
+            func tryNextTime() {
+                guard attemptCount < times.count else {
+                    continuation.resume(throwing: MediaError.uploadError)
+                    return
+                }
+                
+                let time = times[attemptCount]
+                attemptCount += 1
+                
+                imageGenerator.generateCGImagesAsynchronously(forTimes: [NSValue(time: time)]) { _, cgImage, _, result, error in
+                    if let cgImage = cgImage {
+                        let uiImage = UIImage(cgImage: cgImage)
+                        continuation.resume(returning: uiImage)
+                    } else {
+                        print("Thumbnail generation failed at time \(time.seconds), trying next...")
+                        tryNextTime()
+                    }
+                }
+            }
+            
+            tryNextTime()
         }
     }
 }

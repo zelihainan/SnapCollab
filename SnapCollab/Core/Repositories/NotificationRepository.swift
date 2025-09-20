@@ -14,7 +14,7 @@ final class NotificationRepository: ObservableObject {
     @Published var unreadCount: Int = 0
     
     // Toplu bildirim yönetimi için
-    private let batchingTimeWindow: TimeInterval = 300 // 5 dakika
+    private let batchingTimeWindow: TimeInterval = 15 // 15 saniye pencere
     private var pendingBatches: [String: NotificationBatch] = [:]
     private var batchTimers: [String: Timer] = [:]
     
@@ -37,7 +37,6 @@ final class NotificationRepository: ObservableObject {
     }
     
     func stop() {
-        // Observable pattern'i durdurmak için
         notifications = []
         unreadCount = 0
         
@@ -77,7 +76,7 @@ private struct NotificationBatch {
     }
 }
 
-// MARK: - Toplu Medya Bildirimleri
+// MARK: - Toplu Medya Bildirimleri (Ana Fonksiyonlar)
 extension NotificationRepository {
     
     /// Toplu fotoğraf bildirimi - batch mantığı ile
@@ -89,10 +88,13 @@ extension NotificationRepository {
         let batchKey = "\(fromUser.uid)_\(album.id ?? "")"
         
         await MainActor.run {
+            print("📸 NotificationRepo: Adding photo to batch for key: \(batchKey)")
+            
             // Mevcut batch'i güncelle veya yeni oluştur
             if var existingBatch = pendingBatches[batchKey] {
                 existingBatch.addPhoto()
                 pendingBatches[batchKey] = existingBatch
+                print("📸 Updated existing batch - photos: \(existingBatch.photoCount)")
                 
                 // Timer'ı yenile
                 batchTimers[batchKey]?.invalidate()
@@ -108,6 +110,7 @@ extension NotificationRepository {
                     lastCreatedAt: Date()
                 )
                 pendingBatches[batchKey] = newBatch
+                print("📸 Created new batch for photos")
             }
             
             // Batch timer'ını başlat/yenile
@@ -124,10 +127,13 @@ extension NotificationRepository {
         let batchKey = "\(fromUser.uid)_\(album.id ?? "")"
         
         await MainActor.run {
+            print("🎥 NotificationRepo: Adding video to batch for key: \(batchKey)")
+            
             // Mevcut batch'i güncelle veya yeni oluştur
             if var existingBatch = pendingBatches[batchKey] {
                 existingBatch.addVideo()
                 pendingBatches[batchKey] = existingBatch
+                print("🎥 Updated existing batch - videos: \(existingBatch.videoCount)")
                 
                 // Timer'ı yenile
                 batchTimers[batchKey]?.invalidate()
@@ -143,6 +149,7 @@ extension NotificationRepository {
                     lastCreatedAt: Date()
                 )
                 pendingBatches[batchKey] = newBatch
+                print("🎥 Created new batch for videos")
             }
             
             // Batch timer'ını başlat/yenile
@@ -152,7 +159,10 @@ extension NotificationRepository {
     
     /// Batch timer'ını başlat
     private func startBatchTimer(batchKey: String, toUserIds: [String]) {
+        print("⏰ Starting batch timer for key: \(batchKey) - window: \(batchingTimeWindow)s")
+        
         let timer = Timer.scheduledTimer(withTimeInterval: batchingTimeWindow, repeats: false) { [weak self] _ in
+            print("⏰ Timer fired for batch: \(batchKey)")
             Task {
                 await self?.processBatch(batchKey: batchKey, toUserIds: toUserIds)
             }
@@ -163,7 +173,12 @@ extension NotificationRepository {
     /// Batch'i işle ve bildirim gönder
     private func processBatch(batchKey: String, toUserIds: [String]) async {
         await MainActor.run {
-            guard let batch = pendingBatches[batchKey] else { return }
+            guard let batch = pendingBatches[batchKey] else {
+                print("❌ Batch not found for key: \(batchKey)")
+                return
+            }
+            
+            print("🔄 Processing batch: \(batchKey) - photos: \(batch.photoCount), videos: \(batch.videoCount)")
             
             // Batch'i temizle
             pendingBatches.removeValue(forKey: batchKey)
@@ -179,10 +194,15 @@ extension NotificationRepository {
     
     /// Toplu bildirimi gönder
     private func sendBatchNotification(batch: NotificationBatch, toUserIds: [String]) async {
-        guard let fromUser = try? await FirestoreUserService().getUser(uid: batch.fromUserId) else { return }
+        guard let fromUser = try? await FirestoreUserService().getUser(uid: batch.fromUserId) else {
+            print("❌ Could not find user for batch notification")
+            return
+        }
         
         let (title, message) = generateBatchMessage(batch: batch, fromUser: fromUser)
         let notificationType: NotificationType = batch.photoCount > 0 ? .photoAdded : .videoAdded
+        
+        print("📨 Sending batch notification: \(title) - \(message)")
         
         await createNotificationsForUsers(
             type: notificationType,
@@ -218,8 +238,12 @@ extension NotificationRepository {
             return (title, message)
         }
     }
+}
+
+// MARK: - Tek Seferlik Bildirimler (Fallback)
+extension NotificationRepository {
     
-    /// Anında tek bildirim gönder (batch'lenmeyen durumlar için)
+    /// Anında tek fotoğraf bildirimi gönder (batch'lenmeyen durumlar için)
     func notifyPhotoAdded(
         fromUser: User,
         toUserIds: [String],

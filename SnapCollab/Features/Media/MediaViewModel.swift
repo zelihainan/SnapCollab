@@ -1,5 +1,5 @@
 //
-//  MediaViewModel.swift - Direkt İndirme ve Düzeltilmiş Silme İzinleri
+//  MediaViewModel.swift - Güncellenmiş Upload Sistemi
 //  SnapCollab
 //
 
@@ -69,7 +69,157 @@ final class MediaViewModel: ObservableObject {
         loadFavorites()
     }
     
-    // MARK: - Toplu İşlem Fonksiyonları
+    func start() {
+        Task {
+            for await list in repo.observe(albumId: albumId) {
+                self.items = list
+                self.applyFilter()
+                await preloadUserInfo(for: list)
+            }
+        }
+    }
+}
+
+// MARK: - Upload İşlemleri - YENİ BATCH SİSTEMİ
+extension MediaViewModel {
+    
+    /// TEK MEDYA YÜKLEME - Toplu bildirim sistemi ile
+    func uploadPicked() async {
+        guard let notificationRepo = notificationRepo else {
+            print("⚠️ No notification repo available, uploading without notifications")
+            await uploadPickedWithoutNotification()
+            return
+        }
+        
+        print("🔄 Starting upload with batch notification system")
+        await uploadPickedWithBatchNotification(notificationRepo: notificationRepo)
+    }
+    
+    /// ÇOKLU FOTOĞRAF YÜKLEME - Toplu bildirim sistemi ile
+    func processBulkPhotoUpload() async {
+        guard !selectedPhotos.isEmpty else { return }
+        guard let notificationRepo = notificationRepo else {
+            print("⚠️ No notification repo for bulk upload")
+            return
+        }
+        
+        isProcessingBulkUpload = true
+        bulkUploadProgress = 0.0
+        uploadedCount = 0
+        totalUploadCount = selectedPhotos.count
+        uploadStatus = "Fotoğraflar hazırlanıyor..."
+        
+        print("🔄 Starting bulk photo upload with batch notifications - \(selectedPhotos.count) photos")
+        
+        var processedImages: [UIImage] = []
+        
+        // Fotoğrafları işle
+        for (index, photoItem) in selectedPhotos.enumerated() {
+            do {
+                if let imageData = try await photoItem.loadTransferable(type: Data.self),
+                   let image = UIImage(data: imageData) {
+                    processedImages.append(image)
+                }
+                
+                await MainActor.run {
+                    bulkUploadProgress = Double(index + 1) / Double(selectedPhotos.count * 2)
+                    uploadStatus = "Hazırlanıyor: \(index + 1)/\(selectedPhotos.count)"
+                }
+            } catch {
+                print("❌ Error loading photo: \(error)")
+            }
+        }
+        
+        // TOPLU BATCH YÜKLEMESİ - Her fotoğraf batch sistemine eklenecek
+        try? await repo.uploadMultipleImagesWithBatchNotification(
+            images: processedImages,
+            albumId: albumId,
+            notificationRepo: notificationRepo
+        )
+        
+        await MainActor.run {
+            uploadedCount = processedImages.count
+            isProcessingBulkUpload = false
+            selectedPhotos.removeAll()
+            uploadStatus = "\(uploadedCount) fotoğraf başarıyla yüklendi!"
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                self.uploadStatus = ""
+            }
+        }
+        
+        print("✅ Bulk upload completed with batch notifications")
+    }
+    
+    // MARK: - Private Upload Helpers
+    
+    private func uploadPickedWithBatchNotification(notificationRepo: NotificationRepository) async {
+        if let image = pickedImage {
+            await uploadPickedImageWithBatchNotification(image, notificationRepo: notificationRepo)
+        }
+        if let videoURL = pickedVideoURL {
+            await uploadPickedVideoWithBatchNotification(videoURL, notificationRepo: notificationRepo)
+        }
+    }
+    
+    private func uploadPickedImageWithBatchNotification(_ image: UIImage, notificationRepo: NotificationRepository) async {
+        do {
+            print("📸 Uploading single image with batch notification")
+            try await repo.uploadWithBatchNotification(image: image, albumId: albumId, notificationRepo: notificationRepo)
+            pickedImage = nil
+            print("✅ Single image upload with batch notification successful")
+        } catch {
+            print("❌ Image upload with batch notification error:", error)
+            await uploadPickedImage(image) // Fallback
+        }
+    }
+    
+    private func uploadPickedVideoWithBatchNotification(_ videoURL: URL, notificationRepo: NotificationRepository) async {
+        do {
+            print("🎥 Uploading single video with batch notification")
+            try await repo.uploadVideoWithBatchNotification(from: videoURL, albumId: albumId, notificationRepo: notificationRepo)
+            pickedVideoURL = nil
+            print("✅ Single video upload with batch notification successful")
+        } catch {
+            print("❌ Video upload with batch notification error:", error)
+            await uploadPickedVideo(videoURL) // Fallback
+        }
+    }
+    
+    // MARK: - Fallback Upload Methods (Bildirim Olmadan)
+    
+    private func uploadPickedWithoutNotification() async {
+        if let image = pickedImage {
+            await uploadPickedImage(image)
+        }
+        if let videoURL = pickedVideoURL {
+            await uploadPickedVideo(videoURL)
+        }
+    }
+    
+    private func uploadPickedImage(_ image: UIImage) async {
+        do {
+            try await repo.upload(image: image, albumId: albumId)
+            pickedImage = nil
+            print("✅ Image upload successful (no notifications)")
+        } catch {
+            print("❌ Image upload error:", error)
+        }
+    }
+    
+    private func uploadPickedVideo(_ videoURL: URL) async {
+        do {
+            try await repo.uploadVideo(from: videoURL, albumId: albumId)
+            pickedVideoURL = nil
+            print("✅ Video upload successful (no notifications)")
+        } catch {
+            print("❌ Video upload error:", error)
+        }
+    }
+}
+
+// MARK: - Toplu İşlem Fonksiyonları
+extension MediaViewModel {
     
     func toggleSelectionMode() {
         isSelectionMode.toggle()
@@ -98,11 +248,9 @@ final class MediaViewModel: ObservableObject {
         selectedItems.count
     }
     
-    // Silme iznini düzelt - sadece kendi yüklediği dosyaları silebilsin
     var canDeleteSelected: Bool {
         guard let currentUserId = auth.uid, selectedItemsCount > 0 else { return false }
         let selectedMediaItems = filteredItems.filter { selectedItems.contains($0.id ?? "") }
-        // Tüm seçili öğelerin uploaderId'sini kontrol et
         return !selectedMediaItems.isEmpty && selectedMediaItems.allSatisfy { $0.uploaderId == currentUserId }
     }
     
@@ -144,7 +292,6 @@ final class MediaViewModel: ObservableObject {
                 
                 downloadedCount = index + 1
                 
-                // Her 3 dosyada bir kısa bekleme
                 if (index + 1) % 3 == 0 {
                     try await Task.sleep(nanoseconds: 300_000_000)
                 }
@@ -157,7 +304,6 @@ final class MediaViewModel: ObservableObject {
         downloadProgress = 1.0
         downloadStatus = "\(downloadedCount) öğe başarıyla indirildi!"
         
-        // 2 saniye sonra temizle
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             self.isDownloading = false
             self.clearSelection()
@@ -207,7 +353,6 @@ final class MediaViewModel: ObservableObject {
     func shareSelectedItems() {
         let itemsToShare = filteredItems.filter { selectedItems.contains($0.id ?? "") }
         
-        // Bu işlevi implement etmek için download URL'lerini alıp UIActivityViewController'da paylaşabilirsiniz
         print("Sharing \(itemsToShare.count) items")
         
         Task {
@@ -253,69 +398,6 @@ final class MediaViewModel: ObservableObject {
         topViewController.present(activityVC, animated: true)
     }
     
-    // MARK: - Çoklu Fotoğraf Yükleme
-    
-    func processBulkPhotoUpload() async {
-        guard !selectedPhotos.isEmpty else { return }
-        
-        isProcessingBulkUpload = true
-        bulkUploadProgress = 0.0
-        uploadedCount = 0
-        totalUploadCount = selectedPhotos.count
-        uploadStatus = "Fotoğraflar hazırlanıyor..."
-        
-        var processedImages: [UIImage] = []
-        
-        for (index, photoItem) in selectedPhotos.enumerated() {
-            do {
-                if let imageData = try await photoItem.loadTransferable(type: Data.self),
-                   let image = UIImage(data: imageData) {
-                    processedImages.append(image)
-                }
-                
-                await MainActor.run {
-                    bulkUploadProgress = Double(index + 1) / Double(selectedPhotos.count * 2)
-                    uploadStatus = "Hazırlanıyor: \(index + 1)/\(selectedPhotos.count)"
-                }
-            } catch {
-                print("Error loading photo: \(error)")
-            }
-        }
-        
-        for (index, image) in processedImages.enumerated() {
-            do {
-                if let notificationRepo = notificationRepo {
-                    try await repo.uploadWithNotification(image: image, albumId: albumId, notificationRepo: notificationRepo)
-                } else {
-                    try await repo.upload(image: image, albumId: albumId)
-                }
-                
-                await MainActor.run {
-                    uploadedCount = index + 1
-                    bulkUploadProgress = 0.5 + (Double(index + 1) / Double(processedImages.count)) * 0.5
-                    uploadStatus = "Yükleniyor: \(index + 1)/\(processedImages.count)"
-                }
-                
-                if (index + 1) % 5 == 0 {
-                    try await Task.sleep(nanoseconds: 500_000_000)
-                }
-                
-            } catch {
-                print("Error uploading photo \(index): \(error)")
-            }
-        }
-        
-        await MainActor.run {
-            isProcessingBulkUpload = false
-            selectedPhotos.removeAll()
-            uploadStatus = "\(uploadedCount) fotoğraf başarıyla yüklendi!"
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                self.uploadStatus = ""
-            }
-        }
-    }
-    
     // MARK: - Toplu Silme
     
     func deleteSelectedItems() async throws {
@@ -336,89 +418,11 @@ final class MediaViewModel: ObservableObject {
         clearSelection()
         isSelectionMode = false
     }
+}
+
+// MARK: - Mevcut Fonksiyonlar (Değiştirilmeden)
+extension MediaViewModel {
     
-    // MARK: - Mevcut Fonksiyonlar (Değiştirilmeden)
-    
-    func start() {
-        Task {
-            for await list in repo.observe(albumId: albumId) {
-                self.items = list
-                self.applyFilter()
-                await preloadUserInfo(for: list)
-            }
-        }
-    }
-        
-    func uploadPicked() async {
-        if let notificationRepo = notificationRepo {
-            print("Using notification system for upload")
-            await uploadPickedWithNotification(notificationRepo: notificationRepo)
-        } else {
-            print("Fallback: Using upload without notifications")
-            await uploadPickedWithoutNotification()
-        }
-    }
-    
-    private func uploadPickedWithNotification(notificationRepo: NotificationRepository) async {
-        if let image = pickedImage {
-            await uploadPickedImageWithNotification(image, notificationRepo: notificationRepo)
-        }
-        if let videoURL = pickedVideoURL {
-            await uploadPickedVideoWithNotification(videoURL, notificationRepo: notificationRepo)
-        }
-    }
-    
-    private func uploadPickedWithoutNotification() async {
-        if let image = pickedImage {
-            await uploadPickedImage(image)
-        }
-        if let videoURL = pickedVideoURL {
-            await uploadPickedVideo(videoURL)
-        }
-    }
-    
-    private func uploadPickedImageWithNotification(_ image: UIImage, notificationRepo: NotificationRepository) async {
-        do {
-            try await repo.uploadWithNotification(image: image, albumId: albumId, notificationRepo: notificationRepo)
-            pickedImage = nil
-            print("Image upload with notification successful")
-        } catch {
-            print("Image upload with notification error:", error)
-            await uploadPickedImage(image)
-        }
-    }
-    
-    private func uploadPickedVideoWithNotification(_ videoURL: URL, notificationRepo: NotificationRepository) async {
-        do {
-            try await repo.uploadVideoWithNotification(from: videoURL, albumId: albumId, notificationRepo: notificationRepo)
-            pickedVideoURL = nil
-            print("Video upload with notification successful")
-        } catch {
-            print("Video upload with notification error:", error)
-            await uploadPickedVideo(videoURL)
-        }
-    }
-    
-    private func uploadPickedImage(_ image: UIImage) async {
-        do {
-            try await repo.upload(image: image, albumId: albumId)
-            pickedImage = nil
-            print("Image upload successful")
-        } catch {
-            print("Image upload error:", error)
-        }
-    }
-    
-    private func uploadPickedVideo(_ videoURL: URL) async {
-        do {
-            try await repo.uploadVideo(from: videoURL, albumId: albumId)
-            pickedVideoURL = nil
-            print("Video upload successful")
-        } catch {
-            print("Video upload error:", error)
-        }
-    }
-        
     func imageURL(for item: MediaItem) async -> URL? {
         do {
             let pathToUse = item.isVideo ? (item.thumbPath ?? item.path) : item.path
