@@ -28,22 +28,43 @@ struct AlbumsView: View {
             }
         }
     }
-
+    
     var sortedAlbums: [Album] {
         let currentUID = di.authRepo.uid ?? ""
+        let albums = vm.albums
+        
+        let sortedByPin = di.albumRepo.sortAlbumsWithPinned(albums)
         
         switch sortMode {
         case .newest:
-            return vm.albums.sorted { $0.updatedAt > $1.updatedAt }
+            return applySortMaintainingPins(sortedByPin) { $0.updatedAt > $1.updatedAt }
         case .oldest:
-            return vm.albums.sorted { $0.updatedAt < $1.updatedAt }
+            return applySortMaintainingPins(sortedByPin) { $0.updatedAt < $1.updatedAt }
         case .alphabetical:
-            return vm.albums.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            return applySortMaintainingPins(sortedByPin) { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
         case .mostMembers:
-            return vm.albums.sorted { $0.members.count > $1.members.count }
+            return applySortMaintainingPins(sortedByPin) { $0.members.count > $1.members.count }
         case .myAlbums:
-            return vm.albums.filter { $0.isOwner(currentUID) } + vm.albums.filter { !$0.isOwner(currentUID) }
+            let ownedFirst = sortedByPin.filter { $0.isOwner(currentUID) }
+            let notOwned = sortedByPin.filter { !$0.isOwner(currentUID) }
+            return ownedFirst + notOwned
         }
+    }
+    
+    private func applySortMaintainingPins(_ albums: [Album], by comparator: (Album, Album) -> Bool) -> [Album] {
+        let pinnedIds = Set(di.albumRepo.getPinnedAlbums())
+        
+        let pinnedAlbums = albums.filter { album in
+            guard let id = album.id else { return false }
+            return pinnedIds.contains(id)
+        }.sorted(by: comparator)
+        
+        let unpinnedAlbums = albums.filter { album in
+            guard let id = album.id else { return false }
+            return !pinnedIds.contains(id)
+        }.sorted(by: comparator)
+        
+        return pinnedAlbums + unpinnedAlbums
     }
 
     var body: some View {
@@ -66,6 +87,18 @@ struct AlbumsView: View {
                 .buttonStyle(PlainButtonStyle())
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    // Pin/Unpin aksiyonu
+                    Button(action: {
+                        Task { await togglePin(album) }
+                    }) {
+                        Label(
+                            di.albumRepo.isAlbumPinned(album.id ?? "") ? "Sabitlemeyi Kaldır" : "Sabitle",
+                            systemImage: di.albumRepo.isAlbumPinned(album.id ?? "") ? "pin.slash" : "pin"
+                        )
+                    }
+                    .tint(di.albumRepo.isAlbumPinned(album.id ?? "") ? .orange : .blue)
+                }
             }
         }
         .listStyle(.plain)
@@ -159,6 +192,19 @@ struct AlbumsView: View {
         .task {
             vm.start()
             await di.albumRepo.migrateAllAlbumFields()
+            
+            // Manuel test
+            Task {
+                do {
+                    let testAlbums = try await di.albumRepo.getMyAlbumsWithUpdatedInfo()
+                    print("🔍 Manual test: Found \(testAlbums.count) albums")
+                    for album in testAlbums {
+                        print("🔍 Test album: \(album.title), members: \(album.members)")
+                    }
+                } catch {
+                    print("❌ Manual test error: \(error)")
+                }
+            }
         }
     }
     
@@ -175,6 +221,118 @@ struct AlbumsView: View {
             navigationCoordinator.clearNavigationRequest()
         } else {
             print("AlbumsView: Album not found in current list, will try when albums load")
+        }
+    }
+    private func togglePin(_ album: Album) async {
+        guard let albumId = album.id else { return }
+        
+        do {
+            try await di.albumRepo.toggleAlbumPin(albumId)
+            
+            // Haptic feedback
+            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+            impactFeedback.impactOccurred()
+            
+        } catch {
+            print("Pin toggle error: \(error)")
+        }
+    }
+}
+
+struct EnhancedAlbumRowWithPin: View {
+    let album: Album
+    let currentUserId: String?
+    @StateObject var userCache: UserCacheManager
+    let userService: UserProviding
+    let albumRepo: AlbumRepository
+    let isPinned: Bool
+    let onPinToggle: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            AlbumCoverPhoto(
+                album: album,
+                albumRepo: albumRepo,
+                size: 44,
+                showEditButton: false
+            )
+            
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    // Pin ikonu - sabitlenmiş albümler için
+                    if isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .rotationEffect(.degrees(45))
+                    }
+                    
+                    Text(album.title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    
+                    Spacer()
+                }
+                
+                HStack(spacing: 6) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.2")
+                            .font(.caption)
+                        Text("\(album.members.count)")
+                            .font(.caption)
+                    }
+                    .foregroundStyle(.secondary)
+                    
+                    if album.isOwner(currentUserId ?? "") {
+                        HStack(spacing: 2) {
+                            Image(systemName: "crown.fill")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
+                        .padding(.leading, 4)
+                    }
+                    
+                    Spacer()
+                    
+                    Text(simpleTimeText(album.updatedAt))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isPinned ? .blue.opacity(0.05) : .clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isPinned ? .blue.opacity(0.2) : .clear, lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+    }
+    
+    private func simpleTimeText(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        if calendar.isDateInToday(date) {
+            return "Bugün"
+        } else if calendar.isDateInYesterday(date) {
+            return "Dün"
+        } else if calendar.dateInterval(of: .weekOfYear, for: now)?.contains(date) == true {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEEE"
+            formatter.locale = Locale(identifier: "tr_TR")
+            return formatter.string(from: date)
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .short
+            formatter.locale = Locale(identifier: "tr_TR")
+            return formatter.string(from: date)
         }
     }
 }

@@ -2,7 +2,6 @@
 //  Album.swift
 //  SnapCollab
 //
-//
 
 import Foundation
 import FirebaseFirestore
@@ -57,6 +56,12 @@ struct Album: Identifiable, Codable {
         updatedAt = .now
     }
     
+    mutating func transferOwnership(to newOwnerId: String) {
+        guard members.contains(newOwnerId) else { return }
+        ownerId = newOwnerId
+        updatedAt = .now
+    }
+        
     var hasCoverImage: Bool {
         return coverImagePath != nil && !coverImagePath!.isEmpty
     }

@@ -8,6 +8,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import UIKit
 
 final class AlbumRepository {
     private let service: AlbumProviding
@@ -23,16 +24,48 @@ final class AlbumRepository {
     func observeMyAlbums() -> AsyncStream<[Album]> {
         AsyncStream { continuation in
             guard let uid = auth.uid else {
+                print("🔍 AlbumRepo: No UID found")
                 continuation.finish()
                 return
             }
             
+            print("🔍 AlbumRepo: Starting observation for UID: \(uid)")
+            
             let listener = service.myAlbumsQuery(uid: uid)
                 .addSnapshotListener { snap, err in
                     if let err = err {
-                        print("ALBUM LIST ERROR:", err)
+                        print("❌ ALBUM LIST ERROR:", err)
+                        return
                     }
-                    let list = snap?.documents.compactMap { try? $0.data(as: Album.self) } ?? []
+                    
+                    let documents = snap?.documents ?? []
+                    print("🔍 AlbumRepo: Got \(documents.count) documents from Firestore")
+                    
+                    // Her document'ı ayrı ayrı kontrol et
+                    for (index, doc) in documents.enumerated() {
+                        print("🔍 Document \(index): \(doc.documentID)")
+                        print("🔍 Document data: \(doc.data())")
+                        
+                        do {
+                            let album = try doc.data(as: Album.self)
+                            print("🔍 Successfully parsed album: \(album.title)")
+                            print("🔍 Album members: \(album.members)")
+                            print("🔍 Current user in members: \(album.members.contains(uid))")
+                        } catch {
+                            print("❌ Failed to parse album \(doc.documentID): \(error)")
+                        }
+                    }
+                    
+                    let list = documents.compactMap { doc -> Album? in
+                        do {
+                            return try doc.data(as: Album.self)
+                        } catch {
+                            print("❌ Parse error for \(doc.documentID): \(error)")
+                            return nil
+                        }
+                    }
+                    
+                    print("🔍 AlbumRepo: Yielding \(list.count) albums")
                     continuation.yield(list)
                 }
             continuation.onTermination = { _ in listener.remove() }
@@ -48,9 +81,9 @@ final class AlbumRepository {
     func getAlbum(by id: String) async throws -> Album? {
         return try await service.getAlbum(id: id)
     }
-    
 }
 
+// MARK: - Migration Extensions
 extension AlbumRepository {
     func migrateOldAlbums() async {
         print("Migrating old albums...")
@@ -93,11 +126,197 @@ extension AlbumRepository {
             print("Migration error: \(error)")
         }
     }
+    
+    func migrateCoverImageSupport() async {
+        print("Migrating albums for cover image support...")
+        
+        guard let uid = auth.uid else { return }
+        
+        do {
+            let snapshot = try await Firestore.firestore()
+                .collection("albums")
+                .whereField("members", arrayContains: uid)
+                .getDocuments()
+            
+            for document in snapshot.documents {
+                var data = document.data()
+                var needsUpdate = false
+                
+                if data["coverImagePath"] == nil {
+                    data["coverImagePath"] = NSNull()
+                    needsUpdate = true
+                    print("Adding coverImagePath field to album: \(document.documentID)")
+                }
+                
+                if needsUpdate {
+                    try await document.reference.updateData(data)
+                    print("Updated album for cover image support: \(document.documentID)")
+                }
+            }
+            print("Cover image migration completed!")
+            
+        } catch {
+            print("Cover image migration error: \(error)")
+        }
+    }
+    
+    func migrateAllAlbumFields() async {
+        print("Running complete album migration...")
+        
+        guard let uid = auth.uid else { return }
+        
+        do {
+            let snapshot = try await Firestore.firestore()
+                .collection("albums")
+                .whereField("members", arrayContains: uid)
+                .getDocuments()
+            
+            for document in snapshot.documents {
+                var data = document.data()
+                var needsUpdate = false
+                
+                if data["updatedAt"] == nil {
+                    data["updatedAt"] = Timestamp()
+                    needsUpdate = true
+                    print("Adding updatedAt to album: \(document.documentID)")
+                }
+                
+                if data["inviteCode"] == nil {
+                    let characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+                    let code = String((0..<6).map { _ in characters.randomElement()! })
+                    data["inviteCode"] = code
+                    needsUpdate = true
+                    print("Adding inviteCode (\(code)) to album: \(document.documentID)")
+                }
+                
+                if data["coverImagePath"] == nil {
+                    data["coverImagePath"] = NSNull()
+                    needsUpdate = true
+                    print("Adding coverImagePath field to album: \(document.documentID)")
+                }
+                
+                if needsUpdate {
+                    try await document.reference.updateData(data)
+                    print("Updated album: \(document.documentID)")
+                }
+            }
+            
+            print("Complete album migration finished!")
+            
+        } catch {
+            print("Complete migration error: \(error)")
+        }
+    }
 }
 
+// MARK: - Owner Transfer & Pinning
 extension AlbumRepository {
     
-        func getAlbumByInviteCode(_ inviteCode: String) async throws -> Album? {
+    // MARK: - Owner Transfer
+    func transferOwnership(_ albumId: String, to newOwnerId: String, notificationRepo: NotificationRepository? = nil) async throws {
+        guard let currentUID = auth.uid else {
+            throw AlbumError.notAuthenticated
+        }
+        
+        guard var album = try await getAlbum(by: albumId) else {
+            throw AlbumError.albumNotFound
+        }
+        
+        // Sadece mevcut owner transfer yapabilir
+        if !album.isOwner(currentUID) {
+            throw AlbumError.onlyOwnerCanEdit
+        }
+        
+        // Yeni owner albüm üyesi olmalı
+        if !album.isMember(newOwnerId) {
+            throw AlbumError.notMember
+        }
+        
+        // Owner kendine transfer edemez
+        if currentUID == newOwnerId {
+            throw AlbumError.cannotTransferToSelf
+        }
+        
+        let oldOwnerId = album.ownerId
+        album.transferOwnership(to: newOwnerId)
+        
+        try await updateAlbum(album)
+        
+        // Bildirim gönder
+        if let notificationRepo = notificationRepo,
+           let currentUser = auth.currentUser {
+            await notificationRepo.notifyOwnershipTransferred(
+                fromUser: currentUser,
+                toUserId: newOwnerId,
+                album: album,
+                oldOwnerId: oldOwnerId
+            )
+        }
+        
+        print("AlbumRepo: Ownership transferred from \(oldOwnerId) to \(newOwnerId) for album: \(album.title)")
+    }
+    
+    // MARK: - Pinleme Özelliği
+    func toggleAlbumPin(_ albumId: String) async throws {
+        guard let uid = auth.uid else {
+            throw AlbumError.notAuthenticated
+        }
+        
+        guard let album = try await getAlbum(by: albumId) else {
+            throw AlbumError.albumNotFound
+        }
+        
+        if !album.isMember(uid) {
+            throw AlbumError.notMember
+        }
+        
+        // Pinleme bilgisi user-specific olarak UserDefaults'ta saklanacak
+        let key = "pinned_albums_\(uid)"
+        var pinnedAlbums = UserDefaults.standard.stringArray(forKey: key) ?? []
+        
+        if pinnedAlbums.contains(albumId) {
+            pinnedAlbums.removeAll { $0 == albumId }
+        } else {
+            pinnedAlbums.append(albumId)
+        }
+        
+        UserDefaults.standard.set(pinnedAlbums, forKey: key)
+        
+        print("AlbumRepo: Album \(albumId) pin status toggled for user \(uid)")
+    }
+    
+    func getPinnedAlbums() -> [String] {
+        guard let uid = auth.uid else { return [] }
+        let key = "pinned_albums_\(uid)"
+        return UserDefaults.standard.stringArray(forKey: key) ?? []
+    }
+    
+    func isAlbumPinned(_ albumId: String) -> Bool {
+        let pinnedAlbums = getPinnedAlbums()
+        return pinnedAlbums.contains(albumId)
+    }
+    
+    func sortAlbumsWithPinned(_ albums: [Album]) -> [Album] {
+        let pinnedAlbumIds = Set(getPinnedAlbums())
+        
+        let pinnedAlbums = albums.filter { album in
+            guard let id = album.id else { return false }
+            return pinnedAlbumIds.contains(id)
+        }.sorted { $0.updatedAt > $1.updatedAt }
+        
+        let unpinnedAlbums = albums.filter { album in
+            guard let id = album.id else { return false }
+            return !pinnedAlbumIds.contains(id)
+        }.sorted { $0.updatedAt > $1.updatedAt }
+        
+        return pinnedAlbums + unpinnedAlbums
+    }
+}
+
+// MARK: - Album Management
+extension AlbumRepository {
+    
+    func getAlbumByInviteCode(_ inviteCode: String) async throws -> Album? {
         print("AlbumRepo: Getting album by invite code: \(inviteCode)")
         return try await service.getAlbumByInviteCode(inviteCode)
     }
@@ -164,7 +383,6 @@ extension AlbumRepository {
         return snapshot.documents.compactMap { try? $0.data(as: Album.self) }
     }
     
-
     func updateAlbumTitle(_ albumId: String, newTitle: String) async throws {
         guard let uid = auth.uid else {
             throw AlbumError.notAuthenticated
@@ -208,6 +426,7 @@ extension AlbumRepository {
     }
 }
 
+// MARK: - Member Management
 extension AlbumRepository {
     
     func removeMemberFromAlbum(_ albumId: String, memberUID: String) async throws {
@@ -283,9 +502,11 @@ extension AlbumRepository {
         )
     }
 }
+
+// MARK: - Cover Image Management
 extension AlbumRepository {
     
-        func updateCoverImage(_ albumId: String, coverImage: UIImage) async throws {
+    func updateCoverImage(_ albumId: String, coverImage: UIImage) async throws {
         guard let uid = auth.uid else {
             throw AlbumError.notAuthenticated
         }
@@ -365,7 +586,6 @@ extension AlbumRepository {
         return try await mediaRepo.storage.url(for: coverPath)
     }
     
-    
     private func uploadCoverImage(_ image: UIImage, albumId: String) async throws -> String {
         let optimizedImage = await optimizeForCover(image)
         
@@ -417,95 +637,7 @@ extension AlbumRepository {
     }
 }
 
-extension AlbumRepository {
-    
-    func migrateCoverImageSupport() async {
-        print("Migrating albums for cover image support...")
-        
-        guard let uid = auth.uid else { return }
-        
-        do {
-            let snapshot = try await Firestore.firestore()
-                .collection("albums")
-                .whereField("members", arrayContains: uid)
-                .getDocuments()
-            
-            for document in snapshot.documents {
-                var data = document.data()
-                var needsUpdate = false
-                
-                if data["coverImagePath"] == nil {
-                    data["coverImagePath"] = NSNull()
-                    needsUpdate = true
-                    print("Adding coverImagePath field to album: \(document.documentID)")
-                }
-                
-                if needsUpdate {
-                    try await document.reference.updateData(data)
-                    print("Updated album for cover image support: \(document.documentID)")
-                }
-            }
-            print("Cover image migration completed!")
-            
-        } catch {
-            print("Cover image migration error: \(error)")
-        }
-    }
-        func migrateAllAlbumFields() async {
-        print("Running complete album migration...")
-        
-        guard let uid = auth.uid else { return }
-        
-        do {
-            let snapshot = try await Firestore.firestore()
-                .collection("albums")
-                .whereField("members", arrayContains: uid)
-                .getDocuments()
-            
-            for document in snapshot.documents {
-                var data = document.data()
-                var needsUpdate = false
-                
-                if data["updatedAt"] == nil {
-                    data["updatedAt"] = Timestamp()
-                    needsUpdate = true
-                    print("Adding updatedAt to album: \(document.documentID)")
-                }
-                
-                if data["inviteCode"] == nil {
-                    let characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-                    let code = String((0..<6).map { _ in characters.randomElement()! })
-                    data["inviteCode"] = code
-                    needsUpdate = true
-                    print("Adding inviteCode (\(code)) to album: \(document.documentID)")
-                }
-                
-                if data["coverImagePath"] == nil {
-                    data["coverImagePath"] = NSNull()
-                    needsUpdate = true
-                    print("Adding coverImagePath field to album: \(document.documentID)")
-                }
-                
-                if needsUpdate {
-                    try await document.reference.updateData(data)
-                    print("Updated album: \(document.documentID)")
-                }
-            }
-            
-            print("Complete album migration finished!")
-            
-        } catch {
-            print("Complete migration error: \(error)")
-        }
-    }
-}
-
-struct AlbumStats {
-    let memberCount: Int
-    let createdDate: Date
-    let lastUpdated: Date
-}
-
+// MARK: - Notification Extensions
 extension AlbumRepository {
     
     func joinAlbumWithNotification(inviteCode: String, notificationRepo: NotificationRepository) async throws -> Album {
@@ -519,9 +651,11 @@ extension AlbumRepository {
         guard var album = try await getAlbumByInviteCode(inviteCode) else {
             throw AlbumError.albumNotFound
         }
+        
         if album.isMember(uid) {
             throw AlbumError.alreadyMember
         }
+        
         album.addMember(uid)
         try await updateAlbum(album)
         
@@ -600,6 +734,13 @@ extension AlbumRepository {
     }
 }
 
+// MARK: - Supporting Types
+struct AlbumStats {
+    let memberCount: Int
+    let createdDate: Date
+    let lastUpdated: Date
+}
+
 enum AlbumError: LocalizedError {
     case notAuthenticated
     case albumNotFound
@@ -614,6 +755,8 @@ enum AlbumError: LocalizedError {
     case cannotRemoveOwner
     case noCoverImageToDelete
     case imageProcessingFailed
+    case cannotTransferToSelf
+    case ownershipTransferFailed
     
     var errorDescription: String? {
         switch self {
@@ -643,6 +786,10 @@ enum AlbumError: LocalizedError {
             return "Silinecek kapak fotoğrafı yok"
         case .imageProcessingFailed:
             return "Görüntü işleme hatası"
+        case .cannotTransferToSelf:
+            return "Kendinize owner transfer yapamazsınız"
+        case .ownershipTransferFailed:
+            return "Owner transfer işlemi başarısız"
         }
     }
 }

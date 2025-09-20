@@ -2,7 +2,6 @@
 //  NotificationsView.swift
 //  SnapCollab
 //
-//
 
 import SwiftUI
 
@@ -277,16 +276,11 @@ struct NotificationRowView: View {
                     
                     Spacer()
                     
-                    HStack(spacing: 8) {
-                        Text(relativeTimeString)
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                        
-                        if !notification.isRead {
-                            Circle()
-                                .fill(.blue)
-                                .frame(width: 8, height: 8)
-                        }
+                    // Zaman bilgisi tamamen kaldırıldı
+                    if !notification.isRead {
+                        Circle()
+                            .fill(.blue)
+                            .frame(width: 8, height: 8)
                     }
                 }
                 
@@ -338,12 +332,5 @@ struct NotificationRowView: View {
         case "orange": return .orange
         default: return .gray
         }
-    }
-    
-    private var relativeTimeString: String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        formatter.locale = Locale(identifier: "tr_TR")
-        return formatter.localizedString(for: notification.createdAt, relativeTo: Date())
     }
 }

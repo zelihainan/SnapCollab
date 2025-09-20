@@ -17,9 +17,18 @@ final class AlbumsViewModel: ObservableObject {
     init(repo: AlbumRepository) { self.repo = repo }
 
     func start() {
+        print("🔍 AlbumsVM: start() called")
+        print("🔍 AlbumsVM: Current auth state: \(repo.auth.isSignedIn)")
+        print("🔍 AlbumsVM: Current UID: \(repo.auth.uid ?? "nil")")
+        
         Task {
-            for await list in repo.observeMyAlbums() {
-                self.albums = list
+            print("🔍 AlbumsVM: Starting AsyncStream")
+            for await albums in repo.observeMyAlbums() {
+                print("🔍 AlbumsVM: Received \(albums.count) albums from repo")
+                await MainActor.run {
+                    self.albums = albums
+                    print("🔍 AlbumsVM: Updated UI with \(albums.count) albums")
+                }
             }
         }
     }
@@ -31,4 +40,5 @@ final class AlbumsViewModel: ObservableObject {
         newTitle = ""
         showCreate = false
     }
+    
 }
