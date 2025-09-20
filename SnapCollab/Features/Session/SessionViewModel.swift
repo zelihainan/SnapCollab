@@ -96,12 +96,25 @@ final class SessionViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Firebase Phone Auth (Optional - for SMS verification)
+
+    // MARK: - Test Firebase Phone Auth (SMS bypass for test number)
     func sendVerificationCode(to phoneNumber: String) async {
         isLoading = true
         errorMessage = nil
         self.phoneNumber = phoneNumber
         
+        // Check if it's Firebase test number
+        if phoneNumber == "+905551234567" {
+            // For test number, simulate SMS sent and auto-show verification screen
+            await MainActor.run {
+                self.verificationID = "test-verification-id"
+                self.showVerificationCode = true
+            }
+            isLoading = false
+            return
+        }
+        
+        // Real Firebase SMS sending
         do {
             let verificationID = try await PhoneAuthProvider.provider().verifyPhoneNumber(phoneNumber, uiDelegate: nil)
             await MainActor.run {
@@ -116,7 +129,7 @@ final class SessionViewModel: ObservableObject {
         
         isLoading = false
     }
-    
+
     func verifyCode(_ code: String) async {
         guard let verificationID = verificationID else {
             errorMessage = "Doğrulama kodu bulunamadı"
@@ -126,6 +139,21 @@ final class SessionViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         
+        // Handle test number verification
+        if verificationID == "test-verification-id" && phoneNumber == "+905551234567" {
+            if code == "111111" {
+                // Test successful - create/signin user
+                await handleTestNumberSuccess()
+            } else {
+                await MainActor.run {
+                    self.errorMessage = "Geçersiz doğrulama kodu. Test kodu: 111111"
+                }
+            }
+            isLoading = false
+            return
+        }
+        
+        // Real Firebase verification
         do {
             let credential = PhoneAuthProvider.provider().credential(
                 withVerificationID: verificationID,
@@ -163,6 +191,34 @@ final class SessionViewModel: ObservableObject {
         
         isLoading = false
     }
+
+    private func handleTestNumberSuccess() async {
+        // For test number, create a test user
+        let testUser = User(
+            uid: "test-user-\(UUID().uuidString)",
+            email: "+905551234567",
+            displayName: "Test Kullanıcı",
+            photoURL: nil
+        )
+        
+        do {
+            let userService = FirestoreUserService()
+            try await userService.createUser(testUser)
+            
+            await MainActor.run {
+                self.state.isSignedIn = true
+                self.state.currentUser = testUser
+                self.showVerificationCode = false
+                self.verificationCode = ""
+                self.verificationID = nil
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "Test kullanıcı oluşturulamadı"
+            }
+        }
+    }
+
     
     // MARK: - Google Authentication
     func signInWithGoogle() async {
