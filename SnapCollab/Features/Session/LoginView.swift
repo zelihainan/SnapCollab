@@ -17,16 +17,18 @@ struct ModernLoginView: View {
     @State private var showTermsSheet = false
     @State private var termsAccepted = false
     @State private var animateBackground = false
+    @State private var verificationCode = ""
     
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Gradient Background
+                // Dark Gradient Background
                 LinearGradient(
                     colors: [
-                        Color(.systemBlue).opacity(0.8),
-                        Color(.systemPurple).opacity(0.6),
-                        Color(.systemBackground)
+                        Color(.systemBlue).opacity(0.9),
+                        Color(.systemIndigo).opacity(0.8),
+                        Color(.systemPurple).opacity(0.7),
+                        Color(.systemBackground).opacity(0.3)
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -40,36 +42,39 @@ struct ModernLoginView: View {
                         // Header with SnapCollab Title
                         VStack {
                             Spacer()
-                                .frame(height: 80)
+                                .frame(height: 70)
                             
-                            // SnapCollab Title
+                            // SnapCollab Title with AlbertSans
                             HStack(spacing: 0) {
                                 Text("Snap")
-                                    .font(.system(size: 42, weight: .bold, design: .rounded))
+                                    .font(.custom("AlbertSans-Regular", size: 44))
+                                    .fontWeight(.bold)
                                     .foregroundStyle(.white)
                                 
                                 Text("Collab")
-                                    .font(.system(size: 42, weight: .light, design: .rounded))
+                                    .font(.custom("AlbertSans-Regular", size: 44))
+                                    .fontWeight(.light)
                                     .foregroundStyle(.white.opacity(0.9))
                             }
                             .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
                             
                             Spacer()
-                                .frame(height: 60)
+                                .frame(height: 50)
                         }
                         
-                        // Main Form Card
+                        // Compact Main Form Card
                         VStack(spacing: 0) {
-                            VStack(spacing: 24) {
+                            VStack(spacing: 20) {
                                 // Welcome Title
                                 Text(showSignUp ? "Hesap Oluştur" : "Hoş Geldiniz")
-                                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                                    .font(.custom("AlbertSans-Regular", size: 26))
+                                    .fontWeight(.bold)
                                     .foregroundStyle(.primary)
-                                    .padding(.top, 32)
+                                    .padding(.top, 24)
                                     .animation(.easeInOut(duration: 0.3), value: showSignUp)
                                 
                                 // Form Fields
-                                VStack(spacing: 16) {
+                                VStack(spacing: 14) {
                                     // Display Name (only for sign up - first field)
                                     if showSignUp {
                                         ModernTextField(
@@ -92,24 +97,40 @@ struct ModernLoginView: View {
                                         placeholder: "E-posta veya telefon"
                                     )
                                     
-                                    // Password Field
-                                    ModernSecureField(
-                                        text: $password,
-                                        placeholder: "Şifre",
-                                        showForgotPassword: !showSignUp,
-                                        onForgotPassword: {
-                                            vm.resetEmail = emailOrPhone
-                                            vm.showForgotPassword = true
-                                        }
-                                    )
+                                    // Password Field (only for email login/signup)
+                                    if !isPhoneNumber || showSignUp {
+                                        ModernSecureField(
+                                            text: $password,
+                                            placeholder: showSignUp ? "Şifre" : "Şifre",
+                                            showForgotPassword: !showSignUp && !isPhoneNumber,
+                                            onForgotPassword: {
+                                                vm.resetEmail = emailOrPhone
+                                                vm.showForgotPassword = true
+                                            }
+                                        )
+                                    }
                                     
-                                    // Confirm Password (only for sign up)
-                                    if showSignUp {
+                                    // Confirm Password (only for email sign up)
+                                    if showSignUp && !isPhoneNumber {
                                         ModernSecureField(
                                             text: $confirmPassword,
                                             placeholder: "Şifre Tekrar",
                                             showForgotPassword: false,
                                             onForgotPassword: {}
+                                        )
+                                        .transition(.asymmetric(
+                                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                                            removal: .move(edge: .top).combined(with: .opacity)
+                                        ))
+                                    }
+                                    
+                                    // Verification Code (only for phone and when verification is shown)
+                                    if isPhoneNumber && vm.showVerificationCode {
+                                        ModernTextField(
+                                            text: $verificationCode,
+                                            placeholder: "Doğrulama Kodu",
+                                            icon: "number.circle.fill",
+                                            keyboardType: .numberPad
                                         )
                                         .transition(.asymmetric(
                                             insertion: .move(edge: .bottom).combined(with: .opacity),
@@ -137,7 +158,7 @@ struct ModernLoginView: View {
                                 
                                 // Main Action Button
                                 ModernButton(
-                                    title: showSignUp ? "Hesap Oluştur" : "Giriş Yap",
+                                    title: getButtonTitle(),
                                     isLoading: vm.isLoading,
                                     isDisabled: !isFormValid,
                                     style: .primary
@@ -156,33 +177,16 @@ struct ModernLoginView: View {
                                 }) {
                                     HStack(spacing: 6) {
                                         Text(showSignUp ? "Zaten hesabım var" : "Hesap oluştur")
-                                            .font(.system(size: 16, weight: .medium))
+                                            .font(.custom("AlbertSans-Regular", size: 15))
+                                            .fontWeight(.medium)
                                         
                                         Image(systemName: "arrow.right")
-                                            .font(.system(size: 14, weight: .medium))
+                                            .font(.system(size: 13, weight: .medium))
                                     }
                                     .foregroundStyle(.blue)
                                 }
                                 
-                                // Divider
-                                HStack {
-                                    Rectangle()
-                                        .frame(height: 1)
-                                        .foregroundStyle(.separator)
-                                    
-                                    Text("veya")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .padding(.horizontal, 16)
-                                        .background(Color(.systemBackground))
-                                    
-                                    Rectangle()
-                                        .frame(height: 1)
-                                        .foregroundStyle(.separator)
-                                }
-                                .padding(.vertical, 8)
-                                
-                                // Google Sign In
+                                // Google Sign In (more compact)
                                 ModernButton(
                                     title: "Google ile Devam Et",
                                     isLoading: false,
@@ -193,18 +197,18 @@ struct ModernLoginView: View {
                                     Task { await vm.signInWithGoogle() }
                                 }
                                 
-                                Spacer(minLength: 40)
+                                Spacer(minLength: 30)
                             }
-                            .padding(.horizontal, 32)
-                            .padding(.bottom, 50)
+                            .padding(.horizontal, 28)
+                            .padding(.bottom, 40)
                         }
                         .background(
-                            RoundedRectangle(cornerRadius: 32, style: .continuous)
+                            RoundedRectangle(cornerRadius: 28, style: .continuous)
                                 .fill(.regularMaterial)
-                                .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: -5)
+                                .shadow(color: .black.opacity(0.15), radius: 25, x: 0, y: -8)
                         )
-                        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-                        .padding(.horizontal, 16)
+                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                        .padding(.horizontal, 14)
                     }
                 }
                 .scrollIndicators(.hidden)
@@ -224,31 +228,74 @@ struct ModernLoginView: View {
         }
     }
     
-    // MARK: - Helper Methods
-    private var isFormValid: Bool {
-        if showSignUp {
-            return !displayName.isEmpty &&
-                   !emailOrPhone.isEmpty &&
-                   !password.isEmpty &&
-                   password == confirmPassword &&
-                   password.count >= 6 &&
-                   termsAccepted
-        }
-        return !emailOrPhone.isEmpty && !password.isEmpty
+    // MARK: - Helper Properties
+    private var isPhoneNumber: Bool {
+        isValidPhoneNumber(emailOrPhone)
     }
     
-    private func handleAuthentication() async {
+    private var isFormValid: Bool {
+        let baseValid = !emailOrPhone.isEmpty
+        
         if showSignUp {
-            if isValidPhoneNumber(emailOrPhone) {
-                let fullPhone = selectedCountryCode.code + cleanPhoneNumber(emailOrPhone)
-                await vm.signUpWithPhone(phone: fullPhone, password: password, displayName: displayName)
+            let nameValid = !displayName.isEmpty
+            let termsValid = termsAccepted
+            
+            if isPhoneNumber {
+                return nameValid && baseValid && termsValid
             } else {
-                await vm.signUp(email: emailOrPhone, password: password, displayName: displayName)
+                return nameValid && baseValid && !password.isEmpty &&
+                       password == confirmPassword && password.count >= 6 && termsValid
             }
         } else {
-            if isValidPhoneNumber(emailOrPhone) {
+            if isPhoneNumber {
+                if vm.showVerificationCode {
+                    return baseValid && !verificationCode.isEmpty
+                } else {
+                    return baseValid
+                }
+            } else {
+                return baseValid && !password.isEmpty
+            }
+        }
+    }
+    
+    private func getButtonTitle() -> String {
+        if showSignUp {
+            return "Hesap Oluştur"
+        } else {
+            if isPhoneNumber {
+                if vm.showVerificationCode {
+                    return "Doğrula"
+                } else {
+                    return "SMS Gönder"
+                }
+            } else {
+                return "Giriş Yap"
+            }
+        }
+    }
+    
+    // MARK: - Helper Methods
+    private func handleAuthentication() async {
+        if isPhoneNumber {
+            if showSignUp {
+                // Phone signup - send SMS
                 let fullPhone = selectedCountryCode.code + cleanPhoneNumber(emailOrPhone)
-                await vm.signInWithPhone(phone: fullPhone, password: password)
+                await vm.sendVerificationCode(to: fullPhone)
+            } else {
+                if vm.showVerificationCode {
+                    // Verify code
+                    await vm.verifyCode(verificationCode)
+                } else {
+                    // Send verification code
+                    let fullPhone = selectedCountryCode.code + cleanPhoneNumber(emailOrPhone)
+                    await vm.sendVerificationCode(to: fullPhone)
+                }
+            }
+        } else {
+            // Email authentication
+            if showSignUp {
+                await vm.signUp(email: emailOrPhone, password: password, displayName: displayName)
             } else {
                 await vm.signIn(email: emailOrPhone, password: password)
             }
@@ -257,9 +304,11 @@ struct ModernLoginView: View {
     
     private func clearForm() {
         vm.errorMessage = nil
+        vm.resetVerificationState()
         termsAccepted = false
         password = ""
         confirmPassword = ""
+        verificationCode = ""
         if showSignUp {
             displayName = ""
         }
@@ -294,12 +343,12 @@ struct SmartInputField: View {
     }
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             // Dynamic Icon
             Image(systemName: iconName)
                 .foregroundStyle(isFocused ? .blue : .secondary)
-                .font(.system(size: 20, weight: .medium))
-                .frame(width: 24)
+                .font(.system(size: 18, weight: .medium))
+                .frame(width: 22)
                 .animation(.easeInOut(duration: 0.2), value: inputType)
             
             // Country Code (only visible for phone input)
@@ -307,20 +356,21 @@ struct SmartInputField: View {
                 Button(action: {
                     showCountryPicker = true
                 }) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 3) {
                         Text(selectedCountryCode.flag)
-                            .font(.title3)
+                            .font(.callout)
                         Text(selectedCountryCode.code)
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.custom("AlbertSans-Regular", size: 14))
+                            .fontWeight(.medium)
                             .foregroundStyle(.primary)
                         Image(systemName: "chevron.down")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 6)
                     .background(
-                        RoundedRectangle(cornerRadius: 8)
+                        RoundedRectangle(cornerRadius: 6)
                             .fill(Color(.secondarySystemBackground))
                     )
                 }
@@ -329,6 +379,7 @@ struct SmartInputField: View {
             
             // Text Field
             TextField(placeholder, text: $text)
+                .font(.custom("AlbertSans-Regular", size: 16))
                 .focused($isFocused)
                 .keyboardType(inputType == .phone ? .phonePad : .emailAddress)
                 .autocapitalization(.none)
@@ -337,13 +388,13 @@ struct SmartInputField: View {
                     detectInputType(newValue)
                 }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color(.systemGray6))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(isFocused ? .blue : .clear, lineWidth: 2)
                 )
         )
@@ -392,26 +443,27 @@ struct ModernTextField: View {
     @FocusState private var isFocused: Bool
     
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             Image(systemName: icon)
                 .foregroundStyle(isFocused ? .blue : .secondary)
-                .font(.system(size: 20, weight: .medium))
-                .frame(width: 24)
+                .font(.system(size: 18, weight: .medium))
+                .frame(width: 22)
                 .animation(.easeInOut(duration: 0.2), value: isFocused)
             
             TextField(placeholder, text: $text)
+                .font(.custom("AlbertSans-Regular", size: 16))
                 .focused($isFocused)
                 .keyboardType(keyboardType)
                 .autocapitalization(keyboardType == .emailAddress ? .none : .words)
                 .autocorrectionDisabled(keyboardType == .emailAddress)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color(.systemGray6))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(isFocused ? .blue : .clear, lineWidth: 2)
                 )
         )
@@ -430,19 +482,21 @@ struct ModernSecureField: View {
     @State private var isSecured = true
     
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 16) {
+        VStack(spacing: 6) {
+            HStack(spacing: 12) {
                 Image(systemName: "lock.circle.fill")
                     .foregroundStyle(isFocused ? .blue : .secondary)
-                    .font(.system(size: 20, weight: .medium))
-                    .frame(width: 24)
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 22)
                     .animation(.easeInOut(duration: 0.2), value: isFocused)
                 
                 if isSecured {
                     SecureField(placeholder, text: $text)
+                        .font(.custom("AlbertSans-Regular", size: 16))
                         .focused($isFocused)
                 } else {
                     TextField(placeholder, text: $text)
+                        .font(.custom("AlbertSans-Regular", size: 16))
                         .focused($isFocused)
                 }
                 
@@ -453,16 +507,16 @@ struct ModernSecureField: View {
                 }) {
                     Image(systemName: isSecured ? "eye.slash.circle" : "eye.circle")
                         .foregroundStyle(.secondary)
-                        .font(.system(size: 20))
+                        .font(.system(size: 18))
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color(.systemGray6))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .stroke(isFocused ? .blue : .clear, lineWidth: 2)
                     )
             )
@@ -474,10 +528,10 @@ struct ModernSecureField: View {
                     Button("Şifremi unuttum") {
                         onForgotPassword()
                     }
-                    .font(.caption)
+                    .font(.custom("AlbertSans-Regular", size: 12))
                     .foregroundStyle(.blue)
                 }
-                .padding(.trailing, 4)
+                .padding(.trailing, 2)
             }
         }
     }
@@ -498,36 +552,38 @@ struct ModernButton: View {
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 if isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: textColor))
-                        .scaleEffect(0.9)
+                        .scaleEffect(0.8)
                 } else {
                     if let icon = icon {
                         if icon == "google" {
                             Circle()
                                 .fill(.white)
-                                .frame(width: 20, height: 20)
+                                .frame(width: 18, height: 18)
                                 .overlay {
                                     Text("G")
-                                        .font(.system(size: 12, weight: .bold))
+                                        .font(.custom("AlbertSans-Regular", size: 11))
+                                        .fontWeight(.bold)
                                         .foregroundStyle(.blue)
                                 }
                         } else {
                             Image(systemName: icon)
-                                .font(.system(size: 18, weight: .medium))
+                                .font(.system(size: 16, weight: .medium))
                         }
                     }
                     
                     Text(title)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.custom("AlbertSans-Regular", size: 16))
+                        .fontWeight(.semibold)
                 }
             }
             .foregroundStyle(textColor)
-            .frame(maxWidth: .infinity, minHeight: 54)
+            .frame(maxWidth: .infinity, minHeight: 48)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(backgroundColor)
                     .shadow(color: shadowColor, radius: shadowRadius, x: 0, y: shadowY)
             )
@@ -568,18 +624,18 @@ struct ModernButton: View {
     private var shadowRadius: CGFloat {
         switch style {
         case .primary:
-            return isDisabled ? 2 : 8
+            return isDisabled ? 2 : 6
         case .google:
-            return 6
+            return 4
         }
     }
     
     private var shadowY: CGFloat {
         switch style {
         case .primary:
-            return isDisabled ? 1 : 4
+            return isDisabled ? 1 : 3
         case .google:
-            return 3
+            return 2
         }
     }
 }
@@ -590,57 +646,59 @@ struct TermsAcceptanceView: View {
     @Binding var showTermsSheet: Bool
     
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 10) {
             Button(action: {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     termsAccepted.toggle()
                 }
             }) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 6)
+                    RoundedRectangle(cornerRadius: 5)
                         .stroke(termsAccepted ? .blue : .gray, lineWidth: 2)
-                        .frame(width: 22, height: 22)
+                        .frame(width: 20, height: 20)
                         .background(
-                            RoundedRectangle(cornerRadius: 6)
+                            RoundedRectangle(cornerRadius: 5)
                                 .fill(termsAccepted ? .blue : .clear)
                         )
                     
                     if termsAccepted {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(.white)
                     }
                 }
             }
-            .padding(.top, 2)
+            .padding(.top, 1)
             
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text("Aşağıdaki şartları kabul ediyorum:")
-                    .font(.system(size: 14))
+                    .font(.custom("AlbertSans-Regular", size: 13))
                     .foregroundStyle(.secondary)
                 
-                HStack(spacing: 4) {
+                HStack(spacing: 3) {
                     Button("Kullanım Koşulları") {
                         showTermsSheet = true
                     }
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.custom("AlbertSans-Regular", size: 13))
+                    .fontWeight(.medium)
                     .foregroundStyle(.blue)
                     
                     Text("ve")
-                        .font(.system(size: 14))
+                        .font(.custom("AlbertSans-Regular", size: 13))
                         .foregroundStyle(.secondary)
                     
                     Button("Gizlilik Politikası") {
                         showTermsSheet = true
                     }
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.custom("AlbertSans-Regular", size: 13))
+                    .fontWeight(.medium)
                     .foregroundStyle(.blue)
                 }
             }
             
             Spacer()
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 2)
     }
 }
 
@@ -649,25 +707,25 @@ struct ErrorMessageView: View {
     let message: String
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
-                .font(.system(size: 16))
+                .font(.system(size: 14))
             
             Text(message)
-                .font(.caption)
+                .font(.custom("AlbertSans-Regular", size: 12))
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.leading)
             
             Spacer()
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(.orange.opacity(0.1))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .stroke(.orange.opacity(0.3), lineWidth: 1)
                 )
         )
@@ -721,17 +779,17 @@ struct CountryCodePicker: View {
                         selectedCountryCode = country
                         dismiss()
                     }) {
-                        HStack(spacing: 16) {
+                        HStack(spacing: 14) {
                             Text(country.flag)
-                                .font(.title2)
+                                .font(.title3)
                             
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: 1) {
                                 Text(country.name)
-                                    .font(.body)
+                                    .font(.custom("AlbertSans-Regular", size: 16))
                                     .foregroundStyle(.primary)
                                 
                                 Text(country.code)
-                                    .font(.caption)
+                                    .font(.custom("AlbertSans-Regular", size: 12))
                                     .foregroundStyle(.secondary)
                             }
                             
@@ -742,7 +800,7 @@ struct CountryCodePicker: View {
                                     .foregroundStyle(.blue)
                             }
                         }
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 2)
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
@@ -752,6 +810,7 @@ struct CountryCodePicker: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Kapat") { dismiss() }
+                        .font(.custom("AlbertSans-Regular", size: 16))
                 }
             }
             .searchable(text: $searchText, prompt: "Ülke ara...")
@@ -859,3 +918,4 @@ struct TermsAndPrivacySheet: View {
         }
     }
 }
+
