@@ -1,5 +1,5 @@
 //
-//  MediaRepository.swift
+//  MediaRepository.swift - Toplu Bildirim Entegrasyonu
 //  SnapCollab
 
 import FirebaseFirestore
@@ -213,18 +213,121 @@ final class MediaRepository {
         }
     }
 }
+
+// MARK: - Toplu Bildirim Entegrasyonu
 extension MediaRepository {
-        func uploadWithNotification(image: UIImage, albumId: String, notificationRepo: NotificationRepository) async throws {
+    
+    /// Tek fotoğraf yükleme - toplu bildirim sistemi ile
+    func uploadWithBatchNotification(image: UIImage, albumId: String, notificationRepo: NotificationRepository) async throws {
         try await upload(image: image, albumId: albumId)
-        await sendPhotoNotification(albumId: albumId, notificationRepo: notificationRepo)
+        await sendBatchPhotoNotification(albumId: albumId, notificationRepo: notificationRepo)
+    }
+    
+    /// Tek video yükleme - toplu bildirim sistemi ile
+    func uploadVideoWithBatchNotification(from videoURL: URL, albumId: String, notificationRepo: NotificationRepository) async throws {
+        try await uploadVideo(from: videoURL, albumId: albumId)
+        await sendBatchVideoNotification(albumId: albumId, notificationRepo: notificationRepo)
+    }
+    
+    /// Çoklu fotoğraf yükleme - toplu bildirim sistemi ile
+    func uploadMultipleImagesWithBatchNotification(images: [UIImage], albumId: String, notificationRepo: NotificationRepository) async throws {
+        // Tüm fotoğrafları yükle
+        for image in images {
+            try await upload(image: image, albumId: albumId)
+        }
+        
+        // Her fotoğraf için batch notification gönder
+        for _ in images {
+            await sendBatchPhotoNotification(albumId: albumId, notificationRepo: notificationRepo)
+        }
+    }
+    
+    /// Karma medya yükleme - toplu bildirim sistemi ile
+    func uploadMixedMediaWithBatchNotification(
+        images: [UIImage],
+        videoURLs: [URL],
+        albumId: String,
+        notificationRepo: NotificationRepository
+    ) async throws {
+        // Tüm medyaları yükle
+        for image in images {
+            try await upload(image: image, albumId: albumId)
+        }
+        
+        for videoURL in videoURLs {
+            try await uploadVideo(from: videoURL, albumId: albumId)
+        }
+        
+        // Batch bildirimlerini gönder
+        for _ in images {
+            await sendBatchPhotoNotification(albumId: albumId, notificationRepo: notificationRepo)
+        }
+        
+        for _ in videoURLs {
+            await sendBatchVideoNotification(albumId: albumId, notificationRepo: notificationRepo)
+        }
+    }
+    
+    /// Legacy - Tek seferlik bildirim sistemi (eski metotlar için uyumluluk)
+    func uploadWithNotification(image: UIImage, albumId: String, notificationRepo: NotificationRepository) async throws {
+        try await upload(image: image, albumId: albumId)
+        await sendInstantPhotoNotification(albumId: albumId, notificationRepo: notificationRepo)
     }
     
     func uploadVideoWithNotification(from videoURL: URL, albumId: String, notificationRepo: NotificationRepository) async throws {
         try await uploadVideo(from: videoURL, albumId: albumId)
-        await sendVideoNotification(albumId: albumId, notificationRepo: notificationRepo)
+        await sendInstantVideoNotification(albumId: albumId, notificationRepo: notificationRepo)
     }
     
-    private func sendPhotoNotification(albumId: String, notificationRepo: NotificationRepository) async {
+    // MARK: - Private Batch Notification Helpers
+    
+    private func sendBatchPhotoNotification(albumId: String, notificationRepo: NotificationRepository) async {
+        guard let currentUser = auth.currentUser else { return }
+        
+        do {
+            let db = Firestore.firestore()
+            let doc = try await db.collection("albums").document(albumId).getDocument()
+            guard let album = try? doc.data(as: Album.self) else { return }
+            
+            let otherMemberIds = album.members.filter { $0 != currentUser.uid }
+            
+            if !otherMemberIds.isEmpty {
+                await notificationRepo.notifyPhotoAddedBatch(
+                    fromUser: currentUser,
+                    toUserIds: otherMemberIds,
+                    album: album
+                )
+            }
+        } catch {
+            print("Failed to send batch photo notification: \(error)")
+        }
+    }
+    
+    private func sendBatchVideoNotification(albumId: String, notificationRepo: NotificationRepository) async {
+        guard let currentUser = auth.currentUser else { return }
+        
+        do {
+            let db = Firestore.firestore()
+            let doc = try await db.collection("albums").document(albumId).getDocument()
+            guard let album = try? doc.data(as: Album.self) else { return }
+            
+            let otherMemberIds = album.members.filter { $0 != currentUser.uid }
+            
+            if !otherMemberIds.isEmpty {
+                await notificationRepo.notifyVideoAddedBatch(
+                    fromUser: currentUser,
+                    toUserIds: otherMemberIds,
+                    album: album
+                )
+            }
+        } catch {
+            print("Failed to send batch video notification: \(error)")
+        }
+    }
+    
+    // MARK: - Legacy Instant Notification Helpers
+    
+    private func sendInstantPhotoNotification(albumId: String, notificationRepo: NotificationRepository) async {
         guard let currentUser = auth.currentUser else { return }
         
         do {
@@ -242,11 +345,11 @@ extension MediaRepository {
                 )
             }
         } catch {
-            print("Failed to send photo notification: \(error)")
+            print("Failed to send instant photo notification: \(error)")
         }
     }
     
-    private func sendVideoNotification(albumId: String, notificationRepo: NotificationRepository) async {
+    private func sendInstantVideoNotification(albumId: String, notificationRepo: NotificationRepository) async {
         guard let currentUser = auth.currentUser else { return }
         
         do {
@@ -264,7 +367,7 @@ extension MediaRepository {
                 )
             }
         } catch {
-            print("Failed to send video notification: \(error)")
+            print("Failed to send instant video notification: \(error)")
         }
     }
 }

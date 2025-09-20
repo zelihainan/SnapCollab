@@ -1,8 +1,6 @@
 //
-//  NotificationRepository.swift
+//  NotificationRepository.swift - Toplu Bildirim Sistemi
 //  SnapCollab
-//
-//  Created by Zeliha İnan on 12.09.2025.
 //
 
 import Foundation
@@ -14,6 +12,11 @@ final class NotificationRepository: ObservableObject {
     
     @Published var notifications: [AppNotification] = []
     @Published var unreadCount: Int = 0
+    
+    // Toplu bildirim yönetimi için
+    private let batchingTimeWindow: TimeInterval = 300 // 5 dakika
+    private var pendingBatches: [String: NotificationBatch] = [:]
+    private var batchTimers: [String: Timer] = [:]
     
     init(service: NotificationProviding, authRepo: AuthRepository) {
         self.service = service
@@ -37,12 +40,186 @@ final class NotificationRepository: ObservableObject {
         // Observable pattern'i durdurmak için
         notifications = []
         unreadCount = 0
+        
+        // Bekleyen batch timer'ları temizle
+        batchTimers.values.forEach { $0.invalidate() }
+        batchTimers.removeAll()
+        pendingBatches.removeAll()
     }
 }
 
-// MARK: - Media Notifications
+// MARK: - Batch Notification Structure
+private struct NotificationBatch {
+    let albumId: String
+    let fromUserId: String
+    let albumTitle: String
+    var photoCount: Int = 0
+    var videoCount: Int = 0
+    var firstCreatedAt: Date
+    var lastCreatedAt: Date
+    
+    mutating func addPhoto() {
+        photoCount += 1
+        lastCreatedAt = Date()
+    }
+    
+    mutating func addVideo() {
+        videoCount += 1
+        lastCreatedAt = Date()
+    }
+    
+    var totalMediaCount: Int {
+        photoCount + videoCount
+    }
+    
+    var batchKey: String {
+        return "\(fromUserId)_\(albumId)"
+    }
+}
+
+// MARK: - Toplu Medya Bildirimleri
 extension NotificationRepository {
     
+    /// Toplu fotoğraf bildirimi - batch mantığı ile
+    func notifyPhotoAddedBatch(
+        fromUser: User,
+        toUserIds: [String],
+        album: Album
+    ) async {
+        let batchKey = "\(fromUser.uid)_\(album.id ?? "")"
+        
+        await MainActor.run {
+            // Mevcut batch'i güncelle veya yeni oluştur
+            if var existingBatch = pendingBatches[batchKey] {
+                existingBatch.addPhoto()
+                pendingBatches[batchKey] = existingBatch
+                
+                // Timer'ı yenile
+                batchTimers[batchKey]?.invalidate()
+            } else {
+                // Yeni batch oluştur
+                let newBatch = NotificationBatch(
+                    albumId: album.id ?? "",
+                    fromUserId: fromUser.uid,
+                    albumTitle: album.title,
+                    photoCount: 1,
+                    videoCount: 0,
+                    firstCreatedAt: Date(),
+                    lastCreatedAt: Date()
+                )
+                pendingBatches[batchKey] = newBatch
+            }
+            
+            // Batch timer'ını başlat/yenile
+            startBatchTimer(batchKey: batchKey, toUserIds: toUserIds)
+        }
+    }
+    
+    /// Toplu video bildirimi - batch mantığı ile
+    func notifyVideoAddedBatch(
+        fromUser: User,
+        toUserIds: [String],
+        album: Album
+    ) async {
+        let batchKey = "\(fromUser.uid)_\(album.id ?? "")"
+        
+        await MainActor.run {
+            // Mevcut batch'i güncelle veya yeni oluştur
+            if var existingBatch = pendingBatches[batchKey] {
+                existingBatch.addVideo()
+                pendingBatches[batchKey] = existingBatch
+                
+                // Timer'ı yenile
+                batchTimers[batchKey]?.invalidate()
+            } else {
+                // Yeni batch oluştur
+                let newBatch = NotificationBatch(
+                    albumId: album.id ?? "",
+                    fromUserId: fromUser.uid,
+                    albumTitle: album.title,
+                    photoCount: 0,
+                    videoCount: 1,
+                    firstCreatedAt: Date(),
+                    lastCreatedAt: Date()
+                )
+                pendingBatches[batchKey] = newBatch
+            }
+            
+            // Batch timer'ını başlat/yenile
+            startBatchTimer(batchKey: batchKey, toUserIds: toUserIds)
+        }
+    }
+    
+    /// Batch timer'ını başlat
+    private func startBatchTimer(batchKey: String, toUserIds: [String]) {
+        let timer = Timer.scheduledTimer(withTimeInterval: batchingTimeWindow, repeats: false) { [weak self] _ in
+            Task {
+                await self?.processBatch(batchKey: batchKey, toUserIds: toUserIds)
+            }
+        }
+        batchTimers[batchKey] = timer
+    }
+    
+    /// Batch'i işle ve bildirim gönder
+    private func processBatch(batchKey: String, toUserIds: [String]) async {
+        await MainActor.run {
+            guard let batch = pendingBatches[batchKey] else { return }
+            
+            // Batch'i temizle
+            pendingBatches.removeValue(forKey: batchKey)
+            batchTimers[batchKey]?.invalidate()
+            batchTimers.removeValue(forKey: batchKey)
+            
+            // Toplu bildirim gönder
+            Task {
+                await self.sendBatchNotification(batch: batch, toUserIds: toUserIds)
+            }
+        }
+    }
+    
+    /// Toplu bildirimi gönder
+    private func sendBatchNotification(batch: NotificationBatch, toUserIds: [String]) async {
+        guard let fromUser = try? await FirestoreUserService().getUser(uid: batch.fromUserId) else { return }
+        
+        let (title, message) = generateBatchMessage(batch: batch, fromUser: fromUser)
+        let notificationType: NotificationType = batch.photoCount > 0 ? .photoAdded : .videoAdded
+        
+        await createNotificationsForUsers(
+            type: notificationType,
+            title: title,
+            message: message,
+            fromUser: fromUser,
+            toUserIds: toUserIds,
+            albumId: batch.albumId
+        )
+    }
+    
+    /// Batch mesajını oluştur
+    private func generateBatchMessage(batch: NotificationBatch, fromUser: User) -> (title: String, message: String) {
+        let userName = fromUser.displayName ?? fromUser.email
+        let albumTitle = batch.albumTitle
+        
+        if batch.photoCount > 0 && batch.videoCount > 0 {
+            // Karma medya
+            let title = "Yeni Medya"
+            let message = "\(userName) \"\(albumTitle)\" albümüne \(batch.photoCount) fotoğraf ve \(batch.videoCount) video ekledi"
+            return (title, message)
+        } else if batch.photoCount > 0 {
+            // Sadece fotoğraf
+            let title = batch.photoCount == 1 ? "Yeni Fotoğraf" : "Yeni Fotoğraflar"
+            let photoText = batch.photoCount == 1 ? "fotoğraf" : "\(batch.photoCount) fotoğraf"
+            let message = "\(userName) \"\(albumTitle)\" albümüne \(photoText) ekledi"
+            return (title, message)
+        } else {
+            // Sadece video
+            let title = batch.videoCount == 1 ? "Yeni Video" : "Yeni Videolar"
+            let videoText = batch.videoCount == 1 ? "video" : "\(batch.videoCount) video"
+            let message = "\(userName) \"\(albumTitle)\" albümüne \(videoText) ekledi"
+            return (title, message)
+        }
+    }
+    
+    /// Anında tek bildirim gönder (batch'lenmeyen durumlar için)
     func notifyPhotoAdded(
         fromUser: User,
         toUserIds: [String],
@@ -82,38 +259,9 @@ extension NotificationRepository {
             albumId: album.id
         )
     }
-    
-    func notifyMixedMediaAdded(
-        fromUser: User,
-        toUserIds: [String],
-        album: Album,
-        photoCount: Int,
-        videoCount: Int
-    ) async {
-        var mediaText = ""
-        if photoCount > 0 && videoCount > 0 {
-            mediaText = "\(photoCount) fotoğraf ve \(videoCount) video"
-        } else if photoCount > 0 {
-            mediaText = photoCount == 1 ? "fotoğraf" : "\(photoCount) fotoğraf"
-        } else if videoCount > 0 {
-            mediaText = videoCount == 1 ? "video" : "\(videoCount) video"
-        }
-        
-        let title = "Yeni Medya"
-        let message = "\(fromUser.displayName ?? fromUser.email) \"\(album.title)\" albümüne \(mediaText) ekledi"
-        
-        await createNotificationsForUsers(
-            type: .photoAdded, // Mixed için photo type kullanıyoruz
-            title: title,
-            message: message,
-            fromUser: fromUser,
-            toUserIds: toUserIds,
-            albumId: album.id
-        )
-    }
 }
 
-// MARK: - Album & Member Notifications
+// MARK: - Album & Member Notifications (Değişiklik yok)
 extension NotificationRepository {
     
     func notifyMemberJoined(
@@ -154,7 +302,7 @@ extension NotificationRepository {
     }
 }
 
-// MARK: - Notification Management
+// MARK: - Notification Management (Değişiklik yok)
 extension NotificationRepository {
     
     func markAsRead(_ notification: AppNotification) async {
@@ -209,7 +357,7 @@ extension NotificationRepository {
     }
 }
 
-// MARK: - Helper Methods
+// MARK: - Helper Methods (Değişiklik yok)
 extension NotificationRepository {
     
     private func createNotificationsForUsers(
