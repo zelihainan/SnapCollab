@@ -1,8 +1,6 @@
 //
-//  AuthRepository.swift
+//  AuthRepository.swift - Updated without Anonymous Auth
 //  SnapCollab
-//
-//  Created by Zeliha İnan on 8.09.2025.
 //
 
 import Foundation
@@ -45,7 +43,7 @@ final class AuthRepository: ObservableObject {
                 
                 if currentUser == nil {
                     let firebaseUser = Auth.auth().currentUser
-                    let email = firebaseUser?.email ?? ""
+                    let email = firebaseUser?.email ?? firebaseUser?.phoneNumber ?? ""
                     let displayName = firebaseUser?.displayName ?? "İsimsiz Kullanıcı"
                     let photoURL = firebaseUser?.photoURL?.absoluteString
                     
@@ -64,11 +62,6 @@ final class AuthRepository: ObservableObject {
             print("AuthRepo: User sync error: \(error)")
             currentUser = nil
         }
-    }
-    
-    
-    func signInAnon() async throws {
-        try await service.signInAnonymously()
     }
     
     func signIn(email: String, password: String) async throws {

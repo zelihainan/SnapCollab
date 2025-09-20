@@ -1,5 +1,5 @@
 //
-//  RootView.swift 
+//  RootView.swift - Updated without Anonymous Login
 //  SnapCollab
 //
 
@@ -23,7 +23,7 @@ struct RootView: View {
             } else if state.isSignedIn {
                 MainTabView()
             } else {
-                CleanLoginView(vm: sessionVM)
+                ModernLoginView(vm: sessionVM)
             }
         }
         .onAppear {
@@ -46,9 +46,10 @@ struct RootView: View {
     }
 }
 
+@MainActor
 final class SessionVMHolder: ObservableObject {
     private var cached: SessionViewModel?
-    @MainActor
+    
     func resolve(di: DIContainer, state: AppState) -> SessionViewModel {
         if let c = cached { return c }
         let vm = SessionViewModel(auth: di.authRepo, state: state)
