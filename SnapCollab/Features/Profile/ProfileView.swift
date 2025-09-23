@@ -58,11 +58,9 @@ struct ProfileView: View {
                             .fontWeight(.semibold)
                             .foregroundStyle(.primary)
                         
-                        if !vm.isAnonymous {
-                            Text(vm.user?.email ?? "")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
+                        Text(vm.user?.email ?? "")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .padding(.top, 20)
@@ -80,8 +78,8 @@ struct ProfileView: View {
                     
                     StatItem(
                         title: "Hesap Türü",
-                        value: vm.isAnonymous ? "Misafir" : "Kayıtlı",
-                        icon: vm.isAnonymous ? "person.crop.circle.dashed" : "checkmark.shield"
+                        value: "Kayıtlı",
+                        icon: "checkmark.shield"
                     )
                 }
                 .padding(.horizontal, 40)
@@ -128,17 +126,6 @@ struct ProfileView: View {
                             color: .orange
                         ) {
                             showSupport = true
-                        }
-                        
-                        if vm.isAnonymous {
-                            QuickActionButton(
-                                icon: "arrow.up.circle.fill",
-                                title: "Hesabı Geliştir",
-                                subtitle: "Kayıtlı hesaba dönüştür",
-                                color: .blue
-                            ) {
-                                print("Upgrade account tapped")
-                            }
                         }
                         
                         QuickActionButton(

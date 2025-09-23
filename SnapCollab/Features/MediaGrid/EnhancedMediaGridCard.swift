@@ -1,5 +1,5 @@
 //
-//  EnhancedMediaGridCard.swift - iPhone Galerisi Tarzı Seçim
+//  EnhancedMediaGridCard.swift
 //  SnapCollab
 //
 
@@ -38,7 +38,6 @@ struct EnhancedMediaGridCard: View {
             // Ana içerik
             mainContent
                 .overlay(alignment: .topTrailing) {
-                    // iPhone Galerisi tarzı seçim overlay'i
                     if vm.isSelectionMode {
                         selectionCircle
                             .padding(8)
@@ -143,7 +142,6 @@ struct EnhancedMediaGridCard: View {
         }
     }
     
-    // iPhone Galerisi tarzı seçim çemberi
     @ViewBuilder
     private var selectionCircle: some View {
         Button(action: {

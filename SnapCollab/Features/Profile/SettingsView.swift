@@ -30,30 +30,6 @@ struct SettingsView: View {
                     Text("Profil fotoğrafınızı ve görünen adınızı değiştirin")
                 }
                 
-                if !vm.isAnonymous {
-                    Section {
-                        SettingsRow(
-                            icon: "key.fill",
-                            title: "Şifre Değiştir",
-                            subtitle: "Hesap güvenliğinizi koruyun",
-                            iconColor: .orange
-                        ) {
-                            vm.showPasswordChange = true
-                        }
-                        
-                        SettingsRow(
-                            icon: "envelope.fill",
-                            title: "E-posta Değiştir",
-                            subtitle: vm.user?.email ?? "",
-                            iconColor: .blue
-                        ) {
-                            vm.showEmailChange = true
-                        }
-                    } header: {
-                        Text("Hesap Güvenliği")
-                    }
-                }
-                
                 Section {
                     HStack(spacing: 16) {
                         ZStack {
@@ -134,16 +110,6 @@ struct SettingsView: View {
                 }
                 
                 Section {
-                    if vm.isAnonymous {
-                        SettingsRow(
-                            icon: "arrow.up.circle.fill",
-                            title: "Hesabı Kayıtlı Hesaba Dönüştür",
-                            subtitle: "Verilerinizi güvence altına alın",
-                            iconColor: .blue
-                        ) {
-                            print("Upgrade account tapped")
-                        }
-                    }
                     
                     SettingsRow(
                         icon: "square.and.arrow.down.fill",

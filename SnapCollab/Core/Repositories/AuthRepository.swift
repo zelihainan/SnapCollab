@@ -1,5 +1,5 @@
 //
-//  AuthRepository.swift - Updated without Anonymous Auth
+//  AuthRepository.swift 
 //  SnapCollab
 //
 
@@ -43,7 +43,7 @@ final class AuthRepository: ObservableObject {
                 
                 if currentUser == nil {
                     let firebaseUser = Auth.auth().currentUser
-                    let email = firebaseUser?.email ?? firebaseUser?.phoneNumber ?? ""
+                    let email = firebaseUser?.email ?? ""
                     let displayName = firebaseUser?.displayName ?? "İsimsiz Kullanıcı"
                     let photoURL = firebaseUser?.photoURL?.absoluteString
                     

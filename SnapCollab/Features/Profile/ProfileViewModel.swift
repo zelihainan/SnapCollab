@@ -261,11 +261,6 @@ final class ProfileViewModel: ObservableObject {
         print("ProfileVM: user: \(user?.displayName ?? "nil"), displayName: \(displayName)")
     }
     
-    var isAnonymous: Bool {
-        guard let email = user?.email else { return true }
-        return email.isEmpty
-    }
-    
     var joinDateText: String {
         guard let user = user else { return "" }
         let formatter = DateFormatter()

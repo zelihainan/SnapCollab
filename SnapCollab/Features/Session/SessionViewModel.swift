@@ -1,5 +1,5 @@
 //
-//  SessionViewModel.swift - Updated without Phone Support
+//  SessionViewModel.swift
 //  SnapCollab
 //
 

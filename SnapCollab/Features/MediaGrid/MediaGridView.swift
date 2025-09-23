@@ -22,7 +22,6 @@ struct MediaGridView: View {
             vm.start()
         }
         .onChange(of: vm.selectedItems) { selectedItems in
-            // iPhone gibi: Hiç seçim yoksa seçim modundan çık
             if selectedItems.isEmpty && vm.isSelectionMode {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     vm.isSelectionMode = false

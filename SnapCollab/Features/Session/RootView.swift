@@ -1,5 +1,5 @@
 //
-//  RootView.swift - Updated without Anonymous Login
+//  RootView.swift 
 //  SnapCollab
 //
 

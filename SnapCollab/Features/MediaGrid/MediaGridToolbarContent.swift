@@ -11,7 +11,6 @@ struct MediaGridToolbarContent: ToolbarContent {
     
     var body: some ToolbarContent {
         if vm.isSelectionMode {
-            // Seçim modu toolbar'ı - iPhone Galerisi gibi
             ToolbarItem(placement: .principal) {
                 Text(vm.selectedItemsCount == 0 ? "Öğe Seç" : "\(vm.selectedItemsCount) Seçili")
                     .font(.headline)

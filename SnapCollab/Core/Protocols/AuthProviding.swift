@@ -11,7 +11,6 @@ protocol AuthProviding {
     var currentUID: String? { get }
     var currentUser: User? { get async }
     
-    func signInAnonymously() async throws
     func signInWithEmail(email: String, password: String) async throws
     func signUpWithEmail(email: String, password: String) async throws
     func signInWithGoogle() async throws
