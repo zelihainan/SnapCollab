@@ -8,16 +8,13 @@ import SwiftUI
 struct ModernLoginView: View {
     @StateObject var vm: SessionViewModel
     @State private var showSignUp = false
-    @State private var emailOrPhone = ""
+    @State private var email = ""
     @State private var password = ""
     @State private var displayName = ""
     @State private var confirmPassword = ""
-    @State private var selectedCountryCode = CountryCode.turkey
-    @State private var showCountryPicker = false
     @State private var showTermsSheet = false
     @State private var termsAccepted = false
     @State private var animateBackground = false
-    @State private var verificationCode = ""
     
     var body: some View {
         GeometryReader { geometry in
@@ -62,7 +59,7 @@ struct ModernLoginView: View {
                                 .frame(height: 50)
                         }
                         
-                        // Compact Main Form Card
+                        // Main Form Card
                         VStack(spacing: 0) {
                             VStack(spacing: 20) {
                                 // Welcome Title
@@ -89,48 +86,32 @@ struct ModernLoginView: View {
                                         ))
                                     }
                                     
-                                    // Smart Email/Phone Input
-                                    SmartInputField(
-                                        text: $emailOrPhone,
-                                        selectedCountryCode: $selectedCountryCode,
-                                        showCountryPicker: $showCountryPicker,
-                                        placeholder: "E-posta veya telefon"
+                                    // Email Input
+                                    ModernTextField(
+                                        text: $email,
+                                        placeholder: "E-posta",
+                                        icon: "envelope.circle.fill",
+                                        keyboardType: .emailAddress
                                     )
                                     
-                                    // Password Field (only for email login/signup)
-                                    if !isPhoneNumber || showSignUp {
-                                        ModernSecureField(
-                                            text: $password,
-                                            placeholder: showSignUp ? "Şifre" : "Şifre",
-                                            showForgotPassword: !showSignUp && !isPhoneNumber,
-                                            onForgotPassword: {
-                                                vm.resetEmail = emailOrPhone
-                                                vm.showForgotPassword = true
-                                            }
-                                        )
-                                    }
+                                    // Password Field
+                                    ModernSecureField(
+                                        text: $password,
+                                        placeholder: "Şifre",
+                                        showForgotPassword: !showSignUp,
+                                        onForgotPassword: {
+                                            vm.resetEmail = email
+                                            vm.showForgotPassword = true
+                                        }
+                                    )
                                     
-                                    // Confirm Password (only for email sign up)
-                                    if showSignUp && !isPhoneNumber {
+                                    // Confirm Password (only for sign up)
+                                    if showSignUp {
                                         ModernSecureField(
                                             text: $confirmPassword,
                                             placeholder: "Şifre Tekrar",
                                             showForgotPassword: false,
                                             onForgotPassword: {}
-                                        )
-                                        .transition(.asymmetric(
-                                            insertion: .move(edge: .bottom).combined(with: .opacity),
-                                            removal: .move(edge: .top).combined(with: .opacity)
-                                        ))
-                                    }
-                                    
-                                    // Verification Code (only for phone and when verification is shown)
-                                    if isPhoneNumber && vm.showVerificationCode {
-                                        ModernTextField(
-                                            text: $verificationCode,
-                                            placeholder: "Doğrulama Kodu",
-                                            icon: "number.circle.fill",
-                                            keyboardType: .numberPad
                                         )
                                         .transition(.asymmetric(
                                             insertion: .move(edge: .bottom).combined(with: .opacity),
@@ -158,7 +139,7 @@ struct ModernLoginView: View {
                                 
                                 // Main Action Button
                                 ModernButton(
-                                    title: getButtonTitle(),
+                                    title: showSignUp ? "Hesap Oluştur" : "Giriş Yap",
                                     isLoading: vm.isLoading,
                                     isDisabled: !isFormValid,
                                     style: .primary
@@ -186,7 +167,7 @@ struct ModernLoginView: View {
                                     .foregroundStyle(.blue)
                                 }
                                 
-                                // Google Sign In (more compact)
+                                // Google Sign In
                                 ModernButton(
                                     title: "Google ile Devam Et",
                                     isLoading: false,
@@ -220,221 +201,40 @@ struct ModernLoginView: View {
         .sheet(isPresented: $vm.showForgotPassword) {
             ForgotPasswordView(vm: vm)
         }
-        .sheet(isPresented: $showCountryPicker) {
-            CountryCodePicker(selectedCountryCode: $selectedCountryCode)
-        }
     }
     
     // MARK: - Helper Properties
-    private var isPhoneNumber: Bool {
-        isValidPhoneNumber(emailOrPhone)
-    }
-    
     private var isFormValid: Bool {
-        let baseValid = !emailOrPhone.isEmpty
+        let baseValid = !email.isEmpty && vm.isValidEmail(email)
         
         if showSignUp {
             let nameValid = !displayName.isEmpty
+            let passwordValid = !password.isEmpty && password.count >= 6
+            let passwordMatch = password == confirmPassword
             let termsValid = termsAccepted
             
-            if isPhoneNumber {
-                return nameValid && baseValid && termsValid
-            } else {
-                return nameValid && baseValid && !password.isEmpty &&
-                       password == confirmPassword && password.count >= 6 && termsValid
-            }
+            return nameValid && baseValid && passwordValid && passwordMatch && termsValid
         } else {
-            if isPhoneNumber {
-                if vm.showVerificationCode {
-                    return baseValid && !verificationCode.isEmpty
-                } else {
-                    return baseValid
-                }
-            } else {
-                return baseValid && !password.isEmpty
-            }
-        }
-    }
-    
-    private func getButtonTitle() -> String {
-        if showSignUp {
-            return "Hesap Oluştur"
-        } else {
-            if isPhoneNumber {
-                if vm.showVerificationCode {
-                    return "Doğrula"
-                } else {
-                    return "SMS Gönder"
-                }
-            } else {
-                return "Giriş Yap"
-            }
+            return baseValid && !password.isEmpty
         }
     }
     
     // MARK: - Helper Methods
     private func handleAuthentication() async {
-        if isPhoneNumber {
-            if showSignUp {
-                // Phone signup - send SMS
-                let fullPhone = selectedCountryCode.code + cleanPhoneNumber(emailOrPhone)
-                await vm.sendVerificationCode(to: fullPhone)
-            } else {
-                if vm.showVerificationCode {
-                    // Verify code
-                    await vm.verifyCode(verificationCode)
-                } else {
-                    // Send verification code - Firebase test number handling
-                    let fullPhone = selectedCountryCode.code + cleanPhoneNumber(emailOrPhone)
-                    
-                    // Check if it's the test number
-                    if fullPhone == "+905551234567" {
-                        // For test number, use test verification method
-                        vm.verificationCode = "111111"
-                        vm.showVerificationCode = true
-                    } else {
-                        await vm.sendVerificationCode(to: fullPhone)
-                    }
-                }
-            }
+        if showSignUp {
+            await vm.signUp(email: email, password: password, displayName: displayName)
         } else {
-            // Email authentication
-            if showSignUp {
-                await vm.signUp(email: emailOrPhone, password: password, displayName: displayName)
-            } else {
-                await vm.signIn(email: emailOrPhone, password: password)
-            }
+            await vm.signIn(email: email, password: password)
         }
     }
     
     private func clearForm() {
         vm.errorMessage = nil
-        vm.resetVerificationState()
         termsAccepted = false
         password = ""
         confirmPassword = ""
-        verificationCode = ""
         if showSignUp {
             displayName = ""
-        }
-    }
-    
-    private func isValidPhoneNumber(_ input: String) -> Bool {
-        let cleanInput = cleanPhoneNumber(input)
-        // Simplified: if it starts with digit and has at least 7 digits, consider it phone
-        return cleanInput.first?.isNumber == true && cleanInput.count >= 7
-    }
-    
-    private func cleanPhoneNumber(_ input: String) -> String {
-        return input.replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: "(", with: "")
-            .replacingOccurrences(of: ")", with: "")
-            .replacingOccurrences(of: "-", with: "")
-            .replacingOccurrences(of: "+", with: "")
-    }
-}
-
-// MARK: - Smart Input Field Component
-struct SmartInputField: View {
-    @Binding var text: String
-    @Binding var selectedCountryCode: CountryCode
-    @Binding var showCountryPicker: Bool
-    let placeholder: String
-    
-    @FocusState private var isFocused: Bool
-    @State private var inputType: InputType = .unknown
-    
-    enum InputType {
-        case unknown, email, phone
-    }
-    
-    var body: some View {
-        HStack(spacing: 10) {
-            // Dynamic Icon
-            Image(systemName: iconName)
-                .foregroundStyle(isFocused ? .blue : .secondary)
-                .font(.system(size: 18, weight: .medium))
-                .frame(width: 22)
-                .animation(.easeInOut(duration: 0.2), value: inputType)
-            
-            // Country Code (only visible for phone input)
-            if inputType == .phone {
-                Button(action: {
-                    showCountryPicker = true
-                }) {
-                    HStack(spacing: 3) {
-                        Text(selectedCountryCode.flag)
-                            .font(.callout)
-                        Text(selectedCountryCode.code)
-                            .font(.custom("AlbertSans-Regular", size: 14))
-                            .fontWeight(.medium)
-                            .foregroundStyle(.primary)
-                        Image(systemName: "chevron.down")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                    .padding(.horizontal, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color(.secondarySystemBackground))
-                    )
-                }
-                .transition(.scale.combined(with: .opacity))
-            }
-            
-            // Text Field
-            TextField(placeholder, text: $text)
-                .font(.custom("AlbertSans-Regular", size: 16))
-                .focused($isFocused)
-                .keyboardType(inputType == .phone ? .phonePad : .emailAddress)
-                .autocapitalization(.none)
-                .autocorrectionDisabled()
-                .onChange(of: text) { newValue in
-                    detectInputType(newValue)
-                }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.systemGray6))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(isFocused ? .blue : .clear, lineWidth: 2)
-                )
-        )
-        .animation(.easeInOut(duration: 0.2), value: isFocused)
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: inputType)
-    }
-    
-    private var iconName: String {
-        switch inputType {
-        case .email:
-            return "envelope.circle.fill"
-        case .phone:
-            return "phone.circle.fill"
-        case .unknown:
-            return "at.circle"
-        }
-    }
-    
-    private func detectInputType(_ input: String) {
-        let cleanInput = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        if cleanInput.isEmpty {
-            inputType = .unknown
-        } else if cleanInput.contains("@") {
-            inputType = .email
-        } else if cleanInput.first?.isNumber == true || cleanInput.hasPrefix("+") {
-            inputType = .phone
-        } else {
-            let numbersOnly = cleanInput.filter { $0.isNumber }
-            if numbersOnly.count >= 3 && numbersOnly.count == cleanInput.count {
-                inputType = .phone
-            } else {
-                inputType = .email
-            }
         }
     }
 }
@@ -743,192 +543,5 @@ struct ErrorMessageView: View {
                         .stroke(.orange.opacity(0.3), lineWidth: 1)
                 )
         )
-    }
-}
-
-// MARK: - Country Code Model and Picker
-struct CountryCode: Identifiable, Hashable {
-    let id = UUID()
-    let name: String
-    let code: String
-    let flag: String
-    
-    static let turkey = CountryCode(name: "Türkiye", code: "+90", flag: "🇹🇷")
-    static let usa = CountryCode(name: "United States", code: "+1", flag: "🇺🇸")
-    static let germany = CountryCode(name: "Germany", code: "+49", flag: "🇩🇪")
-    static let france = CountryCode(name: "France", code: "+33", flag: "🇫🇷")
-    static let uk = CountryCode(name: "United Kingdom", code: "+44", flag: "🇬🇧")
-    
-    static let all: [CountryCode] = [
-        .turkey, .usa, .germany, .france, .uk,
-        CountryCode(name: "Canada", code: "+1", flag: "🇨🇦"),
-        CountryCode(name: "Italy", code: "+39", flag: "🇮🇹"),
-        CountryCode(name: "Spain", code: "+34", flag: "🇪🇸"),
-        CountryCode(name: "Netherlands", code: "+31", flag: "🇳🇱"),
-        CountryCode(name: "Japan", code: "+81", flag: "🇯🇵")
-    ]
-}
-
-struct CountryCodePicker: View {
-    @Binding var selectedCountryCode: CountryCode
-    @Environment(\.dismiss) var dismiss
-    @State private var searchText = ""
-    
-    var filteredCountries: [CountryCode] {
-        if searchText.isEmpty {
-            return CountryCode.all
-        } else {
-            return CountryCode.all.filter { country in
-                country.name.localizedCaseInsensitiveContains(searchText) ||
-                country.code.contains(searchText)
-            }
-        }
-    }
-    
-    var body: some View {
-        NavigationView {
-            List {
-                ForEach(filteredCountries) { country in
-                    Button(action: {
-                        selectedCountryCode = country
-                        dismiss()
-                    }) {
-                        HStack(spacing: 14) {
-                            Text(country.flag)
-                                .font(.title3)
-                            
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(country.name)
-                                    .font(.custom("AlbertSans-Regular", size: 16))
-                                    .foregroundStyle(.primary)
-                                
-                                Text(country.code)
-                                    .font(.custom("AlbertSans-Regular", size: 12))
-                                    .foregroundStyle(.secondary)
-                            }
-                            
-                            Spacer()
-                            
-                            if country.id == selectedCountryCode.id {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.blue)
-                            }
-                        }
-                        .padding(.vertical, 2)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-            }
-            .navigationTitle("Ülke Seçin")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Kapat") { dismiss() }
-                        .font(.custom("AlbertSans-Regular", size: 16))
-                }
-            }
-            .searchable(text: $searchText, prompt: "Ülke ara...")
-        }
-    }
-}
-
-// MARK: - Terms and Privacy Sheet
-struct TermsAndPrivacySheet: View {
-    @Binding var termsAccepted: Bool
-    @Environment(\.dismiss) var dismiss
-    @State private var showTerms = false
-    @State private var showPrivacy = false
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 32) {
-                VStack(spacing: 16) {
-                    Image(systemName: "doc.text.fill")
-                        .font(.system(size: 50))
-                        .foregroundStyle(.blue)
-                    
-                    Text("Kullanım Koşulları")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    
-                    Text("SnapCollab'ı kullanmak için aşağıdaki şartları kabul etmeniz gerekir")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
-                .padding(.top, 20)
-                
-                VStack(spacing: 16) {
-                    Button(action: { showTerms = true }) {
-                        HStack {
-                            Image(systemName: "doc.text")
-                                .foregroundStyle(.blue)
-                                .frame(width: 24)
-                            Text("Kullanım Koşullarını Oku")
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(.secondary)
-                                .font(.caption)
-                        }
-                        .padding()
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color(.systemGray6))
-                        )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    Button(action: { showPrivacy = true }) {
-                        HStack {
-                            Image(systemName: "hand.raised")
-                                .foregroundStyle(.green)
-                                .frame(width: 24)
-                            Text("Gizlilik Politikasını Oku")
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(.secondary)
-                                .font(.caption)
-                        }
-                        .padding()
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color(.systemGray6))
-                        )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-                .padding(.horizontal)
-                
-                VStack(spacing: 16) {
-                    Button("Kabul Ediyorum") {
-                        termsAccepted = true
-                        dismiss()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .frame(maxWidth: .infinity)
-                    
-                    Button("İptal") {
-                        termsAccepted = false
-                        dismiss()
-                    }
-                    .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal)
-                
-                Spacer()
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Kapat") { dismiss() }
-                }
-            }
-        }
-        .fullScreenCover(isPresented: $showPrivacy) {
-            PrivacyPolicyView()
-        }
     }
 }
