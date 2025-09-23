@@ -8,38 +8,49 @@ import SwiftUI
 struct MainTabView: View {
     @Environment(\.di) var di
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var themeManager: ThemeManager
     @StateObject private var navigationCoordinator = NavigationCoordinator()
     
     var body: some View {
-        TabView(selection: $navigationCoordinator.selectedTab) {
-            NavigationStack(path: $navigationCoordinator.albumsPath) {
-                AlbumsView(vm: AlbumsViewModel(repo: di.albumRepo))
-                    .navigationDestination(for: String.self) { albumId in
-                        AlbumDetailViewWrapper(albumId: albumId, di: di)
-                    }
-            }
-            .tabItem {
-                Label("Albümler", systemImage: navigationCoordinator.selectedTab == .albums ? "photo.stack.fill" : "photo.stack")
-            }
-            .tag(TabItem.albums)
+        ZStack {
+            // Elevated dark background'ı zorla uygula
+            themeManager.backgroundColor.ignoresSafeArea(.all)
             
-            NotificationsView(
-                notificationRepo: di.notificationRepo,
-                navigationCoordinator: navigationCoordinator
-            )
-            .tabItem {
-                Label("Bildirimler", systemImage: navigationCoordinator.selectedTab == .notifications ? "bell.fill" : "bell")
-            }
-            .badge(di.notificationRepo.unreadCount > 0 ? di.notificationRepo.unreadCount : 0)
-            .tag(TabItem.notifications)
+            TabView(selection: $navigationCoordinator.selectedTab) {
+                NavigationStack(path: $navigationCoordinator.albumsPath) {
+                    AlbumsView(vm: AlbumsViewModel(repo: di.albumRepo))
+                        .background(themeManager.backgroundColor.ignoresSafeArea())
+                        .navigationDestination(for: String.self) { albumId in
+                            AlbumDetailViewWrapper(albumId: albumId, di: di)
+                                .background(themeManager.backgroundColor.ignoresSafeArea())
+                        }
+                }
+                .tabItem {
+                    Label("Albümler", systemImage: navigationCoordinator.selectedTab == .albums ? "photo.stack.fill" : "photo.stack")
+                }
+                .tag(TabItem.albums)
+                
+                NotificationsView(
+                    notificationRepo: di.notificationRepo,
+                    navigationCoordinator: navigationCoordinator
+                )
+                .background(themeManager.backgroundColor.ignoresSafeArea())
+                .tabItem {
+                    Label("Bildirimler", systemImage: navigationCoordinator.selectedTab == .notifications ? "bell.fill" : "bell")
+                }
+                .badge(di.notificationRepo.unreadCount > 0 ? di.notificationRepo.unreadCount : 0)
+                .tag(TabItem.notifications)
 
-            NavigationStack {
-                ProfileContainerView()
+                NavigationStack {
+                    ProfileContainerView()
+                        .background(themeManager.backgroundColor.ignoresSafeArea())
+                }
+                .tabItem {
+                    Label("Profil", systemImage: navigationCoordinator.selectedTab == .profile ? "person.fill" : "person")
+                }
+                .tag(TabItem.profile)
             }
-            .tabItem {
-                Label("Profil", systemImage: navigationCoordinator.selectedTab == .profile ? "person.fill" : "person")
-            }
-            .tag(TabItem.profile)
+            .background(themeManager.backgroundColor.ignoresSafeArea(.all))
         }
         .tint(.blue)
         .environmentObject(navigationCoordinator)
@@ -52,7 +63,14 @@ struct MainTabView: View {
     private func setupTabBarAppearance() {
         let appearance = UITabBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor.systemBackground
+        
+        // Theme göre background rengi ayarla
+        switch themeManager.colorSchemePreference {
+        case .elevatedDark:
+            appearance.backgroundColor = UIColor.systemGray5
+        default:
+            appearance.backgroundColor = UIColor.systemBackground
+        }
         
         appearance.shadowColor = UIColor.black.withAlphaComponent(0.1)
         

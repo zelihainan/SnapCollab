@@ -9,21 +9,27 @@ import FirebaseAuth
 struct RootView: View {
     @Environment(\.di) var di
     @EnvironmentObject var state: AppState
+    @EnvironmentObject var themeManager: ThemeManager
     @StateObject private var sessionVMHolder = SessionVMHolder()
     @StateObject private var onboardingManager = OnboardingManager()
 
     var body: some View {
         let sessionVM = sessionVMHolder.resolve(di: di, state: state)
-
-        Group {
-            if !onboardingManager.hasCompletedOnboarding {
-                OnboardingView {
-                    onboardingManager.completeOnboarding()
+        
+        ZStack {
+            
+            themeManager.backgroundColor.ignoresSafeArea(.all)
+            
+            Group {
+                if !onboardingManager.hasCompletedOnboarding {
+                    OnboardingView {
+                        onboardingManager.completeOnboarding()
+                    }
+                } else if state.isSignedIn {
+                    MainTabView()
+                } else {
+                    ModernLoginView(vm: sessionVM)
                 }
-            } else if state.isSignedIn {
-                MainTabView()
-            } else {
-                ModernLoginView(vm: sessionVM)
             }
         }
         .onAppear {

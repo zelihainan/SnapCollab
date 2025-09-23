@@ -11,139 +11,27 @@ struct ProfileView: View {
     @State private var showTerms = false
     @State private var showSupport = false
     @State private var showSettings = false
+    @EnvironmentObject var themeManager: ThemeManager
 
     @StateObject var vm: ProfileViewModel
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 32) {
-                VStack(spacing: 20) {
-                    Group {
-                        if let photoURL = vm.user?.photoURL, !photoURL.isEmpty {
-                            AsyncImage(url: URL(string: photoURL)) { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                ProgressView()
-                                    .scaleEffect(1.2)
-                            }
-                            .frame(width: 120, height: 120)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(.gray.opacity(0.2), lineWidth: 2))
-                        } else {
-                            Circle()
-                                .fill(.blue.gradient)
-                                .frame(width: 120, height: 120)
-                                .overlay {
-                                    if let user = vm.user {
-                                        Text(user.initials)
-                                            .font(.system(size: 48, weight: .medium))
-                                            .foregroundStyle(.white)
-                                    } else {
-                                        Image(systemName: "person.fill")
-                                            .font(.system(size: 48))
-                                            .foregroundStyle(.white)
-                                    }
-                                }
-                                .overlay(Circle().stroke(.gray.opacity(0.1), lineWidth: 2))
-                        }
-                    }
-                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+        ZStack {
+            themeManager.backgroundColor.ignoresSafeArea(.all)
+            
+            ScrollView {
+                VStack(spacing: 32) {
+                    profileHeaderView
+                    profileStatsView
+                    quickActionsView
                     
-                    VStack(spacing: 8) {
-                        Text(vm.user?.displayName ?? "İsimsiz Kullanıcı")
-                            .font(.title)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.primary)
-                        
-                        Text(vm.user?.email ?? "")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
+                    Spacer(minLength: 40)
                 }
-                .padding(.top, 20)
-                
-                HStack(spacing: 30) {
-                    StatItem(
-                        title: "Katılma Tarihi",
-                        value: formattedJoinDate,
-                        icon: "calendar"
-                    )
-                    
-                    Rectangle()
-                        .fill(.gray.opacity(0.3))
-                        .frame(width: 1, height: 40)
-                    
-                    StatItem(
-                        title: "Hesap Türü",
-                        value: "Kayıtlı",
-                        icon: "checkmark.shield"
-                    )
-                }
-                .padding(.horizontal, 40)
-                
-                VStack(spacing: 16) {
-                    Text("Hızlı İşlemler")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 20)
-                    
-                    VStack(spacing: 12) {
-                        QuickActionButton(
-                            icon: "gear",
-                            title: "Ayarlar",
-                            subtitle: "Profil ve uygulama ayarları",
-                            color: .blue,
-                            isPrimary: true
-                        ) {
-                            showSettings = true
-                        }
-                        
-                        QuickActionButton(
-                            icon: "hand.raised",
-                            title: "Gizlilik Politikası",
-                            subtitle: "Gizlilik ve veri koruma",
-                            color: .purple
-                        ) {
-                            showPrivacy = true
-                        }
-                        
-                        QuickActionButton(
-                            icon: "doc.text",
-                            title: "Kullanım Koşulları",
-                            subtitle: "Uygulama kullanım kuralları",
-                            color: .green
-                        ) {
-                            showTerms = true
-                        }
-                        
-                        QuickActionButton(
-                            icon: "questionmark.circle",
-                            title: "Destek",
-                            subtitle: "Yardım ve destek alma",
-                            color: .orange
-                        ) {
-                            showSupport = true
-                        }
-                        
-                        QuickActionButton(
-                            icon: "rectangle.portrait.and.arrow.right",
-                            title: "Çıkış Yap",
-                            subtitle: "Hesaptan çıkış yap",
-                            color: .red
-                        ) {
-                            vm.signOut()
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                }
-                
-                Spacer(minLength: 40)
             }
+            .scrollContentBackground(.hidden)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(themeManager.backgroundColor.ignoresSafeArea(.all))
         .navigationTitle("Profil")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -170,6 +58,152 @@ struct ProfileView: View {
             print("ProfileView appeared")
             vm.refreshUser()
         }
+    }
+    
+    private var profileHeaderView: some View {
+        VStack(spacing: 20) {
+            profileImageView
+            profileInfoView
+        }
+        .padding(.top, 20)
+    }
+    
+    private var profileImageView: some View {
+        Group {
+            if let photoURL = vm.user?.photoURL, !photoURL.isEmpty {
+                AsyncImage(url: URL(string: photoURL)) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    ProgressView()
+                        .scaleEffect(1.2)
+                }
+                .frame(width: 120, height: 120)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(.gray.opacity(0.2), lineWidth: 2))
+            } else {
+                Circle()
+                    .fill(.blue.gradient)
+                    .frame(width: 120, height: 120)
+                    .overlay {
+                        profileImageContent
+                    }
+                    .overlay(Circle().stroke(.gray.opacity(0.1), lineWidth: 2))
+            }
+        }
+        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+    }
+    
+    private var profileImageContent: some View {
+        Group {
+            if let user = vm.user {
+                Text(user.initials)
+                    .font(.system(size: 48, weight: .medium))
+                    .foregroundStyle(.white)
+            } else {
+                Image(systemName: "person.fill")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.white)
+            }
+        }
+    }
+    
+    private var profileInfoView: some View {
+        VStack(spacing: 8) {
+            Text(vm.user?.displayName ?? "İsimsiz Kullanıcı")
+                .font(.title)
+                .fontWeight(.semibold)
+                .foregroundStyle(themeManager.textColor)
+            
+            Text(vm.user?.email ?? "")
+                .font(.subheadline)
+                .foregroundStyle(themeManager.secondaryTextColor)
+        }
+    }
+    
+    private var profileStatsView: some View {
+        HStack(spacing: 30) {
+            StatItem(
+                title: "Katılma Tarihi",
+                value: formattedJoinDate,
+                icon: "calendar"
+            )
+            
+            Rectangle()
+                .fill(.gray.opacity(0.3))
+                .frame(width: 1, height: 40)
+            
+            StatItem(
+                title: "Hesap Türü",
+                value: "Kayıtlı",
+                icon: "checkmark.shield"
+            )
+        }
+        .padding(.horizontal, 40)
+    }
+    
+    private var quickActionsView: some View {
+        VStack(spacing: 16) {
+            Text("Hızlı İşlemler")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .foregroundStyle(themeManager.textColor)
+            
+            quickActionButtons
+        }
+    }
+    
+    private var quickActionButtons: some View {
+        VStack(spacing: 12) {
+            QuickActionButton(
+                icon: "gear",
+                title: "Ayarlar",
+                subtitle: "Profil ve uygulama ayarları",
+                color: .blue,
+                isPrimary: true
+            ) {
+                showSettings = true
+            }
+            
+            QuickActionButton(
+                icon: "hand.raised",
+                title: "Gizlilik Politikası",
+                subtitle: "Gizlilik ve veri koruma",
+                color: .purple
+            ) {
+                showPrivacy = true
+            }
+            
+            QuickActionButton(
+                icon: "doc.text",
+                title: "Kullanım Koşulları",
+                subtitle: "Uygulama kullanım kuralları",
+                color: .green
+            ) {
+                showTerms = true
+            }
+            
+            QuickActionButton(
+                icon: "questionmark.circle",
+                title: "Destek",
+                subtitle: "Yardım ve destek alma",
+                color: .orange
+            ) {
+                showSupport = true
+            }
+            
+            QuickActionButton(
+                icon: "rectangle.portrait.and.arrow.right",
+                title: "Çıkış Yap",
+                subtitle: "Hesaptan çıkış yap",
+                color: .red
+            ) {
+                vm.signOut()
+            }
+        }
+        .padding(.horizontal, 20)
     }
     
     private var formattedJoinDate: String {

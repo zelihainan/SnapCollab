@@ -13,7 +13,8 @@ struct SnapCollabApp: App {
 
     init() {
         FirebaseApp.configure()
-        setupSoftDarkColors()
+        setupElevatedDarkColors()
+        setupWindowBackground()
     }
 
     var body: some Scene {
@@ -23,27 +24,56 @@ struct SnapCollabApp: App {
                 .environmentObject(themeManager)
                 .environment(\.di, DIContainer.bootstrap())
                 .preferredColorScheme(themeManager.colorScheme)
+                .background(themeManager.backgroundColor.ignoresSafeArea())
         }
     }
     
-    private func setupSoftDarkColors() {
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-            if #available(iOS 15.0, *) {
-            appearance.backgroundColor = UIColor.systemGray6
+    private func setupWindowBackground() {
+        DispatchQueue.main.async {
+            guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+            for window in windowScene.windows {
+                // Elevated dark için window background
+                if ThemeManager.shared.colorSchemePreference == .elevatedDark {
+                    window.backgroundColor = UIColor.systemGray6
+                } else {
+                    window.backgroundColor = UIColor.systemBackground
+                }
+            }
+        }
+    }
+    
+    private func setupElevatedDarkColors() {
+        let lightAppearance = UINavigationBarAppearance()
+        lightAppearance.configureWithOpaqueBackground()
+        lightAppearance.backgroundColor = UIColor.systemBackground
+        
+        let darkAppearance = UINavigationBarAppearance()
+        darkAppearance.configureWithOpaqueBackground()
+        darkAppearance.backgroundColor = UIColor.systemGray5 // Elevated dark
+        
+        UINavigationBar.appearance().standardAppearance = lightAppearance
+        UINavigationBar.appearance().scrollEdgeAppearance = lightAppearance
+        
+        // Dark mode'da elevated renkleri kullan
+        if #available(iOS 15.0, *) {
+            UINavigationBar.appearance(for: UITraitCollection(userInterfaceStyle: .dark)).standardAppearance = darkAppearance
+            UINavigationBar.appearance(for: UITraitCollection(userInterfaceStyle: .dark)).scrollEdgeAppearance = darkAppearance
         }
         
-        UINavigationBar.appearance().standardAppearance = appearance
-        UINavigationBar.appearance().scrollEdgeAppearance = appearance
+        let lightTabAppearance = UITabBarAppearance()
+        lightTabAppearance.configureWithOpaqueBackground()
+        lightTabAppearance.backgroundColor = UIColor.systemBackground
         
-        let tabAppearance = UITabBarAppearance()
-        tabAppearance.configureWithOpaqueBackground()
+        let darkTabAppearance = UITabBarAppearance()
+        darkTabAppearance.configureWithOpaqueBackground()
+        darkTabAppearance.backgroundColor = UIColor.systemGray5 // Elevated dark
+        
+        UITabBar.appearance().standardAppearance = lightTabAppearance
+        UITabBar.appearance().scrollEdgeAppearance = lightTabAppearance
         
         if #available(iOS 15.0, *) {
-            tabAppearance.backgroundColor = UIColor.systemGray6
+            UITabBar.appearance(for: UITraitCollection(userInterfaceStyle: .dark)).standardAppearance = darkTabAppearance
+            UITabBar.appearance(for: UITraitCollection(userInterfaceStyle: .dark)).scrollEdgeAppearance = darkTabAppearance
         }
-        
-        UITabBar.appearance().standardAppearance = tabAppearance
-        UITabBar.appearance().scrollEdgeAppearance = tabAppearance
     }
 }

@@ -5,6 +5,7 @@ struct AlbumsView: View {
     @Environment(\.di) var di
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var navigationCoordinator: NavigationCoordinator
+    @EnvironmentObject var themeManager: ThemeManager
     @StateObject private var deepLinkHandler = DeepLinkHandler()
     @StateObject private var userCache = UserCacheManager()
     @State private var showProfile = false
@@ -70,6 +71,8 @@ struct AlbumsView: View {
     }
 
     var body: some View {
+        ZStack{
+        themeManager.backgroundColor.ignoresSafeArea(.all)
         List {
             ForEach(sortedAlbums, id: \.id) { album in
                 Button(action: {
@@ -87,6 +90,9 @@ struct AlbumsView: View {
                         onPinToggle: {
                             Task { await togglePin(album) }
                         }
+                    )
+                    .background(
+                        themeManager.cardBackgroundColor
                     )
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -107,6 +113,9 @@ struct AlbumsView: View {
             }
         }
         .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(themeManager.backgroundColor.ignoresSafeArea())
+    }
         .navigationTitle("Albümler")
         .navigationBarTitleDisplayMode(.automatic)
         .toolbar(content: {

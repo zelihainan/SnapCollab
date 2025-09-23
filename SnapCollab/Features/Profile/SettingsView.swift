@@ -65,7 +65,7 @@ struct SettingsView: View {
                                     .tag(AppColorSchemePreference.light)
                                 
                                 Label("Koyu", systemImage: "moon")
-                                    .tag(AppColorSchemePreference.dark)
+                                    .tag(AppColorSchemePreference.elevatedDark)
                             }
                             .onChange(of: themeManager.colorSchemePreference) { _ in
                                 let impactFeedback = UIImpactFeedbackGenerator(style: .light)
@@ -166,9 +166,7 @@ struct SettingsView: View {
             )
         }
         .background(
-            themeManager.colorSchemePreference == .dark ?
-                Color(.systemGray6) :
-                Color(.systemBackground)
+            themeManager.backgroundColor
         )
         
         .sheet(isPresented: $vm.showEmailChange) {
@@ -222,7 +220,7 @@ struct SettingsView: View {
         switch themeManager.colorSchemePreference {
         case .system: return "gear"
         case .light: return "sun.max.fill"
-        case .dark: return "moon.fill"
+        case .elevatedDark: return "moon.fill"
         }
     }
     
@@ -232,8 +230,8 @@ struct SettingsView: View {
             return "Sistem ayarını takip eder"
         case .light:
             return "Her zaman açık tema"
-        case .dark:
-            return "Yumuşak koyu tema"
+        case .elevatedDark:
+            return "Koyu tema"
         }
     }
     

@@ -9,6 +9,7 @@ struct NotificationsView: View {
     @StateObject private var notificationRepo: NotificationRepository
     let navigationCoordinator: NavigationCoordinator?
     @Environment(\.di) var di
+    @EnvironmentObject var themeManager: ThemeManager
     @State private var showClearAllAlert = false
     
     init(notificationRepo: NotificationRepository) {
@@ -22,36 +23,42 @@ struct NotificationsView: View {
     }
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                if notificationRepo.notifications.isEmpty {
-                    emptyState
-                } else {
-                    notificationsList
-                }
-            }
-            .navigationTitle("Bildirimler")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button(action: markAllAsRead) {
-                            Label("Tümünü Okundu İşaretle", systemImage: "checkmark.circle")
-                        }
-                        .disabled(notificationRepo.unreadCount == 0)
-                        
-                        Divider()
-                        
-                        Button("Bildirimleri Temizle", role: .destructive) {
-                            showClearAllAlert = true
-                        }
-                        .disabled(notificationRepo.notifications.isEmpty)
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.title2)
-                            .foregroundStyle(.blue)
+        ZStack {
+            
+            themeManager.backgroundColor.ignoresSafeArea(.all)
+            NavigationView {
+                VStack(spacing: 0) {
+                    if notificationRepo.notifications.isEmpty {
+                        emptyState
+                    } else {
+                        notificationsList
                     }
                 }
+                .background(themeManager.backgroundColor.ignoresSafeArea())
+                .navigationTitle("Bildirimler")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Menu {
+                            Button(action: markAllAsRead) {
+                                Label("Tümünü Okundu İşaretle", systemImage: "checkmark.circle")
+                            }
+                            .disabled(notificationRepo.unreadCount == 0)
+                            
+                            Divider()
+                            
+                            Button("Bildirimleri Temizle", role: .destructive) {
+                                showClearAllAlert = true
+                            }
+                            .disabled(notificationRepo.notifications.isEmpty)
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .font(.title2)
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                }
+                .background(themeManager.backgroundColor.ignoresSafeArea(.all))
             }
             .alert("Tüm Bildirimleri Temizle", isPresented: $showClearAllAlert) {
                 Button("İptal", role: .cancel) { }
@@ -133,6 +140,7 @@ struct NotificationsView: View {
                         )
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                        .listRowBackground(themeManager.backgroundColor)
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
                                 Task {
@@ -147,13 +155,15 @@ struct NotificationsView: View {
                     Text(relativeDateString(from: date))
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(themeManager.secondaryTextColor)
                         .textCase(nil)
                         .padding(.top, 8)
                 }
             }
         }
         .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(themeManager.backgroundColor.ignoresSafeArea())
         .refreshable {
             try? await Task.sleep(nanoseconds: 500_000_000)
         }
